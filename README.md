@@ -1,6 +1,6 @@
 # bazel-deps
 
-Generate bazel dependencies for maven artifacts
+Generate [bazel](http://bazel.io/) dependencies for maven artifacts
 
 ## Usage
 
@@ -83,4 +83,4 @@ java_library(
 
 ## Code
 
-This code was inspired by the aether examples for walking maven dependencies: https://github.com/eclipse/aether-demo/blob/322fa556494335faaf3ad3b7dbe8f89aaaf6222d/aether-demo-snippets/src/main/java/org/eclipse/aether/examples/GetDependencyTree.java
+This code was inspired by the [aether examples](https://github.com/eclipse/aether-demo/blob/322fa556494335faaf3ad3b7dbe8f89aaaf6222d/aether-demo-snippets/src/main/java/org/eclipse/aether/examples/GetDependencyTree.java) for walking maven dependencies.
