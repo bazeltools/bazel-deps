@@ -104,6 +104,6 @@ public class BazelDeps {
   }
 
   private static String artifactName(Artifact artifact) {
-    return artifact.getGroupId().replace(".", "/") + "/" + artifact.getArtifactId();
+    return artifact.getGroupId() + "_" + artifact.getArtifactId();
   }
 }
