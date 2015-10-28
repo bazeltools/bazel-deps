@@ -17,11 +17,11 @@ java -jar target/bazel-deps-1.0-SNAPSHOT.jar <maven artifact>...
 
 --------- Add these lines to your WORKSPACE file ---------
 
-maven_jar(name = "org/hamcrest/hamcrest-core", artifact = "org.hamcrest:hamcrest-core:jar:1.3")
-maven_jar(name = "com/fasterxml/jackson/core/jackson-annotations", artifact = "com.fasterxml.jackson.core:jackson-annotations:jar:2.5.0")
-maven_jar(name = "com/fasterxml/jackson/core/jackson-core", artifact = "com.fasterxml.jackson.core:jackson-core:jar:2.5.0")
-maven_jar(name = "com/fasterxml/jackson/core/jackson-databind", artifact = "com.fasterxml.jackson.core:jackson-databind:jar:2.5.0")
-maven_jar(name = "junit/junit", artifact = "junit:junit:jar:4.12")
+maven_jar(name = "org.hamcrest_hamcrest-core", artifact = "org.hamcrest:hamcrest-core:jar:1.3")
+maven_jar(name = "com.fasterxml.jackson.core_jackson-annotations", artifact = "com.fasterxml.jackson.core:jackson-annotations:jar:2.5.0")
+maven_jar(name = "com.fasterxml.jackson.core_jackson-core", artifact = "com.fasterxml.jackson.core:jackson-core:jar:2.5.0")
+maven_jar(name = "com.fasterxml.jackson.core_jackson-databind", artifact = "com.fasterxml.jackson.core:jackson-databind:jar:2.5.0")
+maven_jar(name = "junit_junit", artifact = "junit:junit:jar:4.12")
 
 
 --------- Add these lines to your BUILD file ---------
@@ -30,9 +30,9 @@ java_library(
   name="jackson-databind",
   visibility = ["//visibility:public"],
   exports = [
-    "@com/fasterxml/jackson/core/jackson-annotations//jar",
-    "@com/fasterxml/jackson/core/jackson-core//jar",
-    "@com/fasterxml/jackson/core/jackson-databind//jar",
+    "@com.fasterxml.jackson.core_jackson-annotations//jar",
+    "@com.fasterxml.jackson.core_jackson-core//jar",
+    "@com.fasterxml.jackson.core_jackson-databind//jar",
   ],
 )
 
@@ -40,8 +40,8 @@ java_library(
   name="junit",
   visibility = ["//visibility:public"],
   exports = [
-    "@junit/junit//jar",
-    "@org/hamcrest/hamcrest-core//jar",
+    "@junit_junit//jar",
+    "@org.hamcrest_hamcrest-core//jar",
   ],
 )
 ```
@@ -55,13 +55,13 @@ You can also exclude a set of transitive dependencies:
 
 --------- Add these lines to your WORKSPACE file ---------
 
-maven_jar(name = "commons-codec/commons-codec", artifact = "commons-codec:commons-codec:jar:1.6")
-maven_jar(name = "io/dropwizard/dropwizard-client", artifact = "io.dropwizard:dropwizard-client:jar:0.8.1")
-maven_jar(name = "io/dropwizard/dropwizard-core", artifact = "io.dropwizard:dropwizard-core:jar:0.8.1")
-maven_jar(name = "org/apache/httpcomponents/httpclient", artifact = "org.apache.httpcomponents:httpclient:jar:4.3.5")
-maven_jar(name = "org/apache/httpcomponents/httpcore", artifact = "org.apache.httpcomponents:httpcore:jar:4.3.2")
-maven_jar(name = "org/glassfish/jersey/connectors/jersey-apache-connector", artifact = "org.glassfish.jersey.connectors:jersey-apache-connector:jar:2.17")
-maven_jar(name = "io/dropwizard/metrics/metrics-httpclient", artifact = "io.dropwizard.metrics:metrics-httpclient:jar:3.1.1")
+maven_jar(name = "commons-codec_commons-codec", artifact = "commons-codec:commons-codec:jar:1.6")
+maven_jar(name = "io.dropwizard_dropwizard-client", artifact = "io.dropwizard:dropwizard-client:jar:0.8.1")
+maven_jar(name = "io.dropwizard_dropwizard-core", artifact = "io.dropwizard:dropwizard-core:jar:0.8.1")
+maven_jar(name = "org.apache.httpcomponents_httpclient", artifact = "org.apache.httpcomponents:httpclient:jar:4.3.5")
+maven_jar(name = "org.apache.httpcomponents_httpcore", artifact = "org.apache.httpcomponents:httpcore:jar:4.3.2")
+maven_jar(name = "org.glassfish.jersey.connectors_jersey-apache-connector", artifact = "org.glassfish.jersey.connectors:jersey-apache-connector:jar:2.17")
+maven_jar(name = "io.dropwizard.metrics_metrics-httpclient", artifact = "io.dropwizard.metrics:metrics-httpclient:jar:3.1.1")
 
 
 --------- Add these lines to your BUILD file ---------
@@ -70,13 +70,13 @@ java_library(
   name="dropwizard-client",
   visibility = ["//visibility:public"],
   exports = [
-    "@commons-codec/commons-codec//jar",
-    "@io/dropwizard/dropwizard-client//jar",
-    "@io/dropwizard/dropwizard-core//jar",
-    "@io/dropwizard/metrics/metrics-httpclient//jar",
-    "@org/apache/httpcomponents/httpclient//jar",
-    "@org/apache/httpcomponents/httpcore//jar",
-    "@org/glassfish/jersey/connectors/jersey-apache-connector//jar",
+    "@commons-codec_commons-codec//jar",
+    "@io.dropwizard.metrics_metrics-httpclient//jar",
+    "@io.dropwizard_dropwizard-client//jar",
+    "@io.dropwizard_dropwizard-core//jar",
+    "@org.apache.httpcomponents_httpclient//jar",
+    "@org.apache.httpcomponents_httpcore//jar",
+    "@org.glassfish.jersey.connectors_jersey-apache-connector//jar",
   ],
 )
 ```
