@@ -47,7 +47,7 @@ public class BazelDeps {
 
     System.err.println("Fetching dependencies from maven...\n");
 
-    Map<Artifact, Set<Artifact>> dependencies = fetchDependnecies(artifactNames);
+    Map<Artifact, Set<Artifact>> dependencies = fetchDependencies(artifactNames);
 
     Set<Artifact> excludeDependencies =
       excludeArtifact != null ? Maven.transitiveDependencies(new DefaultArtifact(excludeArtifact))
@@ -57,7 +57,7 @@ public class BazelDeps {
     printBuildEntries(dependencies, excludeDependencies);
   }
 
-  private Map<Artifact, Set<Artifact>> fetchDependnecies(List<String> artifactNames) {
+  private Map<Artifact, Set<Artifact>> fetchDependencies(List<String> artifactNames) {
     Map<Artifact, Set<Artifact>> dependencies = new HashMap<>();
 
     artifactNames.stream()
