@@ -47,7 +47,7 @@ public class BazelDeps {
 
     System.err.println("Fetching dependencies from maven...\n");
 
-    Map<Artifact, Set<Artifact>> dependencies = fetchDependnecies(artifactNames);
+    Map<Artifact, Set<Artifact>> dependencies = fetchDependencies(artifactNames);
 
     Set<Artifact> excludeDependencies =
       excludeArtifact != null ? Maven.transitiveDependencies(new DefaultArtifact(excludeArtifact))
@@ -57,7 +57,7 @@ public class BazelDeps {
     printBuildEntries(dependencies, excludeDependencies);
   }
 
-  private Map<Artifact, Set<Artifact>> fetchDependnecies(List<String> artifactNames) {
+  private Map<Artifact, Set<Artifact>> fetchDependencies(List<String> artifactNames) {
     Map<Artifact, Set<Artifact>> dependencies = new HashMap<>();
 
     artifactNames.stream()
@@ -67,11 +67,11 @@ public class BazelDeps {
   }
 
   private void printWorkspace(Map<Artifact, Set<Artifact>> dependencies,
-                              Set<Artifact> excludeDepenencies) {
+                              Set<Artifact> excludeDependencies) {
     System.out.println("\n\n--------- Add these lines to your WORKSPACE file ---------\n");
     dependencies.values().stream()
       .flatMap(Collection::stream)
-      .filter(artifact -> !excludeDepenencies.contains(artifact))
+      .filter(artifact -> !excludeDependencies.contains(artifact))
       .sorted(Comparator.comparing(Artifact::getArtifactId))
       .forEach(artifact -> {
         System.out.format("maven_jar(name = \"%s\", artifact = \"%s\")\n", artifactName(artifact),
