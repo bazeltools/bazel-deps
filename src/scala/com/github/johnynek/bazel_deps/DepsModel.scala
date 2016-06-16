@@ -17,6 +17,7 @@ case class MavenArtifactId(project: ArtifactOrProject, subproject: Option[Subpro
 }
 
 case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, version: Version) {
+  def unversioned: UnversionedCoordinate = UnversionedCoordinate(group, artifact)
   def asString: String = s"${group.asString}:${artifact.asString}:${version.asString}"
   /**
    * This is a bazel-safe name to use as a remote repo name
@@ -31,6 +32,8 @@ object MavenCoordinate {
       case other => sys.error(s"expected exactly three :, got $s")
     }
   }
+  def apply(u: UnversionedCoordinate, v: Version): MavenCoordinate =
+    MavenCoordinate(u.group, u.artifact, v)
 }
 
 sealed abstract class Language

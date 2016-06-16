@@ -12,19 +12,45 @@ case class Graph[N, E](nodes: Set[N], edges: Map[N, Set[Edge[N, E]]]) {
     val e3 = e2 + (e.destination -> (dE + e))
     Graph(n, e3)
   }
-  def children(n: N): Set[Edge[N, E]] =
+  def hasSource(n: N): Set[Edge[N, E]] =
     edges.getOrElse(n, Set.empty).filter(_.source == n)
 
-  def parents(n: N): Set[Edge[N, E]] = ???
-  def transitiveChildren(n: N): Set[N] = ???
-  def show(implicit ord: Ordering[N] = null): String = {
+  def hasDestination(n: N): Set[Edge[N, E]] =
+    edges.getOrElse(n, Set.empty).filter(_.destination == n)
+
+  // These have no parents
+  lazy val roots: Set[N] = nodes.filter(hasDestination(_).isEmpty)
+
+  def removeNode(n: N): Graph[N, E] = {
+    val badEdges = edges.getOrElse(n, Set.empty)
+    val neighs = badEdges.map { e =>
+        if (e.destination == n) e.source else e.destination
+      }
+    val newEs = neighs.foldLeft(edges) { (es, n1) =>
+      val newEdges = es(n1).filterNot {
+        case Edge(s, d, _) => s == n || d == n
+      }
+      es + (n1 -> newEdges)
+    }
+    Graph(nodes - n, newEs)
+  }
+  def removeEdge(e: Edge[N, E]): Graph[N, E] = {
+    def go(em: Map[N, Set[Edge[N, E]]], n: N) = {
+      val e1 = em.getOrElse(n, Set.empty) - e
+      if (e1.isEmpty) em - (n)
+      else em + (n -> e1)
+    }
+    Graph(nodes, go(go(edges, e.source), e.destination))
+  }
+
+  def show(shf: N => String)(implicit ord: Ordering[N] = null): String = {
     def sorted(n: Set[N]): List[N] =
       if (ord == null) n.toList else { n.toList.sorted }
 
     sorted(nodes).flatMap { s =>
-      val es = sorted(children(s).map(_.destination))
+      val es = sorted(hasSource(s).map(_.destination))
       es.map { d =>
-        s"$s -> $d"
+        s"${shf(s)} -> ${shf(d)}"
       }
     }
   }.mkString("\n")

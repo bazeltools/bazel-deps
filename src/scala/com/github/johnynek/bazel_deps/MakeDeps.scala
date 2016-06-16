@@ -18,6 +18,10 @@ object MakeDeps {
       aethers).map(MavenCoordinate(_))
 
     val graph = resolver.addAll(Graph.empty, allDeps)
-    println(graph.show)
+    println(graph.show(_.asString))
+    println("###########################################################################")
+    println("###########################################################################")
+    println("###########################################################################")
+    println(Normalizer(graph, null).get.show(_.asString))
   }
 }

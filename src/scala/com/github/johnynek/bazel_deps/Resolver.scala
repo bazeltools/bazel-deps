@@ -59,7 +59,7 @@ class Resolver(servers: List[MavenServer]) {
     system.collectDependencies(session, collectRequest);
   }
 
-  type Node = (MavenCoordinate, Explicitness)
+  type Node = MavenCoordinate
 
   def addAll(deps: Graph[Node, Unit], coords: TraversableOnce[MavenCoordinate]): Graph[Node, Unit] =
     coords.foldLeft(deps)(addToGraph)
@@ -92,11 +92,11 @@ class Resolver(servers: List[MavenServer]) {
           case h :: Nil =>
             // this is an explicit dependency
             currentDeps = currentDeps
-              .addEdge(Edge((coord(h), Explicitness.Explicit), (coord(dep), Explicitness.Implicit), ()))
+              .addEdge(Edge(coord(h), coord(dep), ()))
           case h :: _ =>
             // this is an implicit dependency
             currentDeps = currentDeps
-              .addEdge(Edge((coord(h), Explicitness.Implicit), (coord(dep), Explicitness.Implicit), ()))
+              .addEdge(Edge(coord(h), coord(dep), ()))
         }
         stack = dep :: stack
         true
