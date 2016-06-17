@@ -30,6 +30,12 @@ object MakeDeps {
       case Some(g) =>
         //println(g.show(_.asString))
         println(Writer.workspace(g))
+        println("########")
+        Writer.targets(g).groupBy(_.name.path).foreach { case (p, items) =>
+          println(p)
+          println("")
+          items.foreach { t => println(t.toBazelString + "\n") }
+        }
     }
   }
 }

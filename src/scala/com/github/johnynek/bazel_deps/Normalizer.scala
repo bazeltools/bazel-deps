@@ -4,10 +4,6 @@ object Normalizer {
   type Candidate = Either[Set[Version], Version]
   type Table = Map[Node, List[(Option[MavenCoordinate], Candidate)]]
 
-  // xyz-3.0 depends on circe-0.4.1
-  // circe -> ((xyz, xyz-3.0, 0.4.1) :: ... :: Nil)
-  // "circe" -> (("xyz-3.0", Right("0.4.1")) :: ...)
-  // "circe" -> (("xyz-3.0", Left(Set(...))) :: ...)
   type Node = UnversionedCoordinate
   /**
    * assumes every depth less than d has no duplication. Looks at d and greater
