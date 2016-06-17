@@ -18,10 +18,18 @@ object MakeDeps {
       aethers).map(MavenCoordinate(_))
 
     val graph = resolver.addAll(Graph.empty, allDeps)
-    println(graph.show(_.asString))
-    println("###########################################################################")
-    println("###########################################################################")
-    println("###########################################################################")
-    println(Normalizer(graph, null).get.show(_.asString))
+    Normalizer(graph, Options(Some(VersionConflictPolicy.Highest), None, None)) match {
+      case None =>
+        println("[ERROR] could not normalize versions:")
+        println(graph.nodes.groupBy(_.unversioned)
+          .mapValues { _.map(_.version).toList.sorted }
+          .filter { case (_, s) => s.lengthCompare(1) > 0 }
+          .map { case (u, vs) => s"""${u.asString}: ${vs.mkString(", ")}\n""" }
+          .mkString("\n"))
+        System.exit(1)
+      case Some(g) =>
+        //println(g.show(_.asString))
+        println(Writer.workspace(g))
+    }
   }
 }

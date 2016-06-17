@@ -21,7 +21,7 @@ object Normalizer {
       def errorize(node: Node): Table = {
         val items = table(node)
         val versions = Left(items.foldLeft(Set.empty[Version]) {
-          case (set, (_, Left(vs))) => sys.error("this should not happen")
+          case (set, (_, Left(vs))) => set | vs
           case (set, (_, Right(v))) => set + v
         })
         table.updated(node, items.map { case (p, _) => (p, versions) })
@@ -41,32 +41,27 @@ object Normalizer {
           table(n).collect { case (_, Right(v)) => v }.toSet.size > 1
       }
 
-      def disambiguate(node: Node): Table = {
-        val parents = table(node).map(_._1.map(_.unversioned))
-        parents.find(isErroneous) match {
-          case Some(Some(node)) =>
-            errorize(node)
-          case Some(None) => sys.error("unreachable, roots are never erroneous")
-          case None =>
-            parents.find(isAmbiguous) match {
-              case None => fixVersion(node) // note that parents are not ambiguous
-              case Some(None) => sys.error("unreachable, roots are never ambiguous")
-              case Some(Some(p)) => disambiguate(p)
-            }
-        }
-      }
+      def disambiguate(node: Node): Table =
+        table(node)
+          .map(_._1.map(_.unversioned))
+          .find(isAmbiguous) match {
+            case None => fixVersion(node) // note that parents are not ambiguous
+            case Some(None) => sys.error("unreachable, roots are never ambiguous")
+            case Some(Some(p)) => disambiguate(p)
+          }
+
       // invariant: all of node's parents must be unambiguous
       def fixVersion(node: Node): Table = {
         val items = table(node)
         val versions = items.map(_._2).toSet
-        val dups = versions.collect { case Right(v) => MavenCoordinate(node, v) }
+        val dups = versions.collect { case Right(v) => v }
         val rootVersion = items.collectFirst { case (None, Right(v)) => v }
-        pickCanonical(rootVersion, dups, opts) match {
+        pickCanonical(node, rootVersion, dups, opts) match {
           case Right(m) =>
             val newItems = items.map { case (p, _) => (p, Right(m.version)) }
             table.updated(node, newItems)
             // requirement is that isAmbiguous(node) is now false
-          case Left(_) =>
+          case Left(errorMessage) =>
             errorize(node)
         }
       }
@@ -150,10 +145,13 @@ object Normalizer {
     else None
   }
 
-  private def pickCanonical(rootVersion: Option[Version],
-    duplicates: Set[MavenCoordinate],
-    opts: Options): Either[Set[Version], MavenCoordinate] = {
-      // TODO
-    Right(duplicates.maxBy(_.version.asString))
-  }
+  private def pickCanonical(
+    unversioned: UnversionedCoordinate,
+    rootVersion: Option[Version],
+    duplicates: Set[Version],
+    opts: Options): Either[String, MavenCoordinate] =
+      opts.getVersionConflictPolicy
+        .resolve(rootVersion, duplicates)
+        .right
+        .map { v => MavenCoordinate(unversioned, v) }
 }

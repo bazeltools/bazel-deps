@@ -27,6 +27,13 @@ scala_library(name = "normalizer",
                       ],
               visibility = ["//visibility:public"])
 
+scala_library(name = "writer",
+              srcs = ["Writer.scala"],
+              deps = [":depsmodel",
+                      ":graph",
+                      ],
+              visibility = ["//visibility:public"])
+
 scala_binary(name = "makedeps",
              srcs = ["MakeDeps.scala"],
              deps = [
@@ -34,6 +41,7 @@ scala_binary(name = "makedeps",
                  ":graph",
                  ":depsmodel",
                  ":normalizer",
+                 ":writer",
                  "//3rdparty:aether-api",
              ],
              main_class = "com.github.johnynek.bazel_deps.MakeDeps",
