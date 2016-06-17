@@ -8,7 +8,6 @@ git_repository(
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repositories")
 scala_repositories()
 
-# --------- Add these lines to your WORKSPACE file ---------
 load("//3rdparty:workspace.bzl", "maven_dependencies")
 load("//3rdparty:load.bzl", "declare_maven")
 

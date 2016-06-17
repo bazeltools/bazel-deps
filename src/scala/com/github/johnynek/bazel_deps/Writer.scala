@@ -9,9 +9,4 @@ object Writer {
       .mkString("\n")
     s"""def maven_dependencies(callback):\n$lines"""
   }
-  /*
-load("//3rdparty:workspace.bzl", "maven_dependencies")
-
-maven_dependencies(maven_jar)
-*/
 }

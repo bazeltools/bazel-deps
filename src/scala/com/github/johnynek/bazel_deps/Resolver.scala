@@ -82,24 +82,38 @@ class Resolver(servers: List[MavenServer]) {
         Version(artifact.getVersion))
     }
 
+    def follow(d: Dependency): Boolean =
+      (!d.isOptional) &&
+      (d.getScope.toLowerCase match {
+        case "" => true // default
+        case "compile" => true // default
+        case "provided" => true // TODO: we will need to revisit this
+        case "runtime" => true // TODO: we should only add these to runtime deps
+        case "test" => false
+        case "system" => false // these should not be in maven, and should be handled by replacements
+        case "import" =>
+          // This means pull all the dependencies from a pom we are pointing to
+          sys.error("unsupported")
+        case other => sys.error(s"unknown scope: $other in $d")
+      })
+
     def visitEnter(depNode: DependencyNode): Boolean = {
       val dep = depNode.getDependency
       if (visited(dep)) false
       else {
         visited = visited + dep
+        val f = follow(dep)
         stack match {
           case Nil => ()
-          case h :: Nil =>
-            // this is an explicit dependency
-            currentDeps = currentDeps
-              .addEdge(Edge(coord(h), coord(dep), ()))
           case h :: _ =>
             // this is an implicit dependency
-            currentDeps = currentDeps
-              .addEdge(Edge(coord(h), coord(dep), ()))
+            if (f) {
+              currentDeps = currentDeps
+                .addEdge(Edge(coord(h), coord(dep), ()))
+            }
         }
         stack = dep :: stack
-        true
+        f
       }
     }
     def visitLeave(dep: DependencyNode): Boolean = {
