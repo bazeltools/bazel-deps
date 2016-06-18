@@ -103,6 +103,12 @@ class Resolver(servers: List[MavenServer]) {
       else {
         visited = visited + dep
         val f = follow(dep)
+        if (f) {
+          currentDeps = currentDeps.addNode(coord(dep))
+        }
+        else {
+          //println(s"$dep, ${dep.isOptional}, ${dep.getScope}")
+        }
         stack match {
           case Nil => ()
           case h :: _ =>

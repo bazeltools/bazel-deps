@@ -74,6 +74,10 @@ object Normalizer {
       graph.nodes.groupBy(_.unversioned)
         .map { case (u, ns) =>
           val values = ns.toList.flatMap { n =>
+            // we have lost if a node is explicitly declared
+            // for instance, guava is declared and transitive,
+            // but at this stage we can't see that reliably.
+            // we need to take a list of roots with their full metadata
             val dependsOnN = graph.hasDestination(n).toList
             val v: Candidate = Right(n.version)
             if (dependsOnN.isEmpty) {
