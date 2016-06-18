@@ -38,7 +38,9 @@ object Writer {
     s"""def maven_dependencies(callback):\n$lines"""
   }
 
-  def targets(g: Graph[MavenCoordinate, Unit], pathInRoot: List[String]): List[Target] = {
+  def targets(g: Graph[MavenCoordinate, Unit],
+    pathInRoot: List[String],
+    model: Model): List[Target] = {
     /*
      * We make 1 label for each target, the path
      * and name are derived from the MavenCoordinate
@@ -48,7 +50,8 @@ object Writer {
       val deps = g.hasSource(c)
       val depLabels = deps.map { e => coordToTarget(e.destination).name }.toList
       val exports = Label.externalJar(c) :: depLabels
-      Target(Language.Java, Label.localTarget(pathInRoot, c), Nil, exports, Nil)
+      val lang = model.languageOf(c)
+      Target(lang, Label.localTarget(pathInRoot, c, lang), Nil, exports, Nil)
     })
 
     g.nodes.iterator.map(coordToTarget).toList
@@ -74,7 +77,7 @@ object Label {
   def externalJar(m: MavenCoordinate): Label =
     Label(Some(m.toBazelRepoName), Path(List("jar")), "")
 
-  def localTarget(pathToRoot: List[String], m: MavenCoordinate): Label = {
+  def localTarget(pathToRoot: List[String], m: MavenCoordinate, lang: Language): Label = {
     val p = Path(pathToRoot ::: (m.group.asString.map {
       case '.' => '/'
       case '-' => '_'
@@ -83,7 +86,16 @@ object Label {
     .split('/')
     .toList))
 
-    val name = m.artifact.asString.map {
+    val artName = lang match {
+      case Language.Java => m.artifact.asString
+      case s@Language.Scala(_) =>
+        s.removeSuffix(m.artifact.asString) match {
+          case Some(n) => n
+          case None => sys.error(s"scala coordinate: ${m.asString} does not have correct suffix for $s")
+        }
+    }
+
+    val name = artName.map {
       case '.' => '_'
       case '-' => '_'
       case oth => oth
@@ -120,7 +132,11 @@ case class Target(
         }.sorted.mkString("[", s",\n$spaced", "]")
       }
     }
-    val header = "java_library("
+    val langName = lang match {
+      case Language.Java => "java"
+      case Language.Scala(_) => "scala"
+    }
+    val header = s"${langName}_library("
     def sortKeys(items: List[(String, String)]): String = {
       // everything has a name
       val nm = s"""name = "${name.name}""""

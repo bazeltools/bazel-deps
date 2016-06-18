@@ -9,6 +9,12 @@ case class Model(
 
   def getOptions: Options =
     options.getOrElse(Options.default)
+
+  def languageOf(m: MavenCoordinate): Language =
+    dependencies.recordOf(m) match {
+      case Some(pr) => pr.lang
+      case None => Language.default
+    }
 }
 
 case class MavenGroup(asString: String)
@@ -81,6 +87,8 @@ sealed abstract class Language {
 }
 
 object Language {
+  def default: Language = Java
+
   case object Java extends Language {
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
       MavenCoordinate(g, MavenArtifactId(a), v)
@@ -90,16 +98,21 @@ object Language {
   }
 
   case class Scala(v: Version) extends Language {
-    val major = v.asString.split(".") match {
+    val major = v.asString.split('.') match {
       case Array("2", x) if (x.toInt >= 10) => s"2.$x"
       case Array("2", x, _) if (x.toInt >= 10) => s"2.$x"
       case _ => sys.error(s"unsupported scala version: ${v.asString}")
     }
+    private val suffix = s"_$major"
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
-      MavenCoordinate(g, MavenArtifactId(a).addSuffix("_" + major), v)
+      MavenCoordinate(g, MavenArtifactId(a).addSuffix(suffix), v)
 
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate =
-      MavenCoordinate(g, MavenArtifactId(a, sp).addSuffix("_" + major), v)
+      MavenCoordinate(g, MavenArtifactId(a, sp).addSuffix(suffix), v)
+
+    def removeSuffix(s: String): Option[String] =
+      if (s.endsWith(suffix)) Some(s.dropRight(suffix.size))
+      else None
   }
 }
 
@@ -173,15 +186,20 @@ object VersionConflictPolicy {
 
 case class DirectoryName(asString: String)
 case class TargetPattern(asString: String)
-case class LanguageOption(version: Option[Version], targetPattern: Option[TargetPattern])
+case class LanguageOption(targetPattern: Option[TargetPattern])
 
 case class Options(
   versionConflictPolicy: Option[VersionConflictPolicy],
   thirdPartyDirectory: Option[DirectoryName],
-  languages: Option[Map[Language, LanguageOption]]) {
+  languages: Option[List[(Language, LanguageOption)]]) {
 
   def getVersionConflictPolicy: VersionConflictPolicy =
     versionConflictPolicy.getOrElse(VersionConflictPolicy.Fail)
+
+  def getLanguages: List[(Language, LanguageOption)] = languages match {
+    case None => List(Language.Java -> LanguageOption(None))
+    case Some(langs) => langs
+  }
 }
 
 object Options {

@@ -10,6 +10,29 @@ object MakeDeps {
 
     val resolver = new Resolver(List(MavenServer("central", "default", "http://central.maven.org/maven2/")))
 
+    def java(dep: String) =
+      dep.split(':') match {
+        case Array(g, a, v) =>
+          MavenGroup(g) ->
+            Map(ArtifactOrProject(a) ->
+              ProjectRecord(
+                Language.Java,
+                Version(v),
+                Nil))
+        case _ => sys.error(s"expect two colons, got: $dep")
+      }
+
+    def scala(dep: String) =
+      dep.split(':') match {
+        case Array(g, a, v) =>
+          MavenGroup(g) ->
+            Map(ArtifactOrProject(a) ->
+              ProjectRecord(
+                Language.Scala(Version("2.11")),
+                Version(v),
+                Nil))
+        case _ => sys.error(s"expect two colons, got: $dep")
+      }
 
     val deps = Dependencies(Map(
       MavenGroup("org.eclipse.aether") ->
@@ -18,12 +41,9 @@ object MakeDeps {
             Language.Java,
             Version("1.0.2.v20150114"),
             List("api", "impl", "connector-basic", "transport-file", "transport-http").map(Subproject(_)))),
-      MavenGroup("org.apache.maven") ->
-        Map(ArtifactOrProject("maven-aether-provider") ->
-          ProjectRecord(
-            Language.Java,
-            Version("3.1.0"),
-            Nil))
+
+      java("org.apache.maven:maven-aether-provider:3.1.0"),
+      scala("org.scalacheck:scalacheck:1.12.0")
       ))
 
     val graph = resolver.addAll(Graph.empty, deps.roots)
@@ -44,7 +64,7 @@ object MakeDeps {
         ws.write(Writer.workspace(g).getBytes("UTF-8"))
         def toPath(str: String): List[String] = str.split('/').filter(_.nonEmpty).toList
         println(toPath(thirdParty))
-        val targets = Writer.targets(g, toPath(thirdParty))
+        val targets = Writer.targets(g, toPath(thirdParty), Model(deps, None, None))
         Writer.createBuildFiles(new File(projectRoot), targets)
         println(s"wrote ${targets.size} targets")
     }
