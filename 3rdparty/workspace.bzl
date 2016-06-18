@@ -1,7 +1,7 @@
 def maven_dependencies(callback):
-  callback({"name": "args4j_args4j", "artifact": "args4j:args4j:2.32"})
   callback({"name": "asm_asm", "artifact": "asm:asm:3.3.1"})
-  callback({"name": "com_google_guava_guava", "artifact": "com.google.guava:guava:18.0"})
+  callback({"name": "com_google_code_findbugs_jsr305", "artifact": "com.google.code.findbugs:jsr305:1.3.9"})
+  callback({"name": "com_google_guava_guava", "artifact": "com.google.guava:guava:11.0.2"})
   callback({"name": "commons_codec_commons_codec", "artifact": "commons-codec:commons-codec:1.6"})
   callback({"name": "javax_annotation_jsr250_api", "artifact": "javax.annotation:jsr250-api:1.0"})
   callback({"name": "javax_enterprise_cdi_api", "artifact": "javax.enterprise:cdi-api:1.0"})

@@ -35,11 +35,13 @@ object Version {
   }
 }
 
-case class MavenArtifactId(project: ArtifactOrProject, subproject: Option[Subproject]) {
-  def asString: String = subproject match {
-    case None => project.asString
-    case Some(sb) => s"${project.asString}-{sb.asString}"
-  }
+case class MavenArtifactId(asString: String) {
+  def addSuffix(s: String): MavenArtifactId = MavenArtifactId(asString + s)
+}
+
+object MavenArtifactId {
+  def apply(a: ArtifactOrProject): MavenArtifactId = MavenArtifactId(a.asString)
+  def apply(a: ArtifactOrProject, s: Subproject): MavenArtifactId = MavenArtifactId(a.asString + "-" + s.asString)
 }
 
 case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, version: Version) {
@@ -61,7 +63,7 @@ case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, version
 object MavenCoordinate {
   def apply(s: String): MavenCoordinate = {
     s.split(":") match {
-      case Array(g, a, v) => MavenCoordinate(MavenGroup(g), MavenArtifactId(ArtifactOrProject(a), None), Version(v))
+      case Array(g, a, v) => MavenCoordinate(MavenGroup(g), MavenArtifactId(a), Version(v))
       case other => sys.error(s"expected exactly three :, got $s")
     }
   }
@@ -73,10 +75,32 @@ object MavenCoordinate {
   }
 }
 
-sealed abstract class Language
+sealed abstract class Language {
+  def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate
+  def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate
+}
+
 object Language {
-  case object Java extends Language
-  case object Scala extends Language
+  case object Java extends Language {
+    def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
+      MavenCoordinate(g, MavenArtifactId(a), v)
+
+    def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate =
+      MavenCoordinate(g, MavenArtifactId(a, sp), v)
+  }
+
+  case class Scala(v: Version) extends Language {
+    val major = v.asString.split(".") match {
+      case Array("2", x) if (x.toInt >= 10) => s"2.$x"
+      case Array("2", x, _) if (x.toInt >= 10) => s"2.$x"
+      case _ => sys.error(s"unsupported scala version: ${v.asString}")
+    }
+    def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
+      MavenCoordinate(g, MavenArtifactId(a).addSuffix("_" + major), v)
+
+    def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate =
+      MavenCoordinate(g, MavenArtifactId(a, sp).addSuffix("_" + major), v)
+  }
 }
 
 sealed abstract class Explicitness
@@ -93,11 +117,24 @@ case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
 case class ProjectRecord(
   lang: Language,
   version: Version,
-  modules: List[Subproject],
-  excludes: List[UnversionedCoordinate])
+  modules: List[Subproject])
 
 case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]]) {
-  def coordinates(o: Options): Map[MavenCoordinate, (MavenGroup, ArtifactOrProject)] = ???
+  private val coordToProj: Map[MavenCoordinate, ProjectRecord] =
+    (for {
+      (g, m) <- toMap.iterator
+      (a, p) <- m.iterator
+      mcoord <- mavens(g, a, p)
+    } yield (mcoord -> p)).toMap
+
+  private def mavens(g: MavenGroup, ap: ArtifactOrProject, pr: ProjectRecord): List[MavenCoordinate] =
+    pr.modules match {
+      case Nil => List(pr.lang.mavenCoord(g, ap, pr.version))
+      case mods => mods.map { m => pr.lang.mavenCoord(g, ap, m, pr.version) }
+    }
+
+  def roots: Set[MavenCoordinate] = coordToProj.keySet
+  def recordOf(m: MavenCoordinate): Option[ProjectRecord] = coordToProj.get(m)
 }
 
 case class BazelTarget(asString: String)

@@ -72,13 +72,13 @@ class Resolver(servers: List[MavenServer]) {
 
   private class Visitor(initDeps: Graph[Node, Unit]) extends DependencyVisitor {
     var currentDeps = initDeps
-    var visited: Set[Dependency] = Set.empty
-    var stack: List[Dependency] = Nil
+    private var visited: Set[(Dependency, Boolean)] = Set.empty
+    private var stack: List[Dependency] = Nil
 
     def coord(a: Dependency): MavenCoordinate = {
       val artifact = a.getArtifact
       MavenCoordinate(MavenGroup(artifact.getGroupId),
-        MavenArtifactId(ArtifactOrProject(artifact.getArtifactId), None),
+        MavenArtifactId(artifact.getArtifactId),
         Version(artifact.getVersion))
     }
 
@@ -99,10 +99,15 @@ class Resolver(servers: List[MavenServer]) {
 
     def visitEnter(depNode: DependencyNode): Boolean = {
       val dep = depNode.getDependency
-      if (visited(dep)) false
+      val f = follow(dep)
+      /**
+       * unfollowed nodes are distinct from followed nodes.
+       * If project a has an optional dependency on b, that does
+       * not mean another project does not have a non-optional dependency
+       */
+      if (visited((dep, f))) false
       else {
-        visited = visited + dep
-        val f = follow(dep)
+        visited = visited + (dep -> f)
         if (f) {
           currentDeps = currentDeps.addNode(coord(dep))
         }
@@ -112,7 +117,6 @@ class Resolver(servers: List[MavenServer]) {
         stack match {
           case Nil => ()
           case h :: _ =>
-            // this is an implicit dependency
             if (f) {
               currentDeps = currentDeps
                 .addEdge(Edge(coord(h), coord(dep), ()))

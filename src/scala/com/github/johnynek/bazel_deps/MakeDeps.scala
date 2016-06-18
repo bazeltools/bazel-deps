@@ -9,22 +9,25 @@ object MakeDeps {
     val thirdParty = args(2)
 
     val resolver = new Resolver(List(MavenServer("central", "default", "http://central.maven.org/maven2/")))
-    val aether = "org.eclipse.aether"
-    val aetherVersion = "1.0.2.v20150114"
-    val aethers = List(
-      "aether-api",
-      "aether-impl",
-      "aether-connector-basic",
-      "aether-transport-file",
-      "aether-transport-http").map { art => s"$aether:$art:$aetherVersion" }
 
-    val allDeps = ("org.apache.maven:maven-aether-provider:3.1.0" ::
-      "com.google.guava:guava:18.0" ::
-      "args4j:args4j:2.32" ::
-      aethers).map(MavenCoordinate(_))
 
-    val graph = resolver.addAll(Graph.empty, allDeps)
-    allDeps.foreach { m => require(graph.nodes(m), s"$m") }
+    val deps = Dependencies(Map(
+      MavenGroup("org.eclipse.aether") ->
+        Map(ArtifactOrProject("aether") ->
+          ProjectRecord(
+            Language.Java,
+            Version("1.0.2.v20150114"),
+            List("api", "impl", "connector-basic", "transport-file", "transport-http").map(Subproject(_)))),
+      MavenGroup("org.apache.maven") ->
+        Map(ArtifactOrProject("maven-aether-provider") ->
+          ProjectRecord(
+            Language.Java,
+            Version("3.1.0"),
+            Nil))
+      ))
+
+    val graph = resolver.addAll(Graph.empty, deps.roots)
+    deps.roots.foreach { m => require(graph.nodes(m), s"$m") }
     Normalizer(graph, Options(Some(VersionConflictPolicy.Highest), None, None)) match {
       case None =>
         println("[ERROR] could not normalize versions:")
