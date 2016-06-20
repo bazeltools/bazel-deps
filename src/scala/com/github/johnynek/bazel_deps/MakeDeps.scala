@@ -71,10 +71,12 @@ object MakeDeps {
           .mkString("\n"))
         System.exit(1)
       case Some(g) =>
-        //println(g.show(_.asString))
-
+        /**
+         * The graph is now normalized, lets get the shas
+         */
+        val shas = resolver.getShas(g.nodes)
         val ws = new FileOutputStream(new File(workspacePath))
-        ws.write(Writer.workspace(g, model).getBytes("UTF-8"))
+        ws.write(Writer.workspace(g, shas, model).getBytes("UTF-8"))
         def toPath(str: String): List[String] = str.split('/').filter(_.nonEmpty).toList
         println(toPath(thirdParty))
         val targets = Writer.targets(g, toPath(thirdParty), model)

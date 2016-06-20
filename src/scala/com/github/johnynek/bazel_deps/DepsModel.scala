@@ -23,6 +23,7 @@ case class MavenGroup(asString: String)
 case class ArtifactOrProject(asString: String)
 case class Subproject(asString: String)
 case class Version(asString: String)
+case class Sha1Value(toHex: String)
 
 object Version {
   implicit def versionOrdering: Ordering[Version] = {

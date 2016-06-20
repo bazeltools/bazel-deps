@@ -1,6 +1,7 @@
 package com.github.johnynek.bazel_deps
 
 import java.io.{ File, FileOutputStream }
+import scala.util.{ Failure, Success, Try }
 
 object Writer {
 
@@ -29,7 +30,7 @@ object Writer {
       }
   }
 
-  def workspace(g: Graph[MavenCoordinate, Unit], model: Model): String = {
+  def workspace(g: Graph[MavenCoordinate, Unit], shas: Map[MavenCoordinate, Try[Sha1Value]], model: Model): String = {
     val nodes = g.nodes
 
     def replaced(m: MavenCoordinate): Boolean = model.getReplacements.get(m.unversioned).isDefined
@@ -38,7 +39,14 @@ object Writer {
       .toList
       .sortBy(_.asString)
       .map { case coord@MavenCoordinate(g, a, v) =>
-        s"""  callback({ "artifact": "${coord.asString}", "name": "${coord.toBazelRepoName}" })"""
+        val shaStr = shas.get(coord) match {
+          case Some(Success(sha)) => s""", "sha1": "${sha.toHex}""""
+          case Some(Failure(err)) =>
+            System.err.println(s"failed to find sha of ${coord.asString}: $err")
+            ""
+          case None => ""
+        }
+        s"""  callback({ "artifact": "${coord.asString}", "name": "${coord.toBazelRepoName}"$shaStr})"""
       }
       .mkString("\n")
     s"""def maven_dependencies(callback):\n$lines"""

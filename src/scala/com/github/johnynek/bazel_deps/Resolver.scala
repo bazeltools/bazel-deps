@@ -1,24 +1,31 @@
 package com.github.johnynek.bazel_deps
 
+import java.io.{ File, BufferedReader, FileReader, FileInputStream }
+import java.nio.CharBuffer
+import java.security.MessageDigest
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
 import org.eclipse.aether.RepositorySystem
 import org.eclipse.aether.artifact.DefaultArtifact
-import org.eclipse.aether.collection.CollectRequest
-import org.eclipse.aether.collection.CollectResult
+import org.eclipse.aether.collection.{ CollectRequest, CollectResult }
 import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory
-import org.eclipse.aether.graph.Dependency
-import org.eclipse.aether.graph.DependencyNode
-import org.eclipse.aether.graph.DependencyVisitor
+import org.eclipse.aether.graph.{ Dependency, DependencyNode, DependencyVisitor }
 import org.eclipse.aether.impl.DefaultServiceLocator
-import org.eclipse.aether.repository.LocalRepository
-import org.eclipse.aether.repository.RemoteRepository
+import org.eclipse.aether.repository.{ LocalRepository, RemoteRepository }
+import org.eclipse.aether.resolution.{ ArtifactResult, ArtifactRequest }
 import org.eclipse.aether.spi.connector.RepositoryConnectorFactory
 import org.eclipse.aether.spi.connector.transport.TransporterFactory
 import org.eclipse.aether.transport.file.FileTransporterFactory
 import org.eclipse.aether.transport.http.HttpTransporterFactory
 import scala.collection.JavaConverters._
+import scala.util.{Failure, Success, Try}
+import scala.util.control.NonFatal
 
 case class MavenServer(id: String, contentType: String, url: String)
+
+case class ResolveFailure(message: String,
+  m: MavenCoordinate,
+  extension: String,
+  failures: List[Exception]) extends Exception(message)
 
 class Resolver(servers: List[MavenServer]) {
 
@@ -58,6 +65,96 @@ class Resolver(servers: List[MavenServer]) {
     collectRequest.setRepositories(repositories)
     system.collectDependencies(session, collectRequest);
   }
+
+  def getShas(m: Iterable[MavenCoordinate]): Map[MavenCoordinate, Try[Sha1Value]] = {
+    /**
+     * We try to request the .jar.sha1 file, if that fails, we request the .jar
+     * and do the sha1.
+     */
+    def toArtifactRequest(m: MavenCoordinate, extension: String): ArtifactRequest = {
+      val classifier = null // We don't use this
+      val art = new DefaultArtifact(
+        m.group.asString, m.artifact.asString, classifier, extension, m.version.asString)
+      val context = null
+      new ArtifactRequest(art, repositories, context)
+    }
+
+    def liftKeys[K, V](ms: Iterable[K],
+      tmap: Try[Map[K, Try[V]]]): Map[K, Try[V]] =
+      ms.map { coord => coord -> tmap.flatMap(_(coord)) }.toMap
+
+    def getExt(ms: Seq[MavenCoordinate], ext: String)(toSha: File => Try[Sha1Value]): Map[MavenCoordinate, Try[Sha1Value]] =
+      liftKeys(ms, Try {
+        val resp =
+          system.resolveArtifacts(session,
+            ms.map(toArtifactRequest(_, ext)).toList.asJava)
+            .asScala
+            .iterator
+
+        ms.iterator.zip(resp).map { case (coord, r) =>
+          coord -> getFile(coord, ext, r).flatMap(toSha)
+        }.toMap
+      })
+
+    val shas = getExt(m.toList, "jar.sha1")(readShaContents)
+    val computes =
+      getExt(shas.collect { case (m, Failure(_)) => m }.toList, "jar")(computeShaOf)
+
+    shas ++ computes
+  }
+  private def getFile(m: MavenCoordinate, ext: String, a: ArtifactResult): Try[File] =
+    a.getArtifact match {
+      case null => Failure(ResolveFailure("null artifact", m, ext, a.getExceptions.asScala.toList))
+      case art =>
+        val f = art.getFile
+        if (f == null) {
+          Failure(ResolveFailure("null file", m, ext, a.getExceptions.asScala.toList))
+        }
+        else Success(f)
+    }
+
+  private def readShaContents(f: File): Try[Sha1Value] = Try {
+    val fr = new FileReader(f)
+    val buf = new BufferedReader(fr)
+    try {
+      val bldr = new StringBuilder
+      val cbuf = new Array[Char](1024)
+      var read = 0
+      while(read >= 0) {
+        read = buf.read(cbuf, 0, 1024)
+        // somehow scala sees all the append methods and picks the wrong one unless we force it
+        val charbuf = CharBuffer.wrap(cbuf, 0, read)
+        if (read > 0) bldr.append(charbuf: CharSequence)
+      }
+      Success(Sha1Value(bldr.toString.trim.toLowerCase))
+    }
+    catch {
+      case NonFatal(err) => Failure(err)
+    }
+    finally {
+      fr.close
+    }
+  }.flatten
+
+  private def computeShaOf(f: File): Try[Sha1Value] = Try {
+    val sha = MessageDigest.getInstance("SHA-1")
+    val fis = new FileInputStream(f)
+    try {
+      var n = 0;
+      val buffer = new Array[Byte](8192)
+      while (n != -1) {
+        n = fis.read(buffer)
+        if (n > 0) sha.update(buffer, 0, n)
+      }
+      Success(Sha1Value(sha.digest.map("%02X".format(_)).mkString.toLowerCase))
+    }
+    catch {
+      case NonFatal(err) => Failure(err)
+    }
+    finally {
+      fis.close
+    }
+  }.flatten
 
   type Node = MavenCoordinate
 
