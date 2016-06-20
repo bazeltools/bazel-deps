@@ -1,7 +1,6 @@
 package com.github.johnynek.bazel_deps
 
 import java.io.{ File, BufferedReader, FileReader, FileInputStream }
-import java.nio.CharBuffer
 import java.security.MessageDigest
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
 import org.eclipse.aether.RepositorySystem
@@ -115,16 +114,23 @@ class Resolver(servers: List[MavenServer]) {
     val fr = new FileReader(f)
     val buf = new BufferedReader(fr)
     try {
-      val bldr = new StringBuilder
+      val bldr = new java.lang.StringBuilder
       val cbuf = new Array[Char](1024)
       var read = 0
       while(read >= 0) {
         read = buf.read(cbuf, 0, 1024)
-        // somehow scala sees all the append methods and picks the wrong one unless we force it
-        val charbuf = CharBuffer.wrap(cbuf, 0, read)
-        if (read > 0) bldr.append(charbuf: CharSequence)
+        if (read > 0) bldr.append(cbuf, 0, read)
       }
-      Success(Sha1Value(bldr.toString.trim.toLowerCase))
+      val hexString = bldr.toString
+          .split("\\s") // some files have sha<whitespace>filename
+          .dropWhile(_.isEmpty)
+          .head
+          .trim
+          .toLowerCase
+      val asInt = scala.math.BigInt(hexString, 16)
+      if (asInt.toByteArray.size == 20) Success(Sha1Value(hexString))
+      else Failure(
+        new Exception(s"string: $hexString, not a valid SHA1 (bitsize ${asInt.toByteArray.size * 8} != 160"))
     }
     catch {
       case NonFatal(err) => Failure(err)
