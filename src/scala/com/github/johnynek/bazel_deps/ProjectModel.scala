@@ -5,16 +5,14 @@ object ProjectModel extends MakeDeps {
     List(MavenServer("central", "default", "http://central.maven.org/maven2/"))
 
   def model = {
-    import MakeDeps.{java, scala}
+    import MakeDeps.{java, scala, subprojects}
 
     val deps = Dependencies(
-      MavenGroup("org.eclipse.aether") ->
-        Map(ArtifactOrProject("aether") ->
-          ProjectRecord(
-            Language.Java,
-            Version("1.0.2.v20150114"),
-            List("api", "impl", "connector-basic", "transport-file", "transport-http").map(Subproject(_)))),
-
+      subprojects(
+        Language.Java,
+        "org.eclipse.aether:aether-",
+        List("api", "impl", "connector-basic", "transport-file", "transport-http"),
+        "1.0.2.v20150114"),
       java("org.apache.maven:maven-aether-provider:3.1.0"),
       scala("org.scalacheck:scalacheck:1.12.0")
       )

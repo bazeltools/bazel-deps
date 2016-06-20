@@ -3,6 +3,20 @@ package com.github.johnynek.bazel_deps
 import java.io.{File, FileOutputStream}
 
 object MakeDeps {
+    def subprojects(language: Language, projPart: String, subs: List[String], version: String) = {
+      val (g, p) = projPart.split(':') match {
+        case Array(g, p) =>
+          require(p.last == '-', s"project must end with '-' found: $p")
+          (g, p.dropRight(1))
+        case _ => sys.error(s"expected one ':', found: $projPart")
+      }
+      MavenGroup(g) ->
+        Map(ArtifactOrProject(p) ->
+          ProjectRecord(
+            language,
+            Version(version),
+            subs.map(Subproject(_))))
+    }
     def java(dep: String) =
       dep.split(':') match {
         case Array(g, a, v) =>
