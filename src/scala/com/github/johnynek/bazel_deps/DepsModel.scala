@@ -15,6 +15,8 @@ case class Model(
       case Some(pr) => pr.lang
       case None => Language.default
     }
+  def getReplacements: Replacements =
+    replacements.getOrElse(Replacements.empty)
 }
 
 case class MavenGroup(asString: String)
@@ -84,6 +86,7 @@ object MavenCoordinate {
 sealed abstract class Language {
   def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate
   def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate
+  def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate
 }
 
 object Language {
@@ -95,6 +98,9 @@ object Language {
 
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate =
       MavenCoordinate(g, MavenArtifactId(a, sp), v)
+
+    def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate =
+      UnversionedCoordinate(g, MavenArtifactId(a))
   }
 
   case class Scala(v: Version) extends Language {
@@ -104,6 +110,10 @@ object Language {
       case _ => sys.error(s"unsupported scala version: ${v.asString}")
     }
     private val suffix = s"_$major"
+
+    def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate =
+      UnversionedCoordinate(g, MavenArtifactId(a).addSuffix(suffix))
+
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
       MavenCoordinate(g, MavenArtifactId(a).addSuffix(suffix), v)
 
@@ -156,7 +166,21 @@ case class ReplacementRecord(
   lang: Language,
   target: BazelTarget)
 
-case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, ReplacementRecord]])
+case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, ReplacementRecord]]) {
+  private val uvToRec: Map[UnversionedCoordinate, ReplacementRecord] =
+    toMap.flatMap { case (g, projs) =>
+      projs.map { case (a, r) =>
+        r.lang.unversioned(g, a) -> r
+      }
+    }
+
+  def get(uv: UnversionedCoordinate): Option[ReplacementRecord] =
+    uvToRec.get(uv)
+}
+
+object Replacements {
+  val empty: Replacements = Replacements(Map.empty)
+}
 
 sealed abstract class VersionConflictPolicy {
   def resolve(root: Option[Version], s: Set[Version]): Either[String, Version]

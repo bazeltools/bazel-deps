@@ -61,16 +61,16 @@ class Resolver(servers: List[MavenServer]) {
 
   type Node = MavenCoordinate
 
-  def addAll(deps: Graph[Node, Unit], coords: TraversableOnce[MavenCoordinate]): Graph[Node, Unit] =
-    coords.foldLeft(deps)(addToGraph)
+  def addAll(deps: Graph[Node, Unit], coords: TraversableOnce[MavenCoordinate], r: Replacements): Graph[Node, Unit] =
+    coords.foldLeft(deps)(addToGraph(_, _, r))
 
-  def addToGraph(deps: Graph[Node, Unit], dep: MavenCoordinate): Graph[Node, Unit] = {
-    val visitor = new Visitor(deps)
+  def addToGraph(deps: Graph[Node, Unit], dep: MavenCoordinate, r: Replacements): Graph[Node, Unit] = {
+    val visitor = new Visitor(deps, r)
     val result = request(dep).getRoot.accept(visitor)
     visitor.currentDeps
   }
 
-  private class Visitor(initDeps: Graph[Node, Unit]) extends DependencyVisitor {
+  private class Visitor(initDeps: Graph[Node, Unit], r: Replacements) extends DependencyVisitor {
     var currentDeps = initDeps
     private var visited: Set[(Dependency, Boolean)] = Set.empty
     private var stack: List[Dependency] = Nil
@@ -82,7 +82,7 @@ class Resolver(servers: List[MavenServer]) {
         Version(artifact.getVersion))
     }
 
-    def follow(d: Dependency): Boolean =
+    def addEdgeTo(d: Dependency): Boolean =
       (!d.isOptional) &&
       (d.getScope.toLowerCase match {
         case "" => true // default
@@ -99,17 +99,18 @@ class Resolver(servers: List[MavenServer]) {
 
     def visitEnter(depNode: DependencyNode): Boolean = {
       val dep = depNode.getDependency
-      val f = follow(dep)
+      val shouldAdd = addEdgeTo(dep)
       /**
        * unfollowed nodes are distinct from followed nodes.
        * If project a has an optional dependency on b, that does
        * not mean another project does not have a non-optional dependency
        */
-      if (visited((dep, f))) false
+      if (visited((dep, shouldAdd))) false
       else {
-        visited = visited + (dep -> f)
-        if (f) {
-          currentDeps = currentDeps.addNode(coord(dep))
+        visited = visited + (dep -> shouldAdd)
+        val mvncoord = coord(dep)
+        if (shouldAdd) {
+          currentDeps = currentDeps.addNode(mvncoord)
         }
         else {
           //println(s"$dep, ${dep.isOptional}, ${dep.getScope}")
@@ -117,13 +118,18 @@ class Resolver(servers: List[MavenServer]) {
         stack match {
           case Nil => ()
           case h :: _ =>
-            if (f) {
+            if (shouldAdd) {
               currentDeps = currentDeps
-                .addEdge(Edge(coord(h), coord(dep), ()))
+                .addEdge(Edge(coord(h), mvncoord, ()))
             }
         }
         stack = dep :: stack
-        f
+        /**
+         * Some maven artifacts are replaced, meaning we deal with them and
+         * their dependencies manually. If this is true, never follow (but
+         * we do add the edges to the node in such cases
+         */
+        shouldAdd && r.get(mvncoord.unversioned).isEmpty
       }
     }
     def visitLeave(dep: DependencyNode): Boolean = {

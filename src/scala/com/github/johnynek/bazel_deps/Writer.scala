@@ -29,10 +29,16 @@ object Writer {
       }
   }
 
-  def workspace(g: Graph[MavenCoordinate, Unit]): String = {
+  def workspace(g: Graph[MavenCoordinate, Unit], model: Model): String = {
     val nodes = g.nodes
-    val lines = nodes.toList.sortBy(_.asString).map { case coord@MavenCoordinate(g, a, v) =>
-        s"""  callback({"name": "${coord.toBazelRepoName}", "artifact": "${coord.asString}"})"""
+
+    def replaced(m: MavenCoordinate): Boolean = model.getReplacements.get(m.unversioned).isDefined
+
+    val lines = nodes.filterNot(replaced)
+      .toList
+      .sortBy(_.asString)
+      .map { case coord@MavenCoordinate(g, a, v) =>
+        s"""  callback({ "artifact": "${coord.asString}", "name": "${coord.toBazelRepoName}" })"""
       }
       .mkString("\n")
     s"""def maven_dependencies(callback):\n$lines"""
@@ -49,8 +55,12 @@ object Writer {
     def coordToTarget(c: MavenCoordinate): Target = cache.getOrElseUpdate(c, {
       val deps = g.hasSource(c)
       val depLabels = deps.map { e => coordToTarget(e.destination).name }.toList
-      val exports = Label.externalJar(c) :: depLabels
-      val lang = model.languageOf(c)
+      val (lab, lang) =
+        Label.replaced(c, model.getReplacements)
+          .getOrElse {
+            (Label.externalJar(c), model.languageOf(c))
+          }
+      val exports = lab :: depLabels
       Target(lang, Label.localTarget(pathInRoot, c, lang), Nil, exports, Nil)
     })
 
@@ -74,8 +84,21 @@ case class Label(workspace: Option[String], path: Path, name: String) {
 }
 
 object Label {
+  def parse(str: String): Label = {
+    val ws = if (str(0) == '@') Some(str.tail.takeWhile(_ != '/')) else None
+    val wsLen = ws.fold(0)(_.length)
+    val pathAndTarg = str.drop(1 + wsLen).dropWhile(_ == '/')
+    val pathStr = pathAndTarg.takeWhile(_ != ':')
+    val target = pathAndTarg.drop(1 + pathStr.length)
+    Label(ws, Path(pathStr.split('/').toList), target)
+  }
   def externalJar(m: MavenCoordinate): Label =
     Label(Some(m.toBazelRepoName), Path(List("jar")), "")
+
+  def replaced(m: MavenCoordinate, r: Replacements): Option[(Label, Language)] =
+    r.get(m.unversioned).map { rr =>
+      (Label.parse(rr.target.asString), rr.lang)
+    }
 
   def localTarget(pathToRoot: List[String], m: MavenCoordinate, lang: Language): Label = {
     val p = Path(pathToRoot ::: (m.group.asString.map {

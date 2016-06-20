@@ -45,8 +45,21 @@ object MakeDeps {
       java("org.apache.maven:maven-aether-provider:3.1.0"),
       scala("org.scalacheck:scalacheck:1.12.0")
       ))
+    val replacements = Replacements(
+      Map(
+        MavenGroup("org.scala-lang") ->
+          Map(ArtifactOrProject("scala-library") ->
+            // Actually, this is not versioned like a scala library, so we claim java here
+            ReplacementRecord(Language.Java,
+              BazelTarget("@scala//:lib/scala-library.jar"))),
 
-    val graph = resolver.addAll(Graph.empty, deps.roots)
+      MavenGroup("org.scala-lang.modules") ->
+        Map(ArtifactOrProject("scala-parser-combinators") ->
+          ReplacementRecord(Language.Scala(Version("2.11")),
+            BazelTarget("@scala//:lib/scala-parser-combinators_2.11-1.0.4.jar")))))
+
+    val model = Model(deps, replacements = Some(replacements), None)
+    val graph = resolver.addAll(Graph.empty, deps.roots, model.getReplacements)
     deps.roots.foreach { m => require(graph.nodes(m), s"$m") }
     Normalizer(graph, Options(Some(VersionConflictPolicy.Highest), None, None)) match {
       case None =>
@@ -61,10 +74,10 @@ object MakeDeps {
         //println(g.show(_.asString))
 
         val ws = new FileOutputStream(new File(workspacePath))
-        ws.write(Writer.workspace(g).getBytes("UTF-8"))
+        ws.write(Writer.workspace(g, model).getBytes("UTF-8"))
         def toPath(str: String): List[String] = str.split('/').filter(_.nonEmpty).toList
         println(toPath(thirdParty))
-        val targets = Writer.targets(g, toPath(thirdParty), Model(deps, None, None))
+        val targets = Writer.targets(g, toPath(thirdParty), model)
         Writer.createBuildFiles(new File(projectRoot), targets)
         println(s"wrote ${targets.size} targets")
     }

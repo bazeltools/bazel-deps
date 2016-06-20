@@ -1,3 +1,3 @@
 java_library(name = "scala_library",
-    exports = ["@org_scala_lang_scala_library//jar"],
+    exports = ["@scala//:lib/scala-library.jar"],
     visibility = ["//visibility:public"])
