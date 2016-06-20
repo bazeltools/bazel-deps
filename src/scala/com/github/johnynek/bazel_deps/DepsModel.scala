@@ -10,11 +10,6 @@ case class Model(
   def getOptions: Options =
     options.getOrElse(Options.default)
 
-  def languageOf(m: MavenCoordinate): Language =
-    dependencies.recordOf(m) match {
-      case Some(pr) => pr.lang
-      case None => Language.default
-    }
   def getReplacements: Replacements =
     replacements.getOrElse(Replacements.empty)
 }
@@ -168,6 +163,7 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
    * ArtifactOrProject key
    */
   def recordOf(m: MavenCoordinate): Option[ProjectRecord] = coordToProj.get(m)
+  def languageOf(m: MavenCoordinate): Option[Language] = recordOf(m).map(_.lang)
 }
 object Dependencies {
   def apply(items: (MavenGroup, Map[ArtifactOrProject, ProjectRecord])*): Dependencies =

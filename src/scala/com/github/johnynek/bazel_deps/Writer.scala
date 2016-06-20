@@ -63,6 +63,33 @@ object Writer {
   def targets(g: Graph[MavenCoordinate, Unit],
     pathInRoot: List[String],
     model: Model): List[Target] = {
+
+    val langCache = scala.collection.mutable.Map[MavenCoordinate, Language]()
+    def language(c: MavenCoordinate): Language = langCache.getOrElseUpdate(c, {
+      import Language.{ Java, Scala }
+
+      model.dependencies.languageOf(c) match {
+        case Some(l) => l
+        case None =>
+          Label.replaced(c, model.getReplacements) match {
+            case Some((_, l)) => l
+            case None =>
+              // if you have any scala dependencies, you have to be handled by the
+              // scala rule for now, otherwise we say java
+              g.hasSource(c)
+                .iterator
+                .map(_.destination)
+                .map(language(_))
+                .collectFirst {
+                  case s@Scala(v, _) =>
+                    val mangled = s.removeSuffix(c.unversioned.asString).isDefined
+                    Scala(v, mangled)
+                }
+                .getOrElse(Java)
+          }
+      }
+    })
+
     /*
      * We make 1 label for each target, the path
      * and name are derived from the MavenCoordinate
@@ -74,7 +101,7 @@ object Writer {
       val (lab, lang) =
         Label.replaced(c, model.getReplacements)
           .getOrElse {
-            val lang = model.languageOf(c)
+            val lang = language(c)
             (Label.externalJar(lang, c), lang)
           }
       val exports = lab :: depLabels

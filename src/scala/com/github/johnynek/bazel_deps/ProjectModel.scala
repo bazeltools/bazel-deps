@@ -16,9 +16,10 @@ object ProjectModel extends MakeDeps {
       subprojects(
         Language.Scala(Version("2.11"), true),
         "io.circe:circe-",
-        List("core", "generic", "parser"),
+        List("core", "generic", "jackson", "parser"),
         "0.5.0-M2"),
       java("org.apache.maven:maven-aether-provider:3.1.0"),
+      java("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.5.3"),
       scala("org.scalacheck:scalacheck:1.12.0")
       )
 
@@ -28,10 +29,10 @@ object ProjectModel extends MakeDeps {
           Map(
             ArtifactOrProject("scala-library") ->
               ReplacementRecord(Language.Scala(Version("2.11"), false), // this is not mangled
-                BazelTarget("@scala//:lib/scala-library.jar")),
+                BazelTarget("//3rdparty/manual:scala_library_file")),
             ArtifactOrProject("scala-reflect") ->
               ReplacementRecord(Language.Scala(Version("2.11"), false), // this is not mangled
-                BazelTarget("@scala//:lib/scala-reflect.jar"))),
+                BazelTarget("//3rdparty/manual:scala_reflect_file"))),
 
       MavenGroup("org.scala-lang.modules") ->
         Map(ArtifactOrProject("scala-parser-combinators") ->

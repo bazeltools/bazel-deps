@@ -1,12 +1,17 @@
 def maven_dependencies(callback):
   callback({ "artifact": "asm:asm:3.3.1", "name": "asm_asm", "sha1": "1d5f20b4ea675e6fab6ab79f1cd60ec268ddc015"})
   callback({ "artifact": "com.chuusai:shapeless_2.11:2.3.1", "name": "com_chuusai_shapeless_2_11", "sha1": "12654a5055b9e272c282c946395bbe9636aa2957"})
+  callback({ "artifact": "com.fasterxml.jackson.core:jackson-annotations:2.5.0", "name": "com_fasterxml_jackson_core_jackson_annotations", "sha1": "a2a55a3375bc1cef830ca426d68d2ea22961190e"})
+  callback({ "artifact": "com.fasterxml.jackson.core:jackson-core:2.5.3", "name": "com_fasterxml_jackson_core_jackson_core", "sha1": "a8b8a6dfc8a17890e4c7ff8aed810763d265b68b"})
+  callback({ "artifact": "com.fasterxml.jackson.core:jackson-databind:2.5.3", "name": "com_fasterxml_jackson_core_jackson_databind", "sha1": "c37875ff66127d93e5f672708cb2dcc14c8232ab"})
+  callback({ "artifact": "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.5.3", "name": "com_fasterxml_jackson_dataformat_jackson_dataformat_yaml", "sha1": "8fc7e5a9911c3ab4b0dd7e74f12621681835e3fc"})
   callback({ "artifact": "com.github.mpilquist:simulacrum_2.11:0.7.0", "name": "com_github_mpilquist_simulacrum_2_11", "sha1": "e5f499ae6987893d849bb823d7e7ed6dc33f5a78"})
   callback({ "artifact": "com.google.code.findbugs:jsr305:1.3.9", "name": "com_google_code_findbugs_jsr305", "sha1": "40719ea6961c0cb6afaeb6a921eaa1f6afd4cfdf"})
   callback({ "artifact": "com.google.guava:guava:11.0.2", "name": "com_google_guava_guava", "sha1": "35a3c69e19d72743cac83778aecbee68680f63eb"})
   callback({ "artifact": "commons-codec:commons-codec:1.6", "name": "commons_codec_commons_codec", "sha1": "b7f0fc8f61ecadeb3695f0b9464755eee44374d4"})
   callback({ "artifact": "io.circe:circe-core_2.11:0.5.0-M2", "name": "io_circe_circe_core_2_11", "sha1": "7d44ba241b26ed4a3211e71864892e8a35cdb5f4"})
   callback({ "artifact": "io.circe:circe-generic_2.11:0.5.0-M2", "name": "io_circe_circe_generic_2_11", "sha1": "e90df6691ac17f82b3f452c2b566c4b2950d6907"})
+  callback({ "artifact": "io.circe:circe-jackson_2.11:0.5.0-M2", "name": "io_circe_circe_jackson_2_11", "sha1": "51b991a9dbb0d4c05032be313ebd308af401e24e"})
   callback({ "artifact": "io.circe:circe-jawn_2.11:0.5.0-M2", "name": "io_circe_circe_jawn_2_11", "sha1": "9b2a37cc8aebc8132820f535d110e8d04ef58b07"})
   callback({ "artifact": "io.circe:circe-numbers_2.11:0.5.0-M2", "name": "io_circe_circe_numbers_2_11", "sha1": "9d91143591fb3b21fbc86732101e0b6af33776cd"})
   callback({ "artifact": "io.circe:circe-parser_2.11:0.5.0-M2", "name": "io_circe_circe_parser_2_11", "sha1": "e11c253a49830b13c494f259420066e80b71c207"})
@@ -46,3 +51,4 @@ def maven_dependencies(callback):
   callback({ "artifact": "org.typelevel:machinist_2.11:0.4.1", "name": "org_typelevel_machinist_2_11", "sha1": "5000250cd20d7edd8a2cd827f8786410a22a8317"})
 # duplicates org.typelevel:macro-compat_2.11 versions: 1.1.0 1.1.1
   callback({ "artifact": "org.typelevel:macro-compat_2.11:1.1.1", "name": "org_typelevel_macro_compat_2_11", "sha1": "0cb87cb74fd5fb118fede3f98075c2044616b35d"})
+  callback({ "artifact": "org.yaml:snakeyaml:1.12", "name": "org_yaml_snakeyaml", "sha1": "ebe66a6b88caab31d7a19571ad23656377523545"})

@@ -52,3 +52,11 @@ scala_binary(name = "projectmodel",
              main_class = "com.github.johnynek.bazel_deps.ProjectModel",
              visibility = ["//visibility:public"])
 
+scala_library(name = "circeyaml",
+              srcs = ["CirceYaml.scala"],
+              deps = [
+                  "//3rdparty/jvm/io/circe:circe_core",
+                  "//3rdparty/jvm/io/circe:circe_jackson",
+                  "//3rdparty/jvm/com/fasterxml/jackson/dataformat:jackson_dataformat_yaml",
+              ],
+              visibility = ["//visibility:public"])
