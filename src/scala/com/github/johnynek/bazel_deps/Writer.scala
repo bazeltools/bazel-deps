@@ -30,7 +30,10 @@ object Writer {
       }
   }
 
-  def workspace(g: Graph[MavenCoordinate, Unit], shas: Map[MavenCoordinate, Try[Sha1Value]], model: Model): String = {
+  def workspace(g: Graph[MavenCoordinate, Unit],
+    duplicates: Map[UnversionedCoordinate, Set[Version]],
+    shas: Map[MavenCoordinate, Try[Sha1Value]],
+    model: Model): String = {
     val nodes = g.nodes
 
     def replaced(m: MavenCoordinate): Boolean = model.getReplacements.get(m.unversioned).isDefined
@@ -46,7 +49,13 @@ object Writer {
             ""
           case None => ""
         }
-        s"""  callback({ "artifact": "${coord.asString}", "name": "${coord.toBazelRepoName}"$shaStr})"""
+        val comment = duplicates.get(coord.unversioned) match {
+          case Some(vs) =>
+            s"""# duplicates ${coord.unversioned.asString} versions: ${vs.map(_.asString).toList.sorted.mkString(" ")}\n"""
+          case None =>
+            ""
+        }
+        s"""$comment  callback({ "artifact": "${coord.asString}", "name": "${coord.toBazelRepoName}"$shaStr})"""
       }
       .mkString("\n")
     s"""def maven_dependencies(callback):\n$lines"""

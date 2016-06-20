@@ -24,6 +24,7 @@ case class ArtifactOrProject(asString: String)
 case class Subproject(asString: String)
 case class Version(asString: String)
 case class Sha1Value(toHex: String)
+case class MavenServer(id: String, contentType: String, url: String)
 
 object Version {
   implicit def versionOrdering: Ordering[Version] = {
@@ -160,6 +161,15 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
   def roots: Set[MavenCoordinate] = coordToProj.keySet
   def recordOf(m: MavenCoordinate): Option[ProjectRecord] = coordToProj.get(m)
 }
+object Dependencies {
+  def apply(items: (MavenGroup, Map[ArtifactOrProject, ProjectRecord])*): Dependencies =
+    Dependencies(items.groupBy(_._1)
+      .map { case (g, pairs) =>
+        val finalMap = pairs.map(_._2).reduce(_ ++ _)
+        (g, finalMap)
+      }
+      .toMap)
+}
 
 case class BazelTarget(asString: String)
 
@@ -187,6 +197,8 @@ sealed abstract class VersionConflictPolicy {
   def resolve(root: Option[Version], s: Set[Version]): Either[String, Version]
 }
 object VersionConflictPolicy {
+  def default: VersionConflictPolicy = Highest
+
   case object Fail extends VersionConflictPolicy {
     def resolve(root: Option[Version], s: Set[Version]) = root match {
       case Some(v) if s.size == 1 && s(v) => Right(v)
@@ -219,7 +231,7 @@ case class Options(
   languages: Option[List[(Language, LanguageOption)]]) {
 
   def getVersionConflictPolicy: VersionConflictPolicy =
-    versionConflictPolicy.getOrElse(VersionConflictPolicy.Fail)
+    versionConflictPolicy.getOrElse(VersionConflictPolicy.default)
 
   def getLanguages: List[(Language, LanguageOption)] = languages match {
     case None => List(Language.Java -> LanguageOption(None))

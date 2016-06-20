@@ -3,13 +3,6 @@ package com.github.johnynek.bazel_deps
 import java.io.{File, FileOutputStream}
 
 object MakeDeps {
-  def main(args: Array[String]): Unit = {
-    val workspacePath = args(0)
-    val projectRoot = args(1)
-    val thirdParty = args(2)
-
-    val resolver = new Resolver(List(MavenServer("central", "default", "http://central.maven.org/maven2/")))
-
     def java(dep: String) =
       dep.split(':') match {
         case Array(g, a, v) =>
@@ -33,35 +26,21 @@ object MakeDeps {
                 Nil))
         case _ => sys.error(s"expect two colons, got: $dep")
       }
+}
 
-    val deps = Dependencies(Map(
-      MavenGroup("org.eclipse.aether") ->
-        Map(ArtifactOrProject("aether") ->
-          ProjectRecord(
-            Language.Java,
-            Version("1.0.2.v20150114"),
-            List("api", "impl", "connector-basic", "transport-file", "transport-http").map(Subproject(_)))),
+trait MakeDeps {
+  def getSettings(args: Array[String]): (Model, List[MavenServer], String, String, String)
 
-      java("org.apache.maven:maven-aether-provider:3.1.0"),
-      scala("org.scalacheck:scalacheck:1.12.0")
-      ))
-    val replacements = Replacements(
-      Map(
-        MavenGroup("org.scala-lang") ->
-          Map(ArtifactOrProject("scala-library") ->
-            // Actually, this is not versioned like a scala library, so we claim java here
-            ReplacementRecord(Language.Java,
-              BazelTarget("@scala//:lib/scala-library.jar"))),
+  def main(args: Array[String]): Unit = {
+    val (model, servers, workspacePath, projectRoot, thirdParty) = getSettings(args)
 
-      MavenGroup("org.scala-lang.modules") ->
-        Map(ArtifactOrProject("scala-parser-combinators") ->
-          ReplacementRecord(Language.Scala(Version("2.11")),
-            BazelTarget("@scala//:lib/scala-parser-combinators_2.11-1.0.4.jar")))))
-
-    val model = Model(deps, replacements = Some(replacements), None)
+    val deps = model.dependencies
+    val resolver = new Resolver(servers)
     val graph = resolver.addAll(Graph.empty, deps.roots, model.getReplacements)
+    // This is a defensive check that can be removed as we add more tests
     deps.roots.foreach { m => require(graph.nodes(m), s"$m") }
-    Normalizer(graph, Options(Some(VersionConflictPolicy.Highest), None, None)) match {
+
+    Normalizer(graph, model.getOptions) match {
       case None =>
         println("[ERROR] could not normalize versions:")
         println(graph.nodes.groupBy(_.unversioned)
@@ -74,11 +53,19 @@ object MakeDeps {
         /**
          * The graph is now normalized, lets get the shas
          */
+        val duplicates = graph.nodes
+          .groupBy(_.unversioned)
+          .mapValues(_.map(_.version))
+          .filter { case (_, set) => set.size > 1 }
+
         val shas = resolver.getShas(g.nodes)
+        // write the workspace
         val ws = new FileOutputStream(new File(workspacePath))
-        ws.write(Writer.workspace(g, shas, model).getBytes("UTF-8"))
+        ws.write(Writer.workspace(g, duplicates, shas, model).getBytes("UTF-8"))
+
         def toPath(str: String): List[String] = str.split('/').filter(_.nonEmpty).toList
-        println(toPath(thirdParty))
+
+        // write the BUILDs in thirdParty
         val targets = Writer.targets(g, toPath(thirdParty), model)
         Writer.createBuildFiles(new File(projectRoot), targets)
         println(s"wrote ${targets.size} targets")

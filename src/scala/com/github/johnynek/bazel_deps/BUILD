@@ -34,7 +34,7 @@ scala_library(name = "writer",
                       ],
               visibility = ["//visibility:public"])
 
-scala_binary(name = "makedeps",
+scala_library(name = "makedeps",
              srcs = ["MakeDeps.scala"],
              deps = [
                  ":resolver",
@@ -44,5 +44,11 @@ scala_binary(name = "makedeps",
                  ":writer",
                  "//3rdparty/jvm/org/eclipse/aether:aether_api",
              ],
-             main_class = "com.github.johnynek.bazel_deps.MakeDeps",
              visibility = ["//visibility:public"])
+
+scala_binary(name = "projectmodel",
+             srcs = ["ProjectModel.scala"],
+             deps = [":makedeps", ":depsmodel" ],
+             main_class = "com.github.johnynek.bazel_deps.ProjectModel",
+             visibility = ["//visibility:public"])
+

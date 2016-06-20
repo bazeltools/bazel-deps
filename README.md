@@ -7,8 +7,7 @@ Generate [bazel](http://bazel.io/) dependencies for maven artifacts
 For now, you need to edit the MakeDeps.scala file to add your deps. This project is setup with:
 
 ```bash
-bazel run src/scala/com/github/johnynek/bazel_deps:makedeps `pwd`/3rdparty/workspace.bzl `pwd`
-/3rdparty/jvm
+bazel run src/scala/com/github/johnynek/bazel_deps:projectmodel `pwd`/3rdparty/workspace.bzl `pwd` /3rdparty/jvm
 ```
 
 Then you should add 

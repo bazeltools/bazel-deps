@@ -20,8 +20,6 @@ import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-case class MavenServer(id: String, contentType: String, url: String)
-
 case class ResolveFailure(message: String,
   m: MavenCoordinate,
   extension: String,

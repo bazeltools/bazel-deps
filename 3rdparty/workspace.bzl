@@ -15,12 +15,16 @@ def maven_dependencies(callback):
   callback({ "artifact": "org.codehaus.plexus:plexus-component-annotations:1.5.5", "name": "org_codehaus_plexus_plexus_component_annotations", "sha1": "c72f2660d0cbed24246ddb55d7fdc4f7374d2078"})
   callback({ "artifact": "org.codehaus.plexus:plexus-interpolation:1.16", "name": "org_codehaus_plexus_plexus_interpolation", "sha1": "a868d4a603bd42c9dee67890c4e60e360a11838c"})
   callback({ "artifact": "org.codehaus.plexus:plexus-utils:3.0.10", "name": "org_codehaus_plexus_plexus_utils", "sha1": "65e6460a49460d2ca038f8644ff9ae6d878733b8"})
+# duplicates org.eclipse.aether:aether-api versions: 0.9.0.M2 1.0.2.v20150114
   callback({ "artifact": "org.eclipse.aether:aether-api:1.0.2.v20150114", "name": "org_eclipse_aether_aether_api", "sha1": "839f93a5213fb3e233b09bfd6d6b95669f7043c0"})
   callback({ "artifact": "org.eclipse.aether:aether-connector-basic:1.0.2.v20150114", "name": "org_eclipse_aether_aether_connector_basic", "sha1": "d55c03b16efc16f25e1fd9fe0f37878fddbeed68"})
+# duplicates org.eclipse.aether:aether-impl versions: 0.9.0.M2 1.0.2.v20150114
   callback({ "artifact": "org.eclipse.aether:aether-impl:1.0.2.v20150114", "name": "org_eclipse_aether_aether_impl", "sha1": "f147539e6e60dfbda9ef7f6d750066170f61b7a1"})
+# duplicates org.eclipse.aether:aether-spi versions: 0.9.0.M2 1.0.2.v20150114
   callback({ "artifact": "org.eclipse.aether:aether-spi:1.0.2.v20150114", "name": "org_eclipse_aether_aether_spi", "sha1": "8428dfa330107984f3e3ac05cc3ebd50b2676866"})
   callback({ "artifact": "org.eclipse.aether:aether-transport-file:1.0.2.v20150114", "name": "org_eclipse_aether_aether_transport_file", "sha1": "79ffcce2aa9c525ad5a1d0fc3f9669133c3f9572"})
   callback({ "artifact": "org.eclipse.aether:aether-transport-http:1.0.2.v20150114", "name": "org_eclipse_aether_aether_transport_http", "sha1": "262b7fb2e9872f470c059bc4053a3f2f7449932d"})
+# duplicates org.eclipse.aether:aether-util versions: 0.9.0.M2 1.0.2.v20150114
   callback({ "artifact": "org.eclipse.aether:aether-util:1.0.2.v20150114", "name": "org_eclipse_aether_aether_util", "sha1": "d2d3c74a5210544b5cdce89a2c1d1c62835692d1"})
   callback({ "artifact": "org.eclipse.sisu:org.eclipse.sisu.inject:0.0.0.M2a", "name": "org_eclipse_sisu_org_eclipse_sisu_inject", "sha1": "17941e32c751179a9628b25f54ce5641edafb9be"})
   callback({ "artifact": "org.eclipse.sisu:org.eclipse.sisu.plexus:0.0.0.M2a", "name": "org_eclipse_sisu_org_eclipse_sisu_plexus", "sha1": "07510dc8dfe27a0b57c17601bc760b7b0c8f95fa"})
