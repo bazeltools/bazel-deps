@@ -29,13 +29,13 @@ object MakeDeps {
         case _ => sys.error(s"expect two colons, got: $dep")
       }
 
-    def scala(dep: String) =
+    def scala(dep: String, mangle: Boolean = true) =
       dep.split(':') match {
         case Array(g, a, v) =>
           MavenGroup(g) ->
             Map(ArtifactOrProject(a) ->
               ProjectRecord(
-                Language.Scala(Version("2.11")),
+                Language.Scala(Version("2.11"), mangle),
                 Version(v),
                 Nil))
         case _ => sys.error(s"expect two colons, got: $dep")

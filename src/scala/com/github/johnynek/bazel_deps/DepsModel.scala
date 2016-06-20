@@ -105,22 +105,25 @@ object Language {
       UnversionedCoordinate(g, MavenArtifactId(a))
   }
 
-  case class Scala(v: Version) extends Language {
+  case class Scala(v: Version, mangle: Boolean) extends Language {
     val major = v.asString.split('.') match {
       case Array("2", x) if (x.toInt >= 10) => s"2.$x"
       case Array("2", x, _) if (x.toInt >= 10) => s"2.$x"
       case _ => sys.error(s"unsupported scala version: ${v.asString}")
     }
     private val suffix = s"_$major"
+    private def add(a: MavenArtifactId): MavenArtifactId =
+      if (mangle) a.addSuffix(suffix)
+      else a
 
     def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate =
-      UnversionedCoordinate(g, MavenArtifactId(a).addSuffix(suffix))
+      UnversionedCoordinate(g, add(MavenArtifactId(a)))
 
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
-      MavenCoordinate(g, MavenArtifactId(a).addSuffix(suffix), v)
+      MavenCoordinate(g, add(MavenArtifactId(a)), v)
 
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate =
-      MavenCoordinate(g, MavenArtifactId(a, sp).addSuffix(suffix), v)
+      MavenCoordinate(g, add(MavenArtifactId(a, sp)), v)
 
     def removeSuffix(s: String): Option[String] =
       if (s.endsWith(suffix)) Some(s.dropRight(suffix.size))

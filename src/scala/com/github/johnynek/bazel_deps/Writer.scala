@@ -7,7 +7,6 @@ object Writer {
 
   def createBuildFiles(pathToRoot: File, ts: List[Target]): Unit = {
     require(pathToRoot.isAbsolute, s"Absolute path required, found: $pathToRoot")
-
     def fileFor(p: Path): File =
       p.parts.foldLeft(pathToRoot) { (p, element) => new File(p, element) }
 
@@ -75,7 +74,8 @@ object Writer {
       val (lab, lang) =
         Label.replaced(c, model.getReplacements)
           .getOrElse {
-            (Label.externalJar(c), model.languageOf(c))
+            val lang = model.languageOf(c)
+            (Label.externalJar(lang, c), lang)
           }
       val exports = lab :: depLabels
       Target(lang, Label.localTarget(pathInRoot, c, lang), Nil, exports, Nil)
@@ -109,8 +109,11 @@ object Label {
     val target = pathAndTarg.drop(1 + pathStr.length)
     Label(ws, Path(pathStr.split('/').toList), target)
   }
-  def externalJar(m: MavenCoordinate): Label =
-    Label(Some(m.toBazelRepoName), Path(List("jar")), "")
+  def externalJar(lang: Language, m: MavenCoordinate): Label = lang match {
+    case Language.Java => Label(Some(m.toBazelRepoName), Path(List("jar")), "")
+    // If we know we have a scala jar, just use ":file" to be sure we can deal with macros
+    case Language.Scala(_, _) => Label(Some(m.toBazelRepoName), Path(List("jar")), "file")
+  }
 
   def replaced(m: MavenCoordinate, r: Replacements): Option[(Label, Language)] =
     r.get(m.unversioned).map { rr =>
@@ -128,11 +131,12 @@ object Label {
 
     val artName = lang match {
       case Language.Java => m.artifact.asString
-      case s@Language.Scala(_) =>
+      case s@Language.Scala(_, true) =>
         s.removeSuffix(m.artifact.asString) match {
           case Some(n) => n
           case None => sys.error(s"scala coordinate: ${m.asString} does not have correct suffix for $s")
         }
+      case Language.Scala(_, false) => m.artifact.asString
     }
 
     val name = artName.map {
@@ -174,7 +178,7 @@ case class Target(
     }
     val langName = lang match {
       case Language.Java => "java"
-      case Language.Scala(_) => "scala"
+      case Language.Scala(_, _) => "scala"
     }
     val header = s"${langName}_library("
     def sortKeys(items: List[(String, String)]): String = {
