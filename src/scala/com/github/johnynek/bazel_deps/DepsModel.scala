@@ -159,6 +159,11 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
     }
 
   def roots: Set[MavenCoordinate] = coordToProj.keySet
+  /**
+   * Note, if we implement this method with an unversioned coordinate,
+   * we need to potentially remove the scala version to check the
+   * ArtifactOrProject key
+   */
   def recordOf(m: MavenCoordinate): Option[ProjectRecord] = coordToProj.get(m)
 }
 object Dependencies {
@@ -199,6 +204,9 @@ sealed abstract class VersionConflictPolicy {
 object VersionConflictPolicy {
   def default: VersionConflictPolicy = Highest
 
+  /**
+   * there must be only 1 version.
+   */
   case object Fail extends VersionConflictPolicy {
     def resolve(root: Option[Version], s: Set[Version]) = root match {
       case Some(v) if s.size == 1 && s(v) => Right(v)
@@ -206,6 +214,10 @@ object VersionConflictPolicy {
       case _ => Left(s"multiple versions found in Fail policy, root: $root, transitive: ${s.toList.sorted}")
     }
   }
+  /**
+   * It a version is explicitly declared, it is always used,
+   * otherwise there must be only 1 version.
+   */
   case object Fixed extends VersionConflictPolicy {
     def resolve(root: Option[Version], s: Set[Version]) = root match {
       case Some(v) => Right(v)
@@ -213,10 +225,14 @@ object VersionConflictPolicy {
       case None => Left(s"fixed requires 1, or a declared version, found: ${s.toList.sorted}")
     }
   }
+  /**
+   * It a version is explicitly declared, it is always used,
+   * otherwise we take the highest version.
+   */
   case object Highest extends VersionConflictPolicy {
     def resolve(root: Option[Version], s: Set[Version]) = root match {
       case Some(v) => Right(v)
-      case None => Right(s.max)
+      case None => Right(s.max) // there must be at least one version, so this won't throw
     }
   }
 }

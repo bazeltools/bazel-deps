@@ -9,7 +9,7 @@ object Normalizer {
    * assumes every depth less than d has no duplication. Looks at d and greater
    * and updates the dependency graph.
    */
-  def apply(graph: Graph[MavenCoordinate, Unit], opts: Options): Option[Graph[MavenCoordinate, Unit]] = {
+  def apply(graph: Graph[MavenCoordinate, Unit], declared: Dependencies, opts: Options): Option[Graph[MavenCoordinate, Unit]] = {
 
     @annotation.tailrec
     def fixTable(table: Table): Table = {
@@ -51,7 +51,9 @@ object Normalizer {
         val items = table(node)
         val versions = items.map(_._2).toSet
         val dups = versions.collect { case Right(v) => v }
-        val rootVersion = items.collectFirst { case (None, Right(v)) => v }
+        val rootVersion = dups.iterator.find { v =>
+          declared.recordOf(MavenCoordinate(node, v)).isDefined
+        }
         pickCanonical(node, rootVersion, dups, opts) match {
           case Right(m) =>
             val newItems = items.map { case (p, _) => (p, Right(m.version)) }
