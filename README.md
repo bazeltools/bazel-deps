@@ -4,10 +4,10 @@ Generate [bazel](http://bazel.io/) dependencies for maven artifacts
 
 ## Usage
 
-For now, you need to edit the MakeDeps.scala file to add your deps. This project is setup with:
+Run parseproject on your project yaml file. For instance, this project is setup with:
 
 ```bash
-bazel run src/scala/com/github/johnynek/bazel_deps:projectmodel `pwd`/3rdparty/workspace.bzl `pwd` /3rdparty/jvm
+bazel run src/scala/com/github/johnynek/bazel_deps:parseproject `pwd`/3rdparty/workspace.bzl `pwd` `pwd`/dependencies.yaml
 ```
 
 Then you should add 

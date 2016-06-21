@@ -1,0 +1,68 @@
+options:
+  languages: ["java", "scala:2.11.8"]
+  versionConflictPolicy: highest
+  resolvers:
+    - id: mavencentral
+      type: default
+      url: https://repo.maven.apache.org/maven2/
+
+dependencies:
+  org.eclipse.aether:
+    aether:
+      version: "1.0.2.v20150114"
+      modules: [api, impl, connector-basic, transport-file, transport-http]
+      lang: java
+
+  io.circe:
+    circe:
+      version: "0.5.0-M2"
+      modules: [core, generic, jackson, parser]
+      lang: scala
+
+  org.apache.maven:
+    maven-aether-provider:
+      version: "3.1.0"
+      lang: java
+
+  com.fasterxml.jackson.dataformat:
+    jackson-dataformat-yaml:
+      version: 2.5.3
+      lang: java
+
+  org.scalacheck:
+    scalacheck:
+      version: 1.12.0
+      lang: scala
+
+  org.typelevel:
+    cats:
+      version: 0.6.0
+      lang: scala
+      modules: [core, kernel, macros]
+    macro-compat:
+      version: 1.1.1
+      lang: scala
+
+  com.chuusai:
+    shapeless:
+      version: 2.3.1
+      lang: scala  # we are not explicitly using this, but need to declare it as scala
+
+  com.github.mpilquist:
+    simulacrum:
+      version: 0.7.0
+      lang: scala # not using explicitly, declaring as scala
+
+replacements:
+  org.scala-lang:
+    scala-library:
+      lang: scala/unmangled # scala-library is not mangled like sbt does with other jars
+      target: "//3rdparty/manual:scala_library_file"
+    scala-reflect:
+      lang: scala/unmangled
+      target: "//3rdparty/manual:scala_reflect_file"
+
+  org.scala.modules:
+    scala-parser-combinators:
+      lang: scala
+      target: "//3rdparty/manual:scala_parser_combinators_file"
