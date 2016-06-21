@@ -41,9 +41,6 @@ def maven_dependencies(callback):
   callback({ "artifact": "org.eclipse.sisu:org.eclipse.sisu.inject:0.0.0.M2a", "name": "org_eclipse_sisu_org_eclipse_sisu_inject", "sha1": "17941e32c751179a9628b25f54ce5641edafb9be"})
   callback({ "artifact": "org.eclipse.sisu:org.eclipse.sisu.plexus:0.0.0.M2a", "name": "org_eclipse_sisu_org_eclipse_sisu_plexus", "sha1": "07510dc8dfe27a0b57c17601bc760b7b0c8f95fa"})
   callback({ "artifact": "org.scala-lang.modules:scala-parser-combinators_2.11:1.0.2", "name": "org_scala_lang_modules_scala_parser_combinators_2_11", "sha1": "ba0bbca656b10f235b6eb17a541e5d728c29040a"})
-# duplicates org.scala-lang:scala-library versions: 2.11.4 2.11.8
-  callback({ "artifact": "org.scala-lang:scala-library:2.11.8", "name": "org_scala_lang_scala_library", "sha1": "ddd5a8bced249bedd86fb4578a39b9fb71480573"})
-  callback({ "artifact": "org.scala-lang:scala-reflect:2.11.7", "name": "org_scala_lang_scala_reflect", "sha1": "bf1649c9d33da945dea502180855b56caf06288c"})
   callback({ "artifact": "org.scala-sbt:test-interface:1.0", "name": "org_scala_sbt_test_interface", "sha1": "0a3f14d010c4cb32071f863d97291df31603b521"})
   callback({ "artifact": "org.scalacheck:scalacheck_2.11:1.12.0", "name": "org_scalacheck_scalacheck_2_11", "sha1": "e3bec6d5fdf09b9171ccbee3016202213adee5ee"})
   callback({ "artifact": "org.slf4j:jcl-over-slf4j:1.6.2", "name": "org_slf4j_jcl_over_slf4j", "sha1": "ac4cd2d6d0cf4342b4e8fd520c686851fc681912"})

@@ -32,8 +32,6 @@ object ParseProject extends MakeDeps {
         System.exit(1)
         sys.error("unreachable")
     }
-    println(model)
-    //(model, workspacePath, projectRoot)
-    ???
+    (model, workspacePath, projectRoot)
   }
 }
