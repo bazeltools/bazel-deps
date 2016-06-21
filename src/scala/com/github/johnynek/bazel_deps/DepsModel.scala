@@ -1,6 +1,8 @@
 package com.github.johnynek.bazel_deps
 
-import scala.util.Try
+import java.io.{ File, BufferedReader, FileReader }
+import scala.util.{Failure, Success, Try}
+import scala.util.control.NonFatal
 
 case class Model(
   dependencies: Dependencies,
@@ -12,6 +14,29 @@ case class Model(
 
   def getReplacements: Replacements =
     replacements.getOrElse(Replacements.empty)
+}
+
+object Model {
+  def readFile(f: File): Try[String] = Try {
+    val fr = new FileReader(f)
+    val buf = new BufferedReader(fr)
+    try {
+      val bldr = new java.lang.StringBuilder
+      val cbuf = new Array[Char](1024)
+      var read = 0
+      while(read >= 0) {
+        read = buf.read(cbuf, 0, 1024)
+        if (read > 0) bldr.append(cbuf, 0, read)
+      }
+      Success(bldr.toString)
+    }
+    catch {
+      case NonFatal(err) => Failure(err)
+    }
+    finally {
+      fr.close
+    }
+  }.flatten
 }
 
 case class MavenGroup(asString: String)
@@ -126,13 +151,6 @@ object Language {
   }
 }
 
-sealed abstract class Explicitness
-
-object Explicitness {
-  case object Explicit extends Explicitness
-  case object Implicit extends Explicitness
-}
-
 case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
   def asString: String = s"${group.asString}:${artifact.asString}"
 }
@@ -140,7 +158,10 @@ case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
 case class ProjectRecord(
   lang: Language,
   version: Version,
-  modules: List[Subproject])
+  modules: Option[List[Subproject]]) {
+
+  def getModules: List[Subproject] = modules.getOrElse(Nil)
+}
 
 case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]]) {
   private val coordToProj: Map[MavenCoordinate, ProjectRecord] =
@@ -151,7 +172,7 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
     } yield (mcoord -> p)).toMap
 
   private def mavens(g: MavenGroup, ap: ArtifactOrProject, pr: ProjectRecord): List[MavenCoordinate] =
-    pr.modules match {
+    pr.getModules match {
       case Nil => List(pr.lang.mavenCoord(g, ap, pr.version))
       case mods => mods.map { m => pr.lang.mavenCoord(g, ap, m, pr.version) }
     }
@@ -236,24 +257,36 @@ object VersionConflictPolicy {
   }
 }
 
-case class DirectoryName(asString: String)
-case class TargetPattern(asString: String)
-case class LanguageOption(targetPattern: Option[TargetPattern])
+case class DirectoryName(asString: String) {
+  def parts: List[String] =
+    asString.split('/').filter(_.nonEmpty).toList
+}
+
+object DirectoryName {
+  def default: DirectoryName = DirectoryName("3rdparty/jvm")
+}
 
 case class Options(
   versionConflictPolicy: Option[VersionConflictPolicy],
   thirdPartyDirectory: Option[DirectoryName],
-  languages: Option[List[(Language, LanguageOption)]]) {
+  languages: Option[List[Language]],
+  resolvers: Option[List[MavenServer]]) {
+
+  def getThirdPartyDirectory: DirectoryName =
+    thirdPartyDirectory.getOrElse(DirectoryName.default)
 
   def getVersionConflictPolicy: VersionConflictPolicy =
     versionConflictPolicy.getOrElse(VersionConflictPolicy.default)
 
-  def getLanguages: List[(Language, LanguageOption)] = languages match {
-    case None => List(Language.Java -> LanguageOption(None))
+  def getLanguages: List[Language] = languages match {
+    case None => List(Language.Java, Language.Scala(Version("2.11.8"), true))
     case Some(langs) => langs
   }
+  def getResolvers: List[MavenServer] =
+    resolvers.getOrElse(
+      List(MavenServer("central", "default", "http://central.maven.org/maven2/")))
 }
 
 object Options {
-  def default: Options = Options(None, None, None)
+  def default: Options = Options(None, None, None, None)
 }

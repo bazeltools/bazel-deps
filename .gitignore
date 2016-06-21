@@ -9,3 +9,4 @@ buildNumber.properties
 .idea
 *.iml
 bazel-*
+.DS_Store

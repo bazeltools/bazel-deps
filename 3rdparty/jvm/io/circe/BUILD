@@ -1,12 +1,12 @@
 scala_library(name = "circe_core",
     exports = ["//3rdparty/jvm/org/scala_lang:scala_library",
-               "//3rdparty/jvm/org/typelevel:cats_core",
+               "//3rdparty/jvm/org/typelevel:cats_core_2_11",
                ":circe_numbers_2_11",
                "@io_circe_circe_core_2_11//jar:file"],
     visibility = ["//visibility:public"])
 
 scala_library(name = "circe_generic",
-    exports = ["//3rdparty/jvm/com/chuusai:shapeless_2_11",
+    exports = ["//3rdparty/jvm/com/chuusai:shapeless",
                "//3rdparty/jvm/org/scala_lang:scala_library",
                "//3rdparty/jvm/org/typelevel:macro_compat_2_11",
                ":circe_core",

@@ -1,7 +1,7 @@
 package com.github.johnynek.bazel_deps
 
-import java.io.{ File, BufferedReader, FileReader, FileInputStream }
 import java.security.MessageDigest
+import java.io.{ File, FileInputStream }
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
 import org.eclipse.aether.RepositorySystem
 import org.eclipse.aether.artifact.DefaultArtifact
@@ -110,18 +110,9 @@ class Resolver(servers: List[MavenServer]) {
         else Success(f)
     }
 
-  private def readShaContents(f: File): Try[Sha1Value] = Try {
-    val fr = new FileReader(f)
-    val buf = new BufferedReader(fr)
-    try {
-      val bldr = new java.lang.StringBuilder
-      val cbuf = new Array[Char](1024)
-      var read = 0
-      while(read >= 0) {
-        read = buf.read(cbuf, 0, 1024)
-        if (read > 0) bldr.append(cbuf, 0, read)
-      }
-      val hexString = bldr.toString
+  private def readShaContents(f: File): Try[Sha1Value] =
+    Model.readFile(f).flatMap { str =>
+      val hexString = str
           .split("\\s") // some files have sha<whitespace>filename
           .dropWhile(_.isEmpty)
           .head
@@ -132,13 +123,6 @@ class Resolver(servers: List[MavenServer]) {
       else Failure(
         new Exception(s"string: $hexString, not a valid SHA1 (bitsize ${asInt.toByteArray.size * 8} != 160"))
     }
-    catch {
-      case NonFatal(err) => Failure(err)
-    }
-    finally {
-      fr.close
-    }
-  }.flatten
 
   private def computeShaOf(f: File): Try[Sha1Value] = Try {
     val sha = MessageDigest.getInstance("SHA-1")

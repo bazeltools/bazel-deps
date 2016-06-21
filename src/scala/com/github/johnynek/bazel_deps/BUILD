@@ -46,6 +46,20 @@ scala_library(name = "makedeps",
              ],
              visibility = ["//visibility:public"])
 
+scala_binary(name = "parseproject",
+             srcs = ["ParseProject.scala"],
+             deps = [
+                 ":makedeps",
+                 ":depsmodel",
+                 ":circeyaml",
+                 ":decoders",
+                 "//3rdparty/jvm/io/circe:circe_core",
+                 "//3rdparty/jvm/org/typelevel:cats_core_2_11",
+                 "//3rdparty/jvm/io/circe:circe_jawn_2_11",
+                 ],
+             main_class = "com.github.johnynek.bazel_deps.ParseProject",
+             visibility = ["//visibility:public"])
+
 scala_binary(name = "projectmodel",
              srcs = ["ProjectModel.scala"],
              deps = [":makedeps", ":depsmodel" ],
@@ -58,5 +72,14 @@ scala_library(name = "circeyaml",
                   "//3rdparty/jvm/io/circe:circe_core",
                   "//3rdparty/jvm/io/circe:circe_jackson",
                   "//3rdparty/jvm/com/fasterxml/jackson/dataformat:jackson_dataformat_yaml",
+              ],
+              visibility = ["//visibility:public"])
+
+scala_library(name = "decoders",
+              srcs = ["Decoders.scala"],
+              deps = [
+                  ":depsmodel",
+                  "//3rdparty/jvm/io/circe:circe_core",
+                  "//3rdparty/jvm/io/circe:circe_generic",
               ],
               visibility = ["//visibility:public"])

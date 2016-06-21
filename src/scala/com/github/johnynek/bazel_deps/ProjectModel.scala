@@ -4,7 +4,7 @@ object ProjectModel extends MakeDeps {
   def servers: List[MavenServer] =
     List(MavenServer("central", "default", "http://central.maven.org/maven2/"))
 
-  def model = {
+  def model(thirdParty: DirectoryName) = {
     import MakeDeps.{java, scala, subprojects}
 
     val deps = Dependencies(
@@ -20,7 +20,8 @@ object ProjectModel extends MakeDeps {
         "0.5.0-M2"),
       java("org.apache.maven:maven-aether-provider:3.1.0"),
       java("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.5.3"),
-      scala("org.scalacheck:scalacheck:1.12.0")
+      scala("org.scalacheck:scalacheck:1.12.0"),
+      scala("com.chuusai:shapeless:2.3.1") // we need to declare shapeless so we know it is scala
       )
 
     val replacements = Replacements(
@@ -40,13 +41,14 @@ object ProjectModel extends MakeDeps {
             BazelTarget("@scala//:lib/scala-parser-combinators_2.11-1.0.4.jar")))
               ))
 
-    Model(deps, replacements = Some(replacements), None)
+    Model(deps,
+      replacements = Some(replacements),
+      options = Some(Options(None, Some(thirdParty), None)))
   }
 
   def getSettings(args: Array[String]) = {
     val workspacePath = args(0)
     val projectRoot = args(1)
-    val thirdParty = args(2)
-    (model, servers, workspacePath, projectRoot, thirdParty)
+    (model(DirectoryName(args(2))), servers, workspacePath, projectRoot)
   }
 }

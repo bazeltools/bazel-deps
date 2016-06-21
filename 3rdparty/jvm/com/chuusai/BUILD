@@ -1,3 +1,5 @@
-java_library(name = "shapeless_2_11",
-    exports = ["@com_chuusai_shapeless_2_11//jar"],
+scala_library(name = "shapeless",
+    exports = ["//3rdparty/jvm/org/scala_lang:scala_library",
+               "//3rdparty/jvm/org/typelevel:macro_compat_2_11",
+               "@com_chuusai_shapeless_2_11//jar:file"],
     visibility = ["//visibility:public"])

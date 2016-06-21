@@ -15,7 +15,7 @@ object MakeDeps {
           ProjectRecord(
             language,
             Version(version),
-            subs.map(Subproject(_))))
+            Some(subs.map(Subproject(_)))))
     }
     def java(dep: String) =
       dep.split(':') match {
@@ -25,7 +25,7 @@ object MakeDeps {
               ProjectRecord(
                 Language.Java,
                 Version(v),
-                Nil))
+                None))
         case _ => sys.error(s"expect two colons, got: $dep")
       }
 
@@ -37,19 +37,19 @@ object MakeDeps {
               ProjectRecord(
                 Language.Scala(Version("2.11"), mangle),
                 Version(v),
-                Nil))
+                None))
         case _ => sys.error(s"expect two colons, got: $dep")
       }
 }
 
 trait MakeDeps {
-  def getSettings(args: Array[String]): (Model, List[MavenServer], String, String, String)
+  def getSettings(args: Array[String]): (Model, String, String)
 
   def main(args: Array[String]): Unit = {
-    val (model, servers, workspacePath, projectRoot, thirdParty) = getSettings(args)
-
+    val (model, workspacePath, projectRoot) = getSettings(args)
+    val thirdParty = model.getOptions.getThirdPartyDirectory
     val deps = model.dependencies
-    val resolver = new Resolver(servers)
+    val resolver = new Resolver(model.getOptions.getResolvers)
     val graph = resolver.addAll(Graph.empty, deps.roots, model.getReplacements)
     // This is a defensive check that can be removed as we add more tests
     deps.roots.foreach { m => require(graph.nodes(m), s"$m") }
@@ -77,10 +77,8 @@ trait MakeDeps {
         val ws = new FileOutputStream(new File(workspacePath))
         ws.write(Writer.workspace(g, duplicates, shas, model).getBytes("UTF-8"))
 
-        def toPath(str: String): List[String] = str.split('/').filter(_.nonEmpty).toList
-
         // write the BUILDs in thirdParty
-        val targets = Writer.targets(g, toPath(thirdParty), model)
+        val targets = Writer.targets(g, thirdParty, model)
         Writer.createBuildFiles(new File(projectRoot), targets)
         println(s"wrote ${targets.size} targets")
     }

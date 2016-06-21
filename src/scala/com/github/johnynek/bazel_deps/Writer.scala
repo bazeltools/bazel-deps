@@ -61,8 +61,9 @@ object Writer {
   }
 
   def targets(g: Graph[MavenCoordinate, Unit],
-    pathInRoot: List[String],
+    rootName: DirectoryName,
     model: Model): List[Target] = {
+    val pathInRoot = rootName.parts
 
     val langCache = scala.collection.mutable.Map[MavenCoordinate, Language]()
     def language(c: MavenCoordinate): Language = langCache.getOrElseUpdate(c, {
