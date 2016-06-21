@@ -107,6 +107,10 @@ filegroup(name = "scala_library_file",
 ```
 to the `3rdparty/manual/BUILD` file. In this way, we redirect maven deps to those providers.
 
+Note, we stop walking the graph when we see a replaced node, so the replacement target is now
+responsible for building correctly, and correctly exporting any dependencies that need to be
+on the compile classpath.
+
 ## Code
 This code was originally forked from [pgr0ss/bazel-deps](https://github.com/pgr0ss/bazel-deps)
 
