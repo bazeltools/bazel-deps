@@ -130,7 +130,11 @@ case class MavenArtifactId(asString: String) {
 
 object MavenArtifactId {
   def apply(a: ArtifactOrProject): MavenArtifactId = MavenArtifactId(a.asString)
-  def apply(a: ArtifactOrProject, s: Subproject): MavenArtifactId = MavenArtifactId(a.asString + "-" + s.asString)
+  def apply(a: ArtifactOrProject, s: Subproject): MavenArtifactId = {
+    val ap = a.asString
+    val sp = s.asString
+    MavenArtifactId(if (sp.isEmpty) ap else s"$ap-$sp")
+  }
 }
 
 case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, version: Version) {
