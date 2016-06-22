@@ -3,6 +3,13 @@ package com.github.johnynek.bazel_deps
 case class Edge[N, E](source: N, destination: N, label: E)
 
 case class Graph[N, E](nodes: Set[N], edges: Map[N, Set[Edge[N, E]]]) {
+  def edgeIterator: Iterator[Edge[N, E]] =
+    edges.iterator.flatMap { case (n, es) =>
+      // each edge appears twice, only return the ones where
+      // source is the key
+      es.iterator.filter(_.source == n)
+    }
+
   def addNode(n: N): Graph[N, E] = Graph(nodes + n, edges)
   def addEdge(e: Edge[N, E]): Graph[N, E] = {
     val n = addNode(e.source).addNode(e.destination).nodes
@@ -22,23 +29,18 @@ case class Graph[N, E](nodes: Set[N], edges: Map[N, Set[Edge[N, E]]]) {
   lazy val roots: Set[N] = nodes.filter(hasDestination(_).isEmpty)
 
   def removeNode(n: N): Graph[N, E] = {
-    val badEdges = edges.getOrElse(n, Set.empty)
-    val neighs = badEdges.map { e =>
-        if (e.destination == n) e.source else e.destination
-      }
-    val newEs = neighs.foldLeft(edges) { (es, n1) =>
-      val newEdges = es(n1).filterNot {
-        case Edge(s, d, _) => s == n || d == n
-      }
-      es + (n1 -> newEdges)
-    }
-    Graph(nodes - n, newEs)
+    val newG =
+      edges.getOrElse(n, Set.empty)
+        .foldLeft(this)(_.removeEdge(_))
+    Graph(newG.nodes - n, newG.edges)
   }
   def removeEdge(e: Edge[N, E]): Graph[N, E] = {
-    def go(em: Map[N, Set[Edge[N, E]]], n: N) = {
-      val e1 = em.getOrElse(n, Set.empty) - e
-      if (e1.isEmpty) em - (n)
-      else em + (n -> e1)
+    def go(em: Map[N, Set[Edge[N, E]]], n: N) = em.get(n) match {
+      case Some(es) =>
+        val e1 = es - e
+        if (e1.isEmpty) em - (n)
+        else em + (n -> e1)
+      case None => em
     }
     Graph(nodes, go(go(edges, e.source), e.destination))
   }
