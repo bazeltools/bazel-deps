@@ -23,6 +23,22 @@ class GraphTest extends FunSuite  {
   def nodeFrom[N, E](g: Graph[N, E]): Gen[N] =
     Gen.oneOf(g.nodes.toVector)
 
+  def randomWalkDest[N, E](g: Graph[N, E]): Option[Gen[(N, N)]] =
+    if (g.nodes.isEmpty) None
+    else Some(Gen.choose(0, g.nodes.size).flatMap { hops =>
+      def step(hop: Int, n: N): Gen[N] =
+        if (hop <= 0) Gen.const(n)
+        else {
+          val nexts = g.hasSource(n).toVector.map(_.destination)
+          if (nexts.isEmpty) Gen.const(n)
+          else Gen.oneOf(nexts).flatMap(step(hop - 1, _))
+        }
+
+      for {
+        st <- Gen.oneOf(g.nodes.toVector)
+        end <- step(hops, st)
+      } yield (st, end)
+    })
 
   test("Graph tests") {
     val g = Graph.empty[Int, Unit]
@@ -81,6 +97,17 @@ class GraphTest extends FunSuite  {
       newG.hasDestination(n).isEmpty &&
         newG.hasSource(n).isEmpty &&
         (!newG.nodes(n))
+    })
+
+    // Check randomwalk is in reflexiveTransitiveClosure
+    val genEnds = for {
+      g <- graphGen(genIntNode)
+      optPair <- randomWalkDest(g).fold(Gen.const(Option.empty[(Int, Int)]))(_.map(Some(_)))
+    } yield (g, optPair)
+
+    check(forAll(genEnds) {
+      case (g, Some((s, e))) => g.reflexiveTransitiveClosure(List(s))(e)
+      case (g, None) => true
     })
   }
 }

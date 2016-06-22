@@ -63,7 +63,7 @@ trait MakeDeps {
           .map { case (u, vs) => s"""${u.asString}: ${vs.mkString(", ")}\n""" }
           .mkString("\n"))
         System.exit(1)
-      case Some(g) =>
+      case Some(normalized) =>
         /**
          * The graph is now normalized, lets get the shas
          */
@@ -72,13 +72,13 @@ trait MakeDeps {
           .mapValues(_.map(_.version))
           .filter { case (_, set) => set.size > 1 }
 
-        val shas = resolver.getShas(g.nodes)
+        val shas = resolver.getShas(normalized.nodes)
         // write the workspace
         val ws = new FileOutputStream(new File(workspacePath))
-        ws.write(Writer.workspace(g, duplicates, shas, model).getBytes("UTF-8"))
+        ws.write(Writer.workspace(normalized, duplicates, shas, model).getBytes("UTF-8"))
 
         // write the BUILDs in thirdParty
-        val targets = Writer.targets(g, thirdParty, model)
+        val targets = Writer.targets(normalized, thirdParty, model)
         Writer.createBuildFiles(new File(projectRoot), targets)
         println(s"wrote ${targets.size} targets")
     }

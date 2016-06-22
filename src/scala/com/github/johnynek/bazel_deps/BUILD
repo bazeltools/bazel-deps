@@ -6,6 +6,9 @@ scala_library(name = "graph",
               srcs = ["Graph.scala"],
               visibility = ["//visibility:public"])
 
+scala_repl(name = "repl",
+           deps = [":graph"])
+
 scala_library(name = "resolver",
               srcs = ["Resolver.scala"],
               deps = [

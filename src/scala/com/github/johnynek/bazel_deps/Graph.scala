@@ -56,6 +56,26 @@ case class Graph[N, E](nodes: Set[N], edges: Map[N, Set[Edge[N, E]]]) {
       }
     }
   }.mkString("\n")
+
+  /**
+   * the result contains the input
+   */
+  def reflexiveTransitiveClosure(n: List[N]): Set[N] = {
+    @annotation.tailrec
+    def loop(stack: List[N], acc: Set[N]): Set[N] = stack match {
+      case Nil => acc
+      case head::tail =>
+        val nodes = hasSource(head)
+          .iterator
+          .map(_.destination)
+          .filterNot(acc)
+          .toList
+        val newStack = nodes ::: tail
+        val newAcc = acc ++ nodes
+        loop(newStack, newAcc)
+    }
+    loop(n, n.toSet)
+  }
 }
 
 object Graph {

@@ -9,7 +9,9 @@ object Normalizer {
    * assumes every depth less than d has no duplication. Looks at d and greater
    * and updates the dependency graph.
    */
-  def apply(graph: Graph[MavenCoordinate, Unit], declared: Dependencies, opts: Options): Option[Graph[MavenCoordinate, Unit]] = {
+  def apply(graph: Graph[MavenCoordinate, Unit],
+    declared: Dependencies,
+    opts: Options): Option[Graph[MavenCoordinate, Unit]] = {
 
     @annotation.tailrec
     def fixTable(table: Table): Table = {
