@@ -282,6 +282,11 @@ object Replacements {
 }
 
 sealed abstract class VersionConflictPolicy {
+  /**
+   * TODO we currenly only have policies that always keep roots,
+   * if this invariant changes, Normalizer will need to change
+   * the dead node elimination step
+   */
   def resolve(root: Option[Version], s: Set[Version]): Either[String, Version]
 }
 object VersionConflictPolicy {

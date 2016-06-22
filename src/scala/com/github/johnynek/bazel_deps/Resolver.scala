@@ -65,7 +65,7 @@ class Resolver(servers: List[MavenServer]) {
 
   def getShas(m: Iterable[MavenCoordinate]): Map[MavenCoordinate, Try[Sha1Value]] = {
     /**
-     * We try to request the .jar.sha1 file, if that fails, we request the .jar
+     * We try to request the jar.sha1 file, if that fails, we request the jar
      * and do the sha1.
      */
     def toArtifactRequest(m: MavenCoordinate, extension: String): ArtifactRequest = {

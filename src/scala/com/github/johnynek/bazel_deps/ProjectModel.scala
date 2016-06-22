@@ -43,12 +43,12 @@ object ProjectModel extends MakeDeps {
 
     Model(deps,
       replacements = Some(replacements),
-      options = Some(Options(None, Some(thirdParty), None)))
+      options = Some(Options(None, Some(thirdParty), None, Some(servers))))
   }
 
   def getSettings(args: Array[String]) = {
     val workspacePath = args(0)
     val projectRoot = args(1)
-    (model(DirectoryName(args(2))), servers, workspacePath, projectRoot)
+    (model(DirectoryName(args(2))), workspacePath, projectRoot)
   }
 }

@@ -97,7 +97,13 @@ object Normalizer {
         }
 
     val newTable = fixTable(table)
-    rewrite(graph, newTable)
+    rewrite(graph, newTable).map { rewrittenGraph =>
+      // We now filter only those nodes that are in the
+      // reflexive transitive closure of the declared nodes
+      val reachable = rewrittenGraph.reflexiveTransitiveClosure(declared.roots.toList)
+      // remove all nodes not in this set
+      (rewrittenGraph.nodes -- reachable).foldLeft(rewrittenGraph)(_.removeNode(_))
+    }
   }
 
   private def compact(t: Table): Map[UnversionedCoordinate, Version] =
@@ -134,14 +140,9 @@ object Normalizer {
           val u = n0.unversioned
           val version = canonicals(u)
           val newTarget = MavenCoordinate(u, version)
-          val g1 = g0.hasDestination(n0).foldLeft(g0) { (g, edge) =>
+          g0.hasDestination(n0).foldLeft(g0) { (g, edge) =>
             g.removeEdge(edge).addEdge(Edge(edge.source, newTarget, ()))
           }
-          val deadNodes = g1.hasSource(n0)
-            .filter { edge => g1.hasDestination(edge.destination).size == 1 }
-            .map(_.destination)
-          // now remove the non-keeper node:
-          (deadNodes + n0).foldLeft(g1) { (g, n) => g.removeNode(n) }
         }
 
       Some(g.roots.foldLeft(g)(retarget))
