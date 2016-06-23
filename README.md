@@ -1,86 +1,117 @@
 # bazel-deps
 
-Generate [bazel](http://bazel.io/) dependencies for maven artifacts
+Generate [bazel](http://bazel.io/) dependencies transitively for maven artifacts, with scala
+support.
 
 ## Usage
 
-```bash
-mvn package
-java -jar target/bazel-deps-1.0-SNAPSHOT.jar <maven artifact>...
-```
-
-## Example
+Run parseproject on your project yaml file. For instance, this project is setup with:
 
 ```bash
-% java -jar target/bazel-deps-1.0-SNAPSHOT.jar com.fasterxml.jackson.core:jackson-databind:2.5.0 junit:junit:jar:4.12
+bazel build src/scala/com/github/johnynek/bazel_deps:parseproject
+./gen_maven_deps.sh `pwd`/3rdparty/workspace.bzl `pwd` `pwd`/dependencies.yaml
+```
+We give three arguments: the path to the file we will include in our workspace. The path to the root
+of our bazel repo. The path to the dependencies file.
 
+This will create a tree of BUILD files that match the maven group id, and the artifact id will be
+a label in a BUILD file. You should not edit these by hand, and instead have a separate directory
+for any exceptions that you manage along with [Replacements](#replacements).
 
---------- Add these lines to your WORKSPACE file ---------
+Then you should add
+```
+load("//3rdparty:workspace.bzl", "maven_dependencies")
+load("//3rdparty:load.bzl", "declare_maven")
 
-maven_jar(name = "org_hamcrest_hamcrest_core", artifact = "org.hamcrest:hamcrest-core:jar:1.3")
-maven_jar(name = "com_fasterxml_jackson_core_jackson_annotations", artifact = "com.fasterxml.jackson.core:jackson-annotations:jar:2.5.0")
-maven_jar(name = "com_fasterxml_jackson_core_jackson_core", artifact = "com.fasterxml.jackson.core:jackson-core:jar:2.5.0")
-maven_jar(name = "com_fasterxml_jackson_core_jackson_databind", artifact = "com.fasterxml.jackson.core:jackson-databind:jar:2.5.0")
-maven_jar(name = "junit_junit", artifact = "junit:junit:jar:4.12")
-
-
---------- Add these lines to your BUILD file ---------
-
-java_library(
-  name="jackson-databind",
-  visibility = ["//visibility:public"],
-  exports = [
-    "@com_fasterxml_jackson_core_jackson_annotations//jar",
-    "@com_fasterxml_jackson_core_jackson_core//jar",
-    "@com_fasterxml_jackson_core_jackson_databind//jar",
-  ],
-)
-
-java_library(
-  name="junit",
-  visibility = ["//visibility:public"],
-  exports = [
-    "@junit_junit//jar",
-    "@org_hamcrest_hamcrest_core//jar",
-  ],
-)
+maven_dependencies(declare_maven)
 ```
 
-You can also exclude a set of transitive dependencies:
+To your workspace to load the maven dependencies.
 
-```bash
+## Assumptions and usage
+This tool will generate one canonical version for every jar in the transitive dependencies of
+the root dependencies declared. You have three conflict resolution modes currently (which currently
+apply globally):
 
-% java -jar target/bazel-deps-1.0-SNAPSHOT.jar -x io.dropwizard:dropwizard-core:0.8.1 io.dropwizard:dropwizard-client:0.8.1
+- fail: if more than one version is found transitively, fail.
+- fixed: for all artifacts explicitly added, use that version, otherwise fail if any other artifact has multiple versions.
+- highest: for all artifacts explicitly added, use that version, otherwise take the highest version.
 
+In any case, we add a comment for any duplicates found in the workspace loading file.
 
---------- Add these lines to your WORKSPACE file ---------
+To declare dependencies, add items to the `dependencies` key in your declaration file. The format
+should be yaml or json. It should have [`dependencies`](#dependencies) and it may have [`replacements`](#replacements)
+and [`options`](#options).
 
-maven_jar(name = "commons_codec_commons_codec", artifact = "commons-codec:commons-codec:jar:1.6")
-maven_jar(name = "io_dropwizard_dropwizard_client", artifact = "io.dropwizard:dropwizard-client:jar:0.8.1")
-maven_jar(name = "io_dropwizard_dropwizard_core", artifact = "io.dropwizard:dropwizard-core:jar:0.8.1")
-maven_jar(name = "org_apache_httpcomponents_httpclient", artifact = "org.apache.httpcomponents:httpclient:jar:4.3.5")
-maven_jar(name = "org_apache_httpcomponents_httpcore", artifact = "org.apache.httpcomponents:httpcore:jar:4.3.2")
-maven_jar(name = "org_glassfish_jersey_connectors_jersey_apache_connector", artifact = "org.glassfish.jersey.connectors:jersey-apache-connector:jar:2.17")
-maven_jar(name = "io_dropwizard_metrics_metrics_httpclient", artifact = "io.dropwizard.metrics:metrics-httpclient:jar:3.1.1")
+### <a name="dependencies">Dependencies</a>
 
-
---------- Add these lines to your BUILD file ---------
-
-java_library(
-  name="dropwizard-client",
-  visibility = ["//visibility:public"],
-  exports = [
-    "@commons_codec_commons_codec//jar",
-    "@io_dropwizard_dropwizard_client//jar",
-    "@io_dropwizard_dropwizard_core//jar",
-    "@io_dropwizard_metrics_metrics_httpclient//jar",
-    "@org_apache_httpcomponents_httpclient//jar",
-    "@org_apache_httpcomponents_httpcore//jar",
-    "@org_glassfish_jersey_connectors_jersey_apache_connector//jar",
-  ],
-)
+Dependencies are a map from maven group id to artifact id, with some metadata, such as:
+```yaml
+dependencies:
+  com.google.guava:
+    guava:
+      version: 18.0
+      lang: java
 ```
+Language is always required and may be one of `java, scala, scala/unmangled`. To control the scala
+version, see the [Options section](#options). A common case are projects with many modules. For instance in
+the [scalding project](https://github.com/twitter/scalding) there are many modules: `-core, -date,
+-args, -db, -avro` to name a few. To reduce duplication you can do:
+
+```
+dependencies:
+  com.twitter:
+    scalding:
+      version: 0.16.0
+      lang: scala
+      modules: [core, date, args, db, arvo]
+```
+
+Each group id can only appear once, so you should collocate dependencies by group.
+
+### <a name="options">Options</a>
+In the options, we set the allowed languages (and in the case of scala, the version).
+In the default case, with no options given, we use the `highest` versionConflictPolicy,
+allow java and scala `2.11`, and use maven central as the resolver.
+
+### <a name="replacements">Replacements</a>
+Some maven jars should not be used and instead are replaced by internal targets. Here are
+some examples of this:
+
+1. A subproject in the repo is published as a maven artifact (`A`). Others (`B`) depend on this artifact (`B -> A`) and in turn we depend on those (we have added `B` to our dependencies file). We don't want to pull `A` from a maven repo, since we build it internally, so we replace that artifact with an internal target.
+2. We get some scala artifacts directly from the sdk. So, if a jar says it needs `org.scala-lang:scala-library` we already have that (and a few other jars) declared, and we don't want to risk having two potentially incompatible versions.
+3. A small external project has both a bazel build and a maven publishing. We prefer to use the bazel build so we can easily pull more recent versions by bumping up a gitsha rather than waiting for jar to be published.
+
+The replacements work on the level of artifacts. An artifact is replaced one-for-one with a local
+bazel target. For instance:
+```yaml
+replacements:
+  org.scala-lang:
+    scala-library:
+      lang: scala/unmangled # scala-library is not mangled like sbt does with other jars
+      target: "//3rdparty/manual:scala_library_file"
+    scala-reflect:
+      lang: scala/unmangled
+      target: "//3rdparty/manual:scala_reflect_file"
+```
+
+Where we have added:
+```python
+filegroup(name = "scala_reflect_file",
+          srcs = ["@scala//:lib/scala-reflect.jar"],
+          visibility = ["//visibility:public"])
+
+filegroup(name = "scala_library_file",
+          srcs = ["@scala//:lib/scala-library.jar"],
+          visibility = ["//visibility:public"])
+```
+to the `3rdparty/manual/BUILD` file. In this way, we redirect maven deps to those providers.
+
+Note, we stop walking the graph when we see a replaced node, so the replacement target is now
+responsible for building correctly, and correctly exporting any dependencies that need to be
+on the compile classpath.
 
 ## Code
+This code was originally forked from [pgr0ss/bazel-deps](https://github.com/pgr0ss/bazel-deps)
 
 This code was inspired by the [aether examples](https://github.com/eclipse/aether-demo/blob/322fa556494335faaf3ad3b7dbe8f89aaaf6222d/aether-demo-snippets/src/main/java/org/eclipse/aether/examples/GetDependencyTree.java) for walking maven dependencies.

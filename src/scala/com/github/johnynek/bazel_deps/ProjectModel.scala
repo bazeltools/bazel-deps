@@ -1,0 +1,54 @@
+package com.github.johnynek.bazel_deps
+
+object ProjectModel extends MakeDeps {
+  def servers: List[MavenServer] =
+    List(MavenServer("central", "default", "http://central.maven.org/maven2/"))
+
+  def model(thirdParty: DirectoryName) = {
+    import MakeDeps.{java, scala, subprojects}
+
+    val deps = Dependencies(
+      subprojects(
+        Language.Java,
+        "org.eclipse.aether:aether-",
+        List("api", "impl", "connector-basic", "transport-file", "transport-http"),
+        "1.0.2.v20150114"),
+      subprojects(
+        Language.Scala(Version("2.11"), true),
+        "io.circe:circe-",
+        List("core", "generic", "jackson", "parser"),
+        "0.5.0-M2"),
+      java("org.apache.maven:maven-aether-provider:3.1.0"),
+      java("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.5.3"),
+      scala("org.scalacheck:scalacheck:1.12.0"),
+      scala("com.chuusai:shapeless:2.3.1") // we need to declare shapeless so we know it is scala
+      )
+
+    val replacements = Replacements(
+      Map(
+        MavenGroup("org.scala-lang") ->
+          Map(
+            ArtifactOrProject("scala-library") ->
+              ReplacementRecord(Language.Scala(Version("2.11"), false), // this is not mangled
+                BazelTarget("//3rdparty/manual:scala_library_file")),
+            ArtifactOrProject("scala-reflect") ->
+              ReplacementRecord(Language.Scala(Version("2.11"), false), // this is not mangled
+                BazelTarget("//3rdparty/manual:scala_reflect_file"))),
+
+      MavenGroup("org.scala-lang.modules") ->
+        Map(ArtifactOrProject("scala-parser-combinators") ->
+          ReplacementRecord(Language.Scala(Version("2.11"), true),
+            BazelTarget("@scala//:lib/scala-parser-combinators_2.11-1.0.4.jar")))
+              ))
+
+    Model(deps,
+      replacements = Some(replacements),
+      options = Some(Options(None, Some(thirdParty), None, Some(servers))))
+  }
+
+  def getSettings(args: Array[String]) = {
+    val workspacePath = args(0)
+    val projectRoot = args(1)
+    (model(DirectoryName(args(2))), workspacePath, projectRoot)
+  }
+}
