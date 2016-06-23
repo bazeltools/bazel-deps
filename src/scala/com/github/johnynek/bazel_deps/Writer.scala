@@ -19,7 +19,7 @@ object Writer {
         try {
           val fileBytes = ts.sortBy(_.name.name)
             .map(_.toBazelString)
-            .mkString("\n\n")
+            .mkString("\n", "\n\n", "\n")
             .getBytes("UTF-8")
 
           os.write(fileBytes)
@@ -198,12 +198,12 @@ case class Target(
    *   runtime_deps = [ ],
    *   visibility = ["//visibility:public"])
    */
-    def labelList(key: String, l: List[Label]): String = {
+    def labelList(outerIndent: Int, key: String, l: List[Label]): String = {
       if (l.isEmpty) ""
       else {
-        val prefix = s"    $key = ["
+        val prefix = s"$key = ["
         val indent = prefix.length
-        val spaced = List.fill(indent)(' ').mkString
+        val spaced = List.fill(outerIndent + indent)(' ').mkString
         l.map { label =>
           val str = label.asStringFrom(name.path)
           s""""$str""""
@@ -221,15 +221,16 @@ case class Target(
       if (items.isEmpty) { header + nm + ")" }
       else {
         val sorted = items.sortBy(_._1).filter(_._2.nonEmpty)
-        (nm :: (sorted.map { case (k, v) => s"    $k = $v" }))
+        val prefixIndent = List.fill(header.length)(' ').mkString
+        (nm :: (sorted.map { case (k, v) => s"$prefixIndent$k = $v" }))
           .mkString(header, ",\n", ")")
       }
     }
-
+    val indent = header.length
     sortKeys(List(
       "visibility" ->  """["//visibility:public"]""",
-      "deps" -> labelList("deps", deps),
-      "exports" -> labelList("exports", exports),
-      "runtime_deps" -> labelList("runtime_deps", runtimeDeps)))
+      "deps" -> labelList(indent, "deps", deps),
+      "exports" -> labelList(indent, "exports", exports),
+      "runtime_deps" -> labelList(indent, "runtime_deps", runtimeDeps)))
   }
 }

@@ -172,7 +172,7 @@ class Resolver(servers: List[MavenServer]) {
       (d.getScope.toLowerCase match {
         case "" => true // default
         case "compile" => true // default
-        case "provided" => true // TODO: we will need to revisit this
+        case "provided" => false // TODO: we will need to revisit this
         case "runtime" => true // TODO: we should only add these to runtime deps
         case "test" => false
         case "system" => false // these should not be in maven, and should be handled by replacements

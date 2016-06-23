@@ -175,8 +175,6 @@ sealed abstract class Language {
 }
 
 object Language {
-  def default: Language = Java
-
   case object Java extends Language {
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
       MavenCoordinate(g, MavenArtifactId(a), v)
@@ -211,6 +209,9 @@ object Language {
     def removeSuffix(s: String): Option[String] =
       if (s.endsWith(suffix)) Some(s.dropRight(suffix.size))
       else None
+
+    def endsWithScalaVersion(uv: UnversionedCoordinate): Boolean =
+      uv.asString.endsWith(suffix)
   }
 }
 
