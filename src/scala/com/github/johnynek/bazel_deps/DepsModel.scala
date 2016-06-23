@@ -240,7 +240,7 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
       case mods => mods.map { m => pr.lang.mavenCoord(g, ap, m, pr.version) }
     }
 
-  def roots: Set[MavenCoordinate] = coordToProj.keySet
+  lazy val roots: Set[MavenCoordinate] = coordToProj.keySet
   /**
    * Note, if we implement this method with an unversioned coordinate,
    * we need to potentially remove the scala version to check the

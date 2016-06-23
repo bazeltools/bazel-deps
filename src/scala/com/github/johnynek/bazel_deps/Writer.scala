@@ -41,16 +41,21 @@ object Writer {
       .toList
       .sortBy(_.asString)
       .map { case coord@MavenCoordinate(g, a, v) =>
+        val isRoot = model.dependencies.roots(coord)
         val shaStr = shas.get(coord) match {
           case Some(Success(sha)) => s""", "sha1": "${sha.toHex}""""
           case Some(Failure(err)) =>
             System.err.println(s"failed to find sha of ${coord.asString}: $err")
-            ""
+            throw err
           case None => ""
         }
         val comment = duplicates.get(coord.unversioned) match {
           case Some(vs) =>
-            val status = if (vs.max == v) s"promoted to ${v.asString}" else s"downgraded to ${v.asString}"
+            val status =
+              if (isRoot) s"fixed to ${v.asString}"
+              else if (vs.max == v) s"promoted to ${v.asString}"
+              else s"downgraded to ${v.asString}"
+
             s"""# duplicates in ${coord.unversioned.asString} $status. Versions: ${vs.map(_.asString).toList.sorted.mkString(" ")}\n"""
           case None =>
             ""
