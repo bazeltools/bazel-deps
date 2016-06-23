@@ -56,7 +56,7 @@ object Writer {
               else if (vs.max == v) s"promoted to ${v.asString}"
               else s"downgraded to ${v.asString}"
 
-            s"""# duplicates in ${coord.unversioned.asString} $status. Versions: ${vs.map(_.asString).toList.sorted.mkString(" ")}\n"""
+            s"""# duplicates in ${coord.unversioned.asString} $status. Versions: ${vs.toList.sorted.map(_.asString).mkString(" ")}\n"""
           case None =>
             ""
         }
