@@ -19,7 +19,7 @@ object Writer {
         try {
           val fileBytes = ts.sortBy(_.name.name)
             .map(_.toBazelString)
-            .mkString("\n", "\n\n", "\n")
+            .mkString("", "\n\n", "\n")
             .getBytes("UTF-8")
 
           os.write(fileBytes)
@@ -60,10 +60,10 @@ object Writer {
           case None =>
             ""
         }
-        s"""$comment  callback({ "artifact": "${coord.asString}", "name": "${coord.toBazelRepoName}"$shaStr})"""
+        s"""$comment    callback({"artifact": "${coord.asString}", "name": "${coord.toBazelRepoName}"$shaStr})"""
       }
       .mkString("\n")
-    s"""def maven_dependencies(callback):\n$lines"""
+    s"""def maven_dependencies(callback):\n$lines\n"""
   }
 
   def targets(g: Graph[MavenCoordinate, Unit],
