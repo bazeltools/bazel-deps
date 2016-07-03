@@ -71,7 +71,7 @@ object Writer {
     def language(c: MavenCoordinate): Language = langCache.getOrElseUpdate(c, {
       import Language.{ Java, Scala }
 
-      model.dependencies.languageOf(c) match {
+      model.dependencies.languageOf(c.unversioned) match {
         case Some(l) => l
         case None =>
           Label.replaced(c, model.getReplacements) match {

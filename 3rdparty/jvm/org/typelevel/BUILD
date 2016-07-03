@@ -34,6 +34,5 @@ scala_library(name = "machinist",
               visibility = ["//visibility:public"])
 
 scala_library(name = "macro_compat",
-              exports = ["//3rdparty/jvm/org/scala_lang:scala_library",
-                         "@org_typelevel_macro_compat_2_11//jar:file"],
+              exports = ["@org_typelevel_macro_compat_2_11//jar:file"],
               visibility = ["//visibility:public"])
