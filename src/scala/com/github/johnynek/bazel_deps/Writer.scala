@@ -12,7 +12,7 @@ object Writer {
 
     Traverse[List].traverseU(pathGroups) {
       case (filePath, ts) =>
-        val data = ts.sortBy(_.name.name)
+        def data = ts.sortBy(_.name.name)
           .map(_.toBazelString)
           .mkString("", "\n\n", "\n")
 
