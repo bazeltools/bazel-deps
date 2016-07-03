@@ -54,7 +54,7 @@ object Normalizer {
         val versions = items.map(_._2).toSet
         val dups = versions.collect { case Right(v) => v }
         val rootVersion = dups.iterator.find { v =>
-          declared.recordOf(MavenCoordinate(node, v)).isDefined
+          declared.roots.contains(MavenCoordinate(node, v))
         }
         pickCanonical(node, rootVersion, dups, opts) match {
           case Right(m) =>

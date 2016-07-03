@@ -172,6 +172,7 @@ sealed abstract class Language {
   def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate
   def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate
   def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate
+  def unversioned(g: MavenGroup, a: ArtifactOrProject, sp: Subproject): UnversionedCoordinate
 }
 
 object Language {
@@ -184,6 +185,9 @@ object Language {
 
     def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate =
       UnversionedCoordinate(g, MavenArtifactId(a))
+
+    def unversioned(g: MavenGroup, a: ArtifactOrProject, sp: Subproject): UnversionedCoordinate =
+      UnversionedCoordinate(g, MavenArtifactId(a, sp))
   }
 
   case class Scala(v: Version, mangle: Boolean) extends Language {
@@ -199,6 +203,9 @@ object Language {
 
     def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate =
       UnversionedCoordinate(g, add(MavenArtifactId(a)))
+
+    def unversioned(g: MavenGroup, a: ArtifactOrProject, sp: Subproject): UnversionedCoordinate =
+      UnversionedCoordinate(g, add(MavenArtifactId(a, sp)))
 
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
       MavenCoordinate(g, add(MavenArtifactId(a)), v)
@@ -221,10 +228,25 @@ case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
 
 case class ProjectRecord(
   lang: Language,
-  version: Version,
+  version: Option[Version],
   modules: Option[List[Subproject]]) {
 
   def getModules: List[Subproject] = modules.getOrElse(Nil)
+
+  def versionedDependencies(g: MavenGroup,
+    ap: ArtifactOrProject): List[MavenCoordinate] =
+    version.fold(List.empty[MavenCoordinate]) { v =>
+      getModules match {
+        case Nil => List(lang.mavenCoord(g, ap, v))
+        case mods => mods.map { m => lang.mavenCoord(g, ap, m, v) }
+      }
+    }
+
+  def allDependencies(g: MavenGroup, ap: ArtifactOrProject): List[UnversionedCoordinate] =
+    getModules match {
+      case Nil => List(lang.unversioned(g, ap))
+      case mods => mods.map { m => lang.unversioned(g, ap, m) }
+    }
 }
 
 case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]]) {
@@ -232,23 +254,31 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
     (for {
       (g, m) <- toMap.iterator
       (a, p) <- m.iterator
-      mcoord <- mavens(g, a, p)
+      mcoord <- p.versionedDependencies(g, a)
     } yield (mcoord -> p)).toMap
 
-  private def mavens(g: MavenGroup, ap: ArtifactOrProject, pr: ProjectRecord): List[MavenCoordinate] =
-    pr.getModules match {
-      case Nil => List(pr.lang.mavenCoord(g, ap, pr.version))
-      case mods => mods.map { m => pr.lang.mavenCoord(g, ap, m, pr.version) }
-    }
+  private val unversionedToProj: Map[UnversionedCoordinate, ProjectRecord] =
+    (for {
+      (g, m) <- toMap.iterator
+      (a, p) <- m.iterator
+      uv <- p.allDependencies(g, a)
+    } yield (uv -> p)).toMap
 
-  lazy val roots: Set[MavenCoordinate] = coordToProj.keySet
+  val roots: Set[MavenCoordinate] = coordToProj.keySet
+  val unversionedRoots: Set[UnversionedCoordinate] =
+    unversionedToProj.iterator
+      .collect { case (uv, pr) if pr.version.isEmpty => uv }
+      .toSet
   /**
    * Note, if we implement this method with an unversioned coordinate,
    * we need to potentially remove the scala version to check the
    * ArtifactOrProject key
    */
-  def recordOf(m: MavenCoordinate): Option[ProjectRecord] = coordToProj.get(m)
-  def languageOf(m: MavenCoordinate): Option[Language] = recordOf(m).map(_.lang)
+  private def recordOf(m: UnversionedCoordinate): Option[ProjectRecord] =
+    unversionedToProj.get(m)
+
+  def languageOf(m: UnversionedCoordinate): Option[Language] =
+    recordOf(m).map(_.lang)
 }
 object Dependencies {
   def apply(items: (MavenGroup, Map[ArtifactOrProject, ProjectRecord])*): Dependencies =

@@ -3,46 +3,6 @@ package com.github.johnynek.bazel_deps
 import java.io.File
 import cats.data.Xor
 
-object MakeDeps {
-    def subprojects(language: Language, projPart: String, subs: List[String], version: String) = {
-      val (g, p) = projPart.split(':') match {
-        case Array(g, p) =>
-          require(p.last == '-', s"project must end with '-' found: $p")
-          (g, p.dropRight(1))
-        case _ => sys.error(s"expected one ':', found: $projPart")
-      }
-      MavenGroup(g) ->
-        Map(ArtifactOrProject(p) ->
-          ProjectRecord(
-            language,
-            Version(version),
-            Some(subs.map(Subproject(_)))))
-    }
-    def java(dep: String) =
-      dep.split(':') match {
-        case Array(g, a, v) =>
-          MavenGroup(g) ->
-            Map(ArtifactOrProject(a) ->
-              ProjectRecord(
-                Language.Java,
-                Version(v),
-                None))
-        case _ => sys.error(s"expect two colons, got: $dep")
-      }
-
-    def scala(dep: String, mangle: Boolean = true) =
-      dep.split(':') match {
-        case Array(g, a, v) =>
-          MavenGroup(g) ->
-            Map(ArtifactOrProject(a) ->
-              ProjectRecord(
-                Language.Scala(Version("2.11"), mangle),
-                Version(v),
-                None))
-        case _ => sys.error(s"expect two colons, got: $dep")
-      }
-}
-
 trait MakeDeps {
   /**
    * the second item is a relative path to the workspace.bzl file
@@ -76,6 +36,18 @@ trait MakeDeps {
           .groupBy(_.unversioned)
           .mapValues(_.map(_.version))
           .filter { case (_, set) => set.size > 1 }
+
+        /**
+         * Make sure all the optional versioned items were found
+         */
+        val uvNodes = normalized.nodes.map(_.unversioned)
+        deps.unversionedRoots.filterNot(uvNodes).toList match {
+          case Nil => ()
+          case missing =>
+            System.err.println(
+              s"Missing unversioned deps in the normalized graph: ${missing.map(_.asString).mkString(" ")}")
+            System.exit(-1)
+        }
 
         val shas = resolver.getShas(normalized.nodes)
         // build the workspace

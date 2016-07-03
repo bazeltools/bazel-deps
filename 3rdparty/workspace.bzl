@@ -51,6 +51,6 @@ def maven_dependencies(callback):
     callback({"artifact": "org.typelevel:cats-kernel_2.11:0.6.0", "name": "org_typelevel_cats_kernel_2_11", "sha1": "03e5711e42a1459d2abfa84e56626bfcd4a1e441"})
     callback({"artifact": "org.typelevel:cats-macros_2.11:0.6.0", "name": "org_typelevel_cats_macros_2_11", "sha1": "c17b5ffff081a41b28a86e7c6047409a530551f6"})
     callback({"artifact": "org.typelevel:machinist_2.11:0.4.1", "name": "org_typelevel_machinist_2_11", "sha1": "5000250cd20d7edd8a2cd827f8786410a22a8317"})
-# duplicates in org.typelevel:macro-compat_2.11 fixed to 1.1.1. Versions: 1.1.0 1.1.1
+# duplicates in org.typelevel:macro-compat_2.11 promoted to 1.1.1. Versions: 1.1.0 1.1.1
     callback({"artifact": "org.typelevel:macro-compat_2.11:1.1.1", "name": "org_typelevel_macro_compat_2_11", "sha1": "0cb87cb74fd5fb118fede3f98075c2044616b35d"})
     callback({"artifact": "org.yaml:snakeyaml:1.12", "name": "org_yaml_snakeyaml", "sha1": "ebe66a6b88caab31d7a19571ad23656377523545"})

@@ -40,17 +40,14 @@ dependencies:
       lang: scala
       modules: [core, kernel, macros, free]
     macro-compat:
-      version: 1.1.1
       lang: scala
 
   com.chuusai:
     shapeless:
-      version: 2.3.1
       lang: scala  # we are not explicitly using this, but need to declare it as scala
 
   com.github.mpilquist:
     simulacrum:
-      version: 0.7.0
       lang: scala # not using explicitly, declaring as scala
 
 replacements:
