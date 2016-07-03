@@ -51,7 +51,7 @@ trait MakeDeps {
 
         val shas = resolver.getShas(normalized.nodes)
         // build the workspace
-        val ws = Writer.workspace(normalized, duplicates, shas, model)
+        def ws = Writer.workspace(normalized, duplicates, shas, model)
         // build the BUILDs in thirdParty
         val targets = Writer.targets(normalized, model)
         // Build up the IO operations that need to run. Till now,

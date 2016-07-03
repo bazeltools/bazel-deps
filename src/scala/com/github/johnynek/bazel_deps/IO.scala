@@ -2,6 +2,7 @@ package com.github.johnynek.bazel_deps
 
 import cats.arrow.NaturalTransformation
 import cats.data.Xor
+import cats.Eval
 import cats.free.Free
 import cats.free.Free.liftF
 import java.io.{File, FileOutputStream}
@@ -18,7 +19,12 @@ object IO {
   sealed abstract class Ops[+T]
   case class Exists(path: Path) extends Ops[Boolean]
   case class MkDirs(path: Path) extends Ops[Boolean]
-  case class WriteFile(f: Path, data: String) extends Ops[Unit]
+  /*
+   * Since we generally only write data once, use Eval
+   * here so by using `always` we can avoid holding
+   * data longer than needed if that is desired.
+   */
+  case class WriteFile(f: Path, data: Eval[String]) extends Ops[Unit]
 
   type Result[T] = Free[Ops, T]
 
@@ -31,8 +37,8 @@ object IO {
   def mkdirs(f: Path): Result[Boolean] =
     liftF[Ops, Boolean](MkDirs(f))
 
-  def writeUtf8(f: Path, s: String): Result[Unit] =
-    liftF[Ops, Unit](WriteFile(f, s))
+  def writeUtf8(f: Path, s: => String): Result[Unit] =
+    liftF[Ops, Unit](WriteFile(f, Eval.always(s)))
 
   type XorTry[T] = Xor[Throwable, T]
 
@@ -48,7 +54,7 @@ object IO {
       case WriteFile(f, d) =>
         Xor.catchNonFatal {
           val os = new FileOutputStream(fileFor(f))
-          try os.write(d.getBytes("UTF-8")) finally { os.close() }
+          try os.write(d.value.getBytes("UTF-8")) finally { os.close() }
         }
     }
   }
