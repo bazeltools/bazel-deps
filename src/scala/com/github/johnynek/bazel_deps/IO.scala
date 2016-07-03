@@ -18,7 +18,7 @@ object IO {
   sealed abstract class Ops[+T]
   case class Exists(path: Path) extends Ops[Boolean]
   case class MkDirs(path: Path) extends Ops[Boolean]
-  case class WriteFile(f: Path, data: Array[Byte]) extends Ops[Unit]
+  case class WriteFile(f: Path, data: String) extends Ops[Unit]
 
   type Result[T] = Free[Ops, T]
 
@@ -31,8 +31,8 @@ object IO {
   def mkdirs(f: Path): Result[Boolean] =
     liftF[Ops, Boolean](MkDirs(f))
 
-  def write(f: Path, d: Array[Byte]): Result[Unit] =
-    liftF[Ops, Unit](WriteFile(f, d))
+  def writeUtf8(f: Path, s: String): Result[Unit] =
+    liftF[Ops, Unit](WriteFile(f, s))
 
   type XorTry[T] = Xor[Throwable, T]
 
@@ -48,7 +48,7 @@ object IO {
       case WriteFile(f, d) =>
         Xor.catchNonFatal {
           val os = new FileOutputStream(fileFor(f))
-          try os.write(d) finally { os.close() }
+          try os.write(d.getBytes("UTF-8")) finally { os.close() }
         }
     }
   }

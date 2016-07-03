@@ -85,7 +85,7 @@ trait MakeDeps {
         // Build up the IO operations that need to run. Till now,
         // nothing was written
         val io = for {
-          _ <- IO.write(IO.Path(workspacePath), ws.getBytes("UTF-8"))
+          _ <- IO.writeUtf8(IO.Path(workspacePath), ws)
           builds <- Writer.createBuildFiles(targets)
         } yield builds
 

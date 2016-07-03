@@ -12,15 +12,14 @@ object Writer {
 
     Traverse[List].traverseU(pathGroups) {
       case (filePath, ts) =>
-        val fileBytes = ts.sortBy(_.name.name)
+        val data = ts.sortBy(_.name.name)
           .map(_.toBazelString)
           .mkString("", "\n\n", "\n")
-          .getBytes("UTF-8")
 
           for {
             b <- IO.exists(filePath)
             _ <- if (b) IO.const(false) else IO.mkdirs(filePath)
-            _ <- IO.write(filePath.child("BUILD"), fileBytes)
+            _ <- IO.writeUtf8(filePath.child("BUILD"), data)
           } yield ()
     }
       .map(_.size)
