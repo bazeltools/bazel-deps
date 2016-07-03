@@ -1,32 +1,37 @@
 package com.github.johnynek.bazel_deps
 
-import java.io.{ File, FileOutputStream }
+import IO.Result
+import cats.Traverse
+import cats.std.list._
+import java.io.File
 import scala.util.{ Failure, Success, Try }
 
 object Writer {
 
-  def createBuildFiles(pathToRoot: File, ts: List[Target]): Unit = {
+  def createBuildFiles(pathToRoot: File, ts: List[Target]): Result[Unit] = {
     require(pathToRoot.isAbsolute, s"Absolute path required, found: $pathToRoot")
     def fileFor(p: Path): File =
       p.parts.foldLeft(pathToRoot) { (p, element) => new File(p, element) }
 
-    ts.groupBy(_.name.path)
-      .foreach { case (path, ts) =>
-        val filePath = fileFor(path)
-        require(filePath.exists || filePath.mkdirs(), s"failed to create $filePath")
-        val buildFile = new File(filePath, "BUILD")
-        val os = new FileOutputStream(buildFile)
-        try {
-          val fileBytes = ts.sortBy(_.name.name)
-            .map(_.toBazelString)
-            .mkString("", "\n\n", "\n")
-            .getBytes("UTF-8")
+    val pathGroups = ts.groupBy(_.name.path).toList
 
-          os.write(fileBytes)
-        } finally {
-          os.close()
-        }
-      }
+    Traverse[List].traverseU(pathGroups) {
+      case (path, ts) =>
+        val filePath = fileFor(path)
+
+        val buildFile = new File(filePath, "BUILD")
+        val fileBytes = ts.sortBy(_.name.name)
+          .map(_.toBazelString)
+          .mkString("", "\n\n", "\n")
+          .getBytes("UTF-8")
+
+          for {
+            b <- IO.exists(filePath)
+            _ <- if (b) IO.const(false) else IO.mkdirs(filePath)
+            _ <- IO.write(buildFile, fileBytes)
+          } yield ()
+    }
+      .map(_ => ())
   }
 
   def workspace(g: Graph[MavenCoordinate, Unit],

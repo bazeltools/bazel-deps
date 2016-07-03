@@ -1,6 +1,7 @@
 package com.github.johnynek.bazel_deps
 
-import java.io.{File, FileOutputStream}
+import java.io.File
+import cats.data.Xor
 
 object MakeDeps {
     def subprojects(language: Language, projPart: String, subs: List[String], version: String) = {
@@ -73,14 +74,23 @@ trait MakeDeps {
           .filter { case (_, set) => set.size > 1 }
 
         val shas = resolver.getShas(normalized.nodes)
-        // write the workspace
-        val ws = new FileOutputStream(new File(workspacePath))
-        ws.write(Writer.workspace(normalized, duplicates, shas, model).getBytes("UTF-8"))
-
-        // write the BUILDs in thirdParty
+        // build the workspace
+        val ws = Writer.workspace(normalized, duplicates, shas, model)
+        // build the BUILDs in thirdParty
         val targets = Writer.targets(normalized, thirdParty, model)
-        Writer.createBuildFiles(new File(projectRoot), targets)
-        println(s"wrote ${targets.size} targets")
+        val io = for {
+          _ <- IO.write(new File(workspacePath), ws.getBytes("UTF-8"))
+          _ <- Writer.createBuildFiles(new File(projectRoot), targets)
+        } yield ()
+
+        // Here we actually run the whole thing
+        io.foldMap(IO.fileSystemExec) match {
+          case Xor.Left(err) =>
+            System.err.println(err)
+            System.exit(-1)
+          case Xor.Right(_) =>
+            println(s"wrote ${targets.size} targets")
+        }
     }
   }
 }

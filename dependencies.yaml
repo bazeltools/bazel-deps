@@ -38,7 +38,7 @@ dependencies:
     cats:
       version: 0.6.0
       lang: scala
-      modules: [core, kernel, macros]
+      modules: [core, kernel, macros, free]
     macro-compat:
       version: 1.1.1
       lang: scala
