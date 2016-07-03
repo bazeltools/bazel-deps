@@ -1,25 +1,17 @@
 package com.github.johnynek.bazel_deps
 
-import IO.Result
+import IO.{Path, Result}
 import cats.Traverse
 import cats.std.list._
-import java.io.File
 import scala.util.{ Failure, Success, Try }
 
 object Writer {
 
-  def createBuildFiles(pathToRoot: File, ts: List[Target]): Result[Unit] = {
-    require(pathToRoot.isAbsolute, s"Absolute path required, found: $pathToRoot")
-    def fileFor(p: Path): File =
-      p.parts.foldLeft(pathToRoot) { (p, element) => new File(p, element) }
-
+  def createBuildFiles(ts: List[Target]): Result[Int] = {
     val pathGroups = ts.groupBy(_.name.path).toList
 
     Traverse[List].traverseU(pathGroups) {
-      case (path, ts) =>
-        val filePath = fileFor(path)
-
-        val buildFile = new File(filePath, "BUILD")
+      case (filePath, ts) =>
         val fileBytes = ts.sortBy(_.name.name)
           .map(_.toBazelString)
           .mkString("", "\n\n", "\n")
@@ -28,10 +20,10 @@ object Writer {
           for {
             b <- IO.exists(filePath)
             _ <- if (b) IO.const(false) else IO.mkdirs(filePath)
-            _ <- IO.write(buildFile, fileBytes)
+            _ <- IO.write(filePath.child("BUILD"), fileBytes)
           } yield ()
     }
-      .map(_ => ())
+      .map(_.size)
   }
 
   def workspace(g: Graph[MavenCoordinate, Unit],
@@ -124,7 +116,6 @@ object Writer {
   }
 }
 
-case class Path(parts: List[String])
 case class Label(workspace: Option[String], path: Path, name: String) {
   def asStringFrom(p: Path): String = {
     val nmPart = if (name.isEmpty) "" else s":$name"

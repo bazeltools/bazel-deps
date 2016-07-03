@@ -11,34 +11,43 @@ import java.io.{File, FileOutputStream}
  */
 
 object IO {
+  case class Path(parts: List[String]) {
+    def child(p: String): Path = Path(parts ++ List(p))
+  }
+
   sealed abstract class Ops[+T]
-  case class Exists(path: File) extends Ops[Boolean]
-  case class MkDirs(path: File) extends Ops[Boolean]
-  case class WriteFile(f: File, data: Array[Byte]) extends Ops[Unit]
+  case class Exists(path: Path) extends Ops[Boolean]
+  case class MkDirs(path: Path) extends Ops[Boolean]
+  case class WriteFile(f: Path, data: Array[Byte]) extends Ops[Unit]
 
   type Result[T] = Free[Ops, T]
 
   def const[T](t: T): Result[T] =
     Free.pure[Ops, T](t)
 
-  def exists(f: File): Result[Boolean] =
+  def exists(f: Path): Result[Boolean] =
     liftF[Ops, Boolean](Exists(f))
 
-  def mkdirs(f: File): Result[Boolean] =
+  def mkdirs(f: Path): Result[Boolean] =
     liftF[Ops, Boolean](MkDirs(f))
 
-  def write(f: File, d: Array[Byte]): Result[Unit] =
+  def write(f: Path, d: Array[Byte]): Result[Unit] =
     liftF[Ops, Unit](WriteFile(f, d))
 
   type XorTry[T] = Xor[Throwable, T]
 
-  def fileSystemExec: NaturalTransformation[Ops, XorTry] = new NaturalTransformation[Ops, XorTry] {
+  def fileSystemExec(root: File): NaturalTransformation[Ops, XorTry] = new NaturalTransformation[Ops, XorTry] {
+    require(root.isAbsolute, s"Absolute path required, found: $root")
+
+    def fileFor(p: Path): File =
+      p.parts.foldLeft(root) { (p, element) => new File(p, element) }
+
     def apply[A](o: Ops[A]): Xor[Throwable, A] = o match {
-      case Exists(f) => Xor.catchNonFatal(f.exists())
-      case MkDirs(f) => Xor.catchNonFatal(f.mkdirs())
+      case Exists(f) => Xor.catchNonFatal(fileFor(f).exists())
+      case MkDirs(f) => Xor.catchNonFatal(fileFor(f).mkdirs())
       case WriteFile(f, d) =>
         Xor.catchNonFatal {
-          val os = new FileOutputStream(f)
+          val os = new FileOutputStream(fileFor(f))
           try os.write(d) finally { os.close() }
         }
     }

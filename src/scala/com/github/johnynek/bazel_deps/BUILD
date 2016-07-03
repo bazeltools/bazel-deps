@@ -74,12 +74,6 @@ scala_binary(name = "parseproject",
              main_class = "com.github.johnynek.bazel_deps.ParseProject",
              visibility = ["//visibility:public"])
 
-scala_binary(name = "projectmodel",
-             srcs = ["ProjectModel.scala"],
-             deps = [":makedeps", ":depsmodel" ],
-             main_class = "com.github.johnynek.bazel_deps.ProjectModel",
-             visibility = ["//visibility:public"])
-
 scala_library(name = "circeyaml",
               srcs = ["CirceYaml.scala"],
               deps = [

@@ -8,8 +8,8 @@ support.
 Run parseproject on your project yaml file. For instance, this project is setup with:
 
 ```bash
-bazel build src/scala/com/github/johnynek/bazel_deps:parseproject
-./gen_maven_deps.sh `pwd`/3rdparty/workspace.bzl `pwd` `pwd`/dependencies.yaml
+bazel build src/scala/com/github/johnynek/bazel_deps:parseproject_deploy.jar
+./gen_maven_deps.sh `pwd` 3rdparty/workspace.bzl dependencies.yaml
 ```
 We give three arguments: the path to the file we will include in our workspace. The path to the root
 of our bazel repo. The path to the dependencies file.

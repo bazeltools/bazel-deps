@@ -44,7 +44,12 @@ object MakeDeps {
 }
 
 trait MakeDeps {
-  def getSettings(args: Array[String]): (Model, String, String)
+  /**
+   * the second item is a relative path to the workspace.bzl file
+   * we will create. The third item is an absolute path to the root
+   * of the directory
+   */
+  def getSettings(args: Array[String]): (Model, List[String], File)
 
   def main(args: Array[String]): Unit = {
     val (model, workspacePath, projectRoot) = getSettings(args)
@@ -79,17 +84,17 @@ trait MakeDeps {
         // build the BUILDs in thirdParty
         val targets = Writer.targets(normalized, thirdParty, model)
         val io = for {
-          _ <- IO.write(new File(workspacePath), ws.getBytes("UTF-8"))
-          _ <- Writer.createBuildFiles(new File(projectRoot), targets)
-        } yield ()
+          _ <- IO.write(IO.Path(workspacePath), ws.getBytes("UTF-8"))
+          builds <- Writer.createBuildFiles(targets)
+        } yield builds
 
         // Here we actually run the whole thing
-        io.foldMap(IO.fileSystemExec) match {
+        io.foldMap(IO.fileSystemExec(projectRoot)) match {
           case Xor.Left(err) =>
             System.err.println(err)
             System.exit(-1)
-          case Xor.Right(_) =>
-            println(s"wrote ${targets.size} targets")
+          case Xor.Right(builds) =>
+            println(s"wrote ${targets.size} targets in $builds BUILD files")
         }
     }
   }
