@@ -53,7 +53,6 @@ trait MakeDeps {
 
   def main(args: Array[String]): Unit = {
     val (model, workspacePath, projectRoot) = getSettings(args)
-    val thirdParty = model.getOptions.getThirdPartyDirectory
     val deps = model.dependencies
     val resolver = new Resolver(model.getOptions.getResolvers)
     val graph = resolver.addAll(Graph.empty, deps.roots, model.getReplacements)
@@ -82,7 +81,9 @@ trait MakeDeps {
         // build the workspace
         val ws = Writer.workspace(normalized, duplicates, shas, model)
         // build the BUILDs in thirdParty
-        val targets = Writer.targets(normalized, thirdParty, model)
+        val targets = Writer.targets(normalized, model)
+        // Build up the IO operations that need to run. Till now,
+        // nothing was written
         val io = for {
           _ <- IO.write(IO.Path(workspacePath), ws.getBytes("UTF-8"))
           builds <- Writer.createBuildFiles(targets)

@@ -64,8 +64,8 @@ object Writer {
   }
 
   def targets(g: Graph[MavenCoordinate, Unit],
-    rootName: DirectoryName,
     model: Model): List[Target] = {
+    val rootName = model.getOptions.getThirdPartyDirectory
     val pathInRoot = rootName.parts
 
     val langCache = scala.collection.mutable.Map[MavenCoordinate, Language]()
