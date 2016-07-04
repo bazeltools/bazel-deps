@@ -6,21 +6,21 @@ java_library(name = "maven_aether_provider",
                         "//3rdparty/jvm/org/eclipse/aether:aether_spi",
                         "//3rdparty/jvm/org/eclipse/aether:aether_util",
                         "//3rdparty/jvm/org/eclipse/sisu:org_eclipse_sisu_plexus",
+                        "//external:jar/org/apache/maven/maven_aether_provider",
                         ":maven_model",
                         ":maven_model_builder",
-                        ":maven_repository_metadata",
-                        "@org_apache_maven_maven_aether_provider//jar"],
+                        ":maven_repository_metadata"],
              visibility = ["//visibility:public"])
 
 java_library(name = "maven_model",
-             exports = ["@org_apache_maven_maven_model//jar"],
+             exports = ["//external:jar/org/apache/maven/maven_model"],
              visibility = ["//visibility:public"])
 
 java_library(name = "maven_model_builder",
              exports = ["//3rdparty/jvm/org/codehaus/plexus:plexus_interpolation",
-                        "@org_apache_maven_maven_model_builder//jar"],
+                        "//external:jar/org/apache/maven/maven_model_builder"],
              visibility = ["//visibility:public"])
 
 java_library(name = "maven_repository_metadata",
-             exports = ["@org_apache_maven_maven_repository_metadata//jar"],
+             exports = ["//external:jar/org/apache/maven/maven_repository_metadata"],
              visibility = ["//visibility:public"])

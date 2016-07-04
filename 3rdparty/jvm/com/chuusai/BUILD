@@ -1,3 +1,3 @@
 scala_library(name = "shapeless",
-              exports = ["@com_chuusai_shapeless_2_11//jar:file"],
+              exports = ["//external:jar/com/chuusai/shapeless_2_11"],
               visibility = ["//visibility:public"])

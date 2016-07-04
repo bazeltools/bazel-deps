@@ -4,3 +4,4 @@ def declare_maven(item):
     native.maven_jar(name = item["name"], artifact = item["artifact"], sha1 = sha)
   else:
     native.maven_jar(name = item["name"], artifact = item["artifact"])
+  native.bind(name = item["bind"], actual = item["actual"])

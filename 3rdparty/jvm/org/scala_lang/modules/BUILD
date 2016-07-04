@@ -1,3 +1,3 @@
 java_library(name = "scala_parser_combinators_2_11",
-             exports = ["@org_scala_lang_modules_scala_parser_combinators_2_11//jar"],
+             exports = ["//external:jar/org/scala_lang/modules/scala_parser_combinators_2_11"],
              visibility = ["//visibility:public"])

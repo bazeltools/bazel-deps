@@ -1,3 +1,3 @@
 java_library(name = "asm",
-             exports = ["@asm_asm//jar"],
+             exports = ["//external:jar/asm/asm"],
              visibility = ["//visibility:public"])

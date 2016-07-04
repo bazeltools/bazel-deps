@@ -140,17 +140,6 @@ object MavenArtifactId {
 case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, version: Version) {
   def unversioned: UnversionedCoordinate = UnversionedCoordinate(group, artifact)
   def asString: String = s"${group.asString}:${artifact.asString}:${version.asString}"
-  /**
-   * This is a bazel-safe name to use as a remote repo name
-   */
-  def toBazelRepoName: String =
-    unversioned.asString.map {
-      case '.' => "_"  // todo, we should have something such that if a != b this can't be equal, but this can
-      case '-' => "_"
-      case ':' => "_"
-      case other => other
-    }
-    .mkString
 }
 
 object MavenCoordinate {
@@ -169,6 +158,7 @@ object MavenCoordinate {
 }
 
 sealed abstract class Language {
+  def asString: String
   def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate
   def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate
   def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate
@@ -177,6 +167,7 @@ sealed abstract class Language {
 
 object Language {
   case object Java extends Language {
+    def asString = "java"
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
       MavenCoordinate(g, MavenArtifactId(a), v)
 
@@ -191,6 +182,7 @@ object Language {
   }
 
   case class Scala(v: Version, mangle: Boolean) extends Language {
+    def asString = if (mangle) "scala" else "scala/unmangled"
     val major = v.asString.split('.') match {
       case Array("2", x) if (x.toInt >= 10) => s"2.$x"
       case Array("2", x, _) if (x.toInt >= 10) => s"2.$x"
@@ -224,6 +216,29 @@ object Language {
 
 case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
   def asString: String = s"${group.asString}:${artifact.asString}"
+  /**
+   * This is a bazel-safe name to use as a remote repo name
+   */
+  def toBazelRepoName: String =
+    asString.map {
+      case '.' => "_"  // todo, we should have something such that if a != b this can't be equal, but this can
+      case '-' => "_"
+      case ':' => "_"
+      case other => other
+    }
+    .mkString
+
+  def toBindingName: String = {
+    val g = group.asString.map {
+      case '.' => '/'
+      case o => o
+    }
+    s"jar/$g/${artifact.asString}".map {
+      case '.' | '-' => '_'
+      case o => o
+    }
+  }
+  def bindTarget: String = s"//external:$toBindingName"
 }
 
 case class ProjectRecord(

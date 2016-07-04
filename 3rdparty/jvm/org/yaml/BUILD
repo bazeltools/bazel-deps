@@ -1,3 +1,3 @@
 java_library(name = "snakeyaml",
-             exports = ["@org_yaml_snakeyaml//jar"],
+             exports = ["//external:jar/org/yaml/snakeyaml"],
              visibility = ["//visibility:public"])

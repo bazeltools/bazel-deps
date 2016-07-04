@@ -1,41 +1,41 @@
 java_library(name = "aether_api",
-             exports = ["@org_eclipse_aether_aether_api//jar"],
+             exports = ["//external:jar/org/eclipse/aether/aether_api"],
              visibility = ["//visibility:public"])
 
 java_library(name = "aether_connector_basic",
-             exports = [":aether_api",
+             exports = ["//external:jar/org/eclipse/aether/aether_connector_basic",
+                        ":aether_api",
                         ":aether_spi",
-                        ":aether_util",
-                        "@org_eclipse_aether_aether_connector_basic//jar"],
+                        ":aether_util"],
              visibility = ["//visibility:public"])
 
 java_library(name = "aether_impl",
-             exports = [":aether_api",
+             exports = ["//external:jar/org/eclipse/aether/aether_impl",
+                        ":aether_api",
                         ":aether_spi",
-                        ":aether_util",
-                        "@org_eclipse_aether_aether_impl//jar"],
+                        ":aether_util"],
              visibility = ["//visibility:public"])
 
 java_library(name = "aether_spi",
-             exports = ["@org_eclipse_aether_aether_spi//jar"],
+             exports = ["//external:jar/org/eclipse/aether/aether_spi"],
              visibility = ["//visibility:public"])
 
 java_library(name = "aether_transport_file",
-             exports = [":aether_api",
+             exports = ["//external:jar/org/eclipse/aether/aether_transport_file",
+                        ":aether_api",
                         ":aether_spi",
-                        ":aether_util",
-                        "@org_eclipse_aether_aether_transport_file//jar"],
+                        ":aether_util"],
              visibility = ["//visibility:public"])
 
 java_library(name = "aether_transport_http",
              exports = ["//3rdparty/jvm/org/apache/httpcomponents:httpclient",
                         "//3rdparty/jvm/org/slf4j:jcl_over_slf4j",
+                        "//external:jar/org/eclipse/aether/aether_transport_http",
                         ":aether_api",
                         ":aether_spi",
-                        ":aether_util",
-                        "@org_eclipse_aether_aether_transport_http//jar"],
+                        ":aether_util"],
              visibility = ["//visibility:public"])
 
 java_library(name = "aether_util",
-             exports = ["@org_eclipse_aether_aether_util//jar"],
+             exports = ["//external:jar/org/eclipse/aether/aether_util"],
              visibility = ["//visibility:public"])

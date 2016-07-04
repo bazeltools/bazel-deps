@@ -1,15 +1,15 @@
 java_library(name = "plexus_classworlds",
-             exports = ["@org_codehaus_plexus_plexus_classworlds//jar"],
+             exports = ["//external:jar/org/codehaus/plexus/plexus_classworlds"],
              visibility = ["//visibility:public"])
 
 java_library(name = "plexus_component_annotations",
-             exports = ["@org_codehaus_plexus_plexus_component_annotations//jar"],
+             exports = ["//external:jar/org/codehaus/plexus/plexus_component_annotations"],
              visibility = ["//visibility:public"])
 
 java_library(name = "plexus_interpolation",
-             exports = ["@org_codehaus_plexus_plexus_interpolation//jar"],
+             exports = ["//external:jar/org/codehaus/plexus/plexus_interpolation"],
              visibility = ["//visibility:public"])
 
 java_library(name = "plexus_utils",
-             exports = ["@org_codehaus_plexus_plexus_utils//jar"],
+             exports = ["//external:jar/org/codehaus/plexus/plexus_utils"],
              visibility = ["//visibility:public"])

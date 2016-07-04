@@ -1,8 +1,8 @@
 java_library(name = "jcl_over_slf4j",
-             exports = [":slf4j_api",
-                        "@org_slf4j_jcl_over_slf4j//jar"],
+             exports = ["//external:jar/org/slf4j/jcl_over_slf4j",
+                        ":slf4j_api"],
              visibility = ["//visibility:public"])
 
 java_library(name = "slf4j_api",
-             exports = ["@org_slf4j_slf4j_api//jar"],
+             exports = ["//external:jar/org/slf4j/slf4j_api"],
              visibility = ["//visibility:public"])
