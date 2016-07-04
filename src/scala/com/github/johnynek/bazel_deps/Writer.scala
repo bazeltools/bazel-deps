@@ -33,6 +33,7 @@ object Writer {
 
     def replaced(m: MavenCoordinate): Boolean = model.getReplacements.get(m.unversioned).isDefined
 
+    val lang = language(g, model)
     val lines = nodes.filterNot(replaced)
       .toList
       .sortBy(_.asString)
@@ -56,19 +57,25 @@ object Writer {
           case None =>
             ""
         }
-        s"""$comment    callback({"artifact": "${coord.asString}", "name": "${coord.toBazelRepoName}"$shaStr})"""
+        val l = lang(coord)
+        val actual = Label.externalJar(l, coord.unversioned)
+        def kv(key: String, value: String): String =
+          s""""$key": "$value""""
+        List(s"""$comment    callback({${kv("artifact", coord.asString)}""",
+             s"""${kv("lang", l.asString)}$shaStr""",
+             s"""${kv("name", coord.unversioned.toBazelRepoName)}""",
+             s"""${kv("actual", actual.asStringFrom(Path(Nil)))}""",
+             s"""${kv("bind", coord.unversioned.toBindingName)}})""").mkString(", ")
       }
       .mkString("\n")
     s"""def maven_dependencies(callback):\n$lines\n"""
   }
 
-  def targets(g: Graph[MavenCoordinate, Unit],
-    model: Model): List[Target] = {
-    val rootName = model.getOptions.getThirdPartyDirectory
-    val pathInRoot = rootName.parts
+  def language(g: Graph[MavenCoordinate, Unit],
+    model: Model): MavenCoordinate => Language = {
 
     val langCache = scala.collection.mutable.Map[MavenCoordinate, Language]()
-    def language(c: MavenCoordinate): Language = langCache.getOrElseUpdate(c, {
+    def lang(c: MavenCoordinate): Language = langCache.getOrElseUpdate(c, {
       import Language.{ Java, Scala }
 
       model.dependencies.languageOf(c.unversioned) match {
@@ -82,7 +89,7 @@ object Writer {
               g.hasSource(c)
                 .iterator
                 .map(_.destination)
-                .map(language(_))
+                .map(lang(_))
                 .collectFirst {
                   case s@Scala(v, _) =>
                     val mangled = s.removeSuffix(c.unversioned.asString).isDefined
@@ -93,6 +100,15 @@ object Writer {
       }
     })
 
+    { m => lang(m) }
+  }
+
+  def targets(g: Graph[MavenCoordinate, Unit],
+    model: Model): List[Target] = {
+    val rootName = model.getOptions.getThirdPartyDirectory
+    val pathInRoot = rootName.parts
+
+    val langFn = language(g, model)
     /*
      * We make 1 label for each target, the path
      * and name are derived from the MavenCoordinate
@@ -104,8 +120,7 @@ object Writer {
       val (lab, lang) =
         Label.replaced(c, model.getReplacements)
           .getOrElse {
-            val lang = language(c)
-            (Label.externalJar(lang, c), lang)
+            (Label.parse(c.unversioned.bindTarget), langFn(c))
           }
       val exports = lab :: depLabels
       Target(lang, Label.localTarget(pathInRoot, c, lang), Nil, exports, Nil)
@@ -138,10 +153,10 @@ object Label {
     val target = pathAndTarg.drop(1 + pathStr.length)
     Label(ws, Path(pathStr.split('/').toList), target)
   }
-  def externalJar(lang: Language, m: MavenCoordinate): Label = lang match {
-    case Language.Java => Label(Some(m.toBazelRepoName), Path(List("jar")), "")
+  def externalJar(lang: Language, u: UnversionedCoordinate): Label = lang match {
+    case Language.Java => Label(Some(u.toBazelRepoName), Path(List("jar")), "")
     // If we know we have a scala jar, just use ":file" to be sure we can deal with macros
-    case Language.Scala(_, _) => Label(Some(m.toBazelRepoName), Path(List("jar")), "file")
+    case Language.Scala(_, _) => Label(Some(u.toBazelRepoName), Path(List("jar")), "file")
   }
 
   def replaced(m: MavenCoordinate, r: Replacements): Option[(Label, Language)] =
