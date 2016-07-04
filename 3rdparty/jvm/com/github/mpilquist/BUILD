@@ -1,4 +1,4 @@
 scala_library(name = "simulacrum",
               exports = ["//3rdparty/jvm/org/typelevel:macro_compat",
-                         "@com_github_mpilquist_simulacrum_2_11//jar:file"],
+                         "//external:jar/com/github/mpilquist/simulacrum_2_11"],
               visibility = ["//visibility:public"])

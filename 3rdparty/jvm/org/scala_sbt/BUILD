@@ -1,3 +1,3 @@
 java_library(name = "test_interface",
-             exports = ["@org_scala_sbt_test_interface//jar"],
+             exports = ["//external:jar/org/scala_sbt/test_interface"],
              visibility = ["//visibility:public"])
