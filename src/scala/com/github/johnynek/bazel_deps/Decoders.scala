@@ -9,6 +9,13 @@ object Decoders {
   implicit val subprojDecoder: Decoder[Subproject] = stringWrapper(Subproject(_))
   implicit val dirnameDecoder: Decoder[DirectoryName] = stringWrapper(DirectoryName(_))
   implicit val targetDecoder: Decoder[BazelTarget] = stringWrapper(BazelTarget(_))
+  implicit val groupArtDecoder: Decoder[(MavenGroup, ArtifactOrProject)] =
+    Decoder.decodeString.emap { s =>
+      s.split(':') match {
+        case Array(g, a) => Xor.right((MavenGroup(g), ArtifactOrProject(a)))
+        case _ => Xor.left(s"did not find exactly one ':' in $s")
+      }
+    }
   implicit val resolverDecorder: Decoder[MavenServer] =
     Decoder.decodeMapLike[Map, String, String].emap { smap =>
       def expect(k: String): Xor[String, String] =

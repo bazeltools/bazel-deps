@@ -41,19 +41,30 @@ trait MakeDeps {
          * Make sure all the optional versioned items were found
          */
         val uvNodes = normalized.nodes.map(_.unversioned)
-        deps.unversionedRoots.filterNot(uvNodes).toList match {
-          case Nil => ()
-          case missing =>
-            System.err.println(
-              s"Missing unversioned deps in the normalized graph: ${missing.map(_.asString).mkString(" ")}")
-            System.exit(-1)
-        }
+        deps.unversionedRoots.filterNot { u =>
+            uvNodes(u) || model.getReplacements.get(u).isDefined
+          }.toList match {
+            case Nil => ()
+            case missing =>
+              System.err.println(
+                s"Missing unversioned deps in the normalized graph: ${missing.map(_.asString).mkString(" ")}")
+              System.exit(-1)
+          }
 
-        val shas = resolver.getShas(normalized.nodes)
+        def replaced(m: MavenCoordinate): Boolean =
+          model.getReplacements.get(m.unversioned).isDefined
+
+        val shas = resolver.getShas(normalized.nodes.filterNot(replaced))
         // build the workspace
         def ws = Writer.workspace(normalized, duplicates, shas, model)
         // build the BUILDs in thirdParty
-        val targets = Writer.targets(normalized, model)
+        val targets = Writer.targets(normalized, model) match {
+          case Right(t) => t
+          case Left(err) =>
+            System.err.println(s"""Could not find explicit exports named by: ${err.mkString(", ")}""")
+            System.exit(-1)
+            sys.error("exited already")
+        }
         // Build up the IO operations that need to run. Till now,
         // nothing was written
         val io = for {
