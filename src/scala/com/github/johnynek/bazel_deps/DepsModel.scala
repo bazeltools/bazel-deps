@@ -40,7 +40,17 @@ object Model {
 }
 
 case class MavenGroup(asString: String)
-case class ArtifactOrProject(asString: String)
+case class ArtifactOrProject(asString: String) {
+  def splitSubprojects: List[(ArtifactOrProject, Subproject)] =
+    if (asString.contains('-')) {
+      val parts = asString.split('-').toList
+      (1 until parts.size).map { i =>
+        val (a, s) = parts.splitAt(i)
+        (ArtifactOrProject(a.mkString("-")), Subproject(s.mkString("-")))
+      }.toList
+    }
+    else Nil
+}
 case class Subproject(asString: String)
 case class Version(asString: String)
 case class Sha1Value(toHex: String)
@@ -244,7 +254,8 @@ case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
 case class ProjectRecord(
   lang: Language,
   version: Option[Version],
-  modules: Option[List[Subproject]]) {
+  modules: Option[List[Subproject]],
+  exports: Option[List[(MavenGroup, ArtifactOrProject)]]) {
 
   def getModules: List[Subproject] = modules.getOrElse(Nil)
 
@@ -262,9 +273,47 @@ case class ProjectRecord(
       case Nil => List(lang.unversioned(g, ap))
       case mods => mods.map { m => lang.unversioned(g, ap, m) }
     }
+
 }
 
 case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]]) {
+  // Returns 1 if there is exactly one candidate that matches.
+  private def unversionedCoordinatesOf(g: MavenGroup, a: ArtifactOrProject): Option[UnversionedCoordinate] =
+    toMap.get(g).flatMap { ap =>
+      a.splitSubprojects match {
+        case Nil =>
+          ap.get(a).map(_.allDependencies(g, a)) match {
+            case Some(h :: Nil) => Some(h)
+            case other => println(other); None // 0 or more than one
+          }
+        case parts =>
+          // This can be split, but may not be:
+          val unsplit = ap.get(a).map(_.lang.unversioned(g, a)).toSet
+          val uvcs = unsplit.union(parts.flatMap { case (proj, subproj) =>
+            ap.get(proj)
+              .map { pr => pr.getModules.filter(_ == subproj).map((_, pr.lang)) }
+              .getOrElse(Nil)
+              .map { case (m, lang) => lang.unversioned(g, proj, m) }
+          }
+          .toSet)
+        if (uvcs.size == 1) Some(uvcs.head) else None
+      }
+    }
+
+  def exportedUnversioned(u: UnversionedCoordinate,
+    r: Replacements): Either[List[(MavenGroup, ArtifactOrProject)], List[UnversionedCoordinate]] =
+
+    recordOf(u).flatMap(_.exports) match {
+      case None => Right(Nil)
+      case Some(l) =>
+        def uv(g: MavenGroup, a: ArtifactOrProject): Option[UnversionedCoordinate] =
+          unversionedCoordinatesOf(g, a).orElse(r.unversionedCoordinatesOf(g, a))
+
+        val errs = l.filter { case (g, a) => uv(g, a).isEmpty }
+        if (errs.nonEmpty) Left(errs)
+        else Right(l.flatMap { case (g, a) => uv(g, a) })
+    }
+
   private val coordToProj: Map[MavenCoordinate, ProjectRecord] =
     (for {
       (g, m) <- toMap.iterator
@@ -312,15 +361,21 @@ case class ReplacementRecord(
   target: BazelTarget)
 
 case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, ReplacementRecord]]) {
-  private val uvToRec: Map[UnversionedCoordinate, ReplacementRecord] =
+  val unversionedToReplacementRecord: Map[UnversionedCoordinate, ReplacementRecord] =
     toMap.flatMap { case (g, projs) =>
       projs.map { case (a, r) =>
         r.lang.unversioned(g, a) -> r
       }
     }
 
+  def unversionedCoordinatesOf(g: MavenGroup, a: ArtifactOrProject): Option[UnversionedCoordinate] =
+    for {
+      m <- toMap.get(g)
+      r <- m.get(a)
+    } yield r.lang.unversioned(g, a)
+
   def get(uv: UnversionedCoordinate): Option[ReplacementRecord] =
-    uvToRec.get(uv)
+    unversionedToReplacementRecord.get(uv)
 }
 
 object Replacements {

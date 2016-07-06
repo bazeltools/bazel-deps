@@ -57,7 +57,7 @@ object Writer {
           case None =>
             ""
         }
-        val l = lang(coord)
+        val l = lang(coord.unversioned)
         val actual = Label.externalJar(l, coord.unversioned)
         def kv(key: String, value: String): String =
           s""""$key": "$value""""
@@ -72,27 +72,31 @@ object Writer {
   }
 
   def language(g: Graph[MavenCoordinate, Unit],
-    model: Model): MavenCoordinate => Language = {
+    model: Model): UnversionedCoordinate => Language = {
+    /**
+     * Here are all the explicit artifacts
+     */
+    val uvToVerExplicit = g.nodes.map { c => (c.unversioned, c) }.toMap
 
-    val langCache = scala.collection.mutable.Map[MavenCoordinate, Language]()
-    def lang(c: MavenCoordinate): Language = langCache.getOrElseUpdate(c, {
+    val langCache = scala.collection.mutable.Map[UnversionedCoordinate, Language]()
+    def lang(u: UnversionedCoordinate): Language = langCache.getOrElseUpdate(u, {
       import Language.{ Java, Scala }
 
-      model.dependencies.languageOf(c.unversioned) match {
+      model.dependencies.languageOf(u) match {
         case Some(l) => l
         case None =>
-          Label.replaced(c, model.getReplacements) match {
+          Label.replaced(u, model.getReplacements) match {
             case Some((_, l)) => l
             case None =>
               // if you have any scala dependencies, you have to be handled by the
               // scala rule for now, otherwise we say java
-              g.hasSource(c)
+              g.hasSource(uvToVerExplicit(u))
                 .iterator
                 .map(_.destination)
-                .map(lang(_))
+                .map { c => lang(c.unversioned) }
                 .collectFirst {
                   case s@Scala(v, _) =>
-                    val mangled = s.removeSuffix(c.unversioned.asString).isDefined
+                    val mangled = s.removeSuffix(u.asString).isDefined
                     Scala(v, mangled)
                 }
                 .getOrElse(Java)
@@ -104,29 +108,67 @@ object Writer {
   }
 
   def targets(g: Graph[MavenCoordinate, Unit],
-    model: Model): List[Target] = {
-    val rootName = model.getOptions.getThirdPartyDirectory
-    val pathInRoot = rootName.parts
-
-    val langFn = language(g, model)
-    /*
-     * We make 1 label for each target, the path
-     * and name are derived from the MavenCoordinate
+    model: Model): Either[List[UnversionedCoordinate], List[Target]] = {
+    /**
+     * Check that all the exports are well-defined
+     * TODO make sure to write targets for replaced nodes
      */
-    val cache = scala.collection.mutable.Map[MavenCoordinate, Target]()
-    def coordToTarget(c: MavenCoordinate): Target = cache.getOrElseUpdate(c, {
-      val deps = g.hasSource(c)
-      val depLabels = deps.map { e => coordToTarget(e.destination).name }.toList
-      val (lab, lang) =
-        Label.replaced(c, model.getReplacements)
-          .getOrElse {
-            (Label.parse(c.unversioned.bindTarget), langFn(c))
-          }
-      val exports = lab :: depLabels
-      Target(lang, Label.localTarget(pathInRoot, c, lang), Nil, exports, Nil)
-    })
+    val badExports =
+      g.nodes.filter { c =>
+        model.dependencies.exportedUnversioned(c.unversioned, model.getReplacements).isLeft
+      }
 
-    g.nodes.iterator.map(coordToTarget).toList
+    /**
+     * Here are all the explicit artifacts
+     */
+    val uvToVerExplicit = g.nodes.map { c => (c.unversioned, c) }.toMap
+    /**
+     * Here are any that are replaced, they may not appear above:
+     */
+    val uvToRep = model.getReplacements.unversionedToReplacementRecord
+
+    /**
+     * Here are all the unversioned artifacts we need to create targets for:
+     */
+    val allUnversioned: Set[UnversionedCoordinate] = uvToVerExplicit.keySet.union(uvToRep.keySet)
+
+    if (badExports.nonEmpty) Left(badExports.toList.map(_.unversioned))
+    else {
+      val rootName = model.getOptions.getThirdPartyDirectory
+      val pathInRoot = rootName.parts
+
+      val langFn = language(g, model)
+      def replacedTarget(u: UnversionedCoordinate): Option[Target] =
+        Label.replaced(u, model.getReplacements).map { case (lab, lang) =>
+          Target(lang, Label.localTarget(pathInRoot, u, lang), Nil, List(lab), Nil)
+        }
+      /*
+       * We make 1 label for each target, the path
+       * and name are derived from the MavenCoordinate
+       */
+      val cache = scala.collection.mutable.Map[UnversionedCoordinate, Target]()
+      def coordToTarget(u: UnversionedCoordinate): Target = cache.getOrElseUpdate(u, {
+        val deps = g.hasSource(uvToVerExplicit(u))
+        val depLabels = deps.map { e => targetFor(e.destination.unversioned).name }.toList
+        def labLang(u: UnversionedCoordinate): (Label, Language) =
+          Label.replaced(u, model.getReplacements)
+            .getOrElse {
+              (Label.parse(u.bindTarget), langFn(u))
+            }
+        val (lab, lang) = labLang(u)
+        // Build explicit exports:
+        val uvexports = model.dependencies
+          .exportedUnversioned(u, model.getReplacements).right.get
+          .map(labLang(_)._1)
+
+        val exports = lab :: (depLabels ::: uvexports)
+        Target(lang, Label.localTarget(pathInRoot, u, lang), Nil, exports, Nil)
+      })
+      def targetFor(u: UnversionedCoordinate): Target =
+        replacedTarget(u).getOrElse(coordToTarget(u))
+
+      Right(allUnversioned.iterator.map(targetFor).toList)
+    }
   }
 }
 
@@ -159,12 +201,12 @@ object Label {
     case Language.Scala(_, _) => Label(Some(u.toBazelRepoName), Path(List("jar")), "file")
   }
 
-  def replaced(m: MavenCoordinate, r: Replacements): Option[(Label, Language)] =
-    r.get(m.unversioned).map { rr =>
+  def replaced(u: UnversionedCoordinate, r: Replacements): Option[(Label, Language)] =
+    r.get(u).map { rr =>
       (Label.parse(rr.target.asString), rr.lang)
     }
 
-  def localTarget(pathToRoot: List[String], m: MavenCoordinate, lang: Language): Label = {
+  def localTarget(pathToRoot: List[String], m: UnversionedCoordinate, lang: Language): Label = {
     val p = Path(pathToRoot ::: (m.group.asString.map {
       case '.' => '/'
       case '-' => '_'
