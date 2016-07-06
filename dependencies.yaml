@@ -59,7 +59,7 @@ replacements:
       lang: scala/unmangled
       target: "//3rdparty/manual:scala_reflect_file"
 
-  org.scala.modules:
+  org.scala-lang.modules:
     scala-parser-combinators:
       lang: scala
       target: "//3rdparty/manual:scala_parser_combinators_file"

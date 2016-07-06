@@ -300,13 +300,18 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
       }
     }
 
-  def exportedUnversioned(u: UnversionedCoordinate): Either[List[(MavenGroup, ArtifactOrProject)], List[UnversionedCoordinate]] =
+  def exportedUnversioned(u: UnversionedCoordinate,
+    r: Replacements): Either[List[(MavenGroup, ArtifactOrProject)], List[UnversionedCoordinate]] =
+
     recordOf(u).flatMap(_.exports) match {
       case None => Right(Nil)
       case Some(l) =>
-        val errs = l.filter { case (g, a) => unversionedCoordinatesOf(g, a).isEmpty }
+        def uv(g: MavenGroup, a: ArtifactOrProject): Option[UnversionedCoordinate] =
+          unversionedCoordinatesOf(g, a).orElse(r.unversionedCoordinatesOf(g, a))
+
+        val errs = l.filter { case (g, a) => uv(g, a).isEmpty }
         if (errs.nonEmpty) Left(errs)
-        else Right(l.flatMap { case (g, a) => unversionedCoordinatesOf(g, a) })
+        else Right(l.flatMap { case (g, a) => uv(g, a) })
     }
 
   private val coordToProj: Map[MavenCoordinate, ProjectRecord] =
@@ -362,6 +367,12 @@ case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, Replacemen
         r.lang.unversioned(g, a) -> r
       }
     }
+
+  def unversionedCoordinatesOf(g: MavenGroup, a: ArtifactOrProject): Option[UnversionedCoordinate] =
+    for {
+      m <- toMap.get(g)
+      r <- m.get(a)
+    } yield r.lang.unversioned(g, a)
 
   def get(uv: UnversionedCoordinate): Option[ReplacementRecord] =
     unversionedToReplacementRecord.get(uv)

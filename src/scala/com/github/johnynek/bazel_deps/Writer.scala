@@ -114,7 +114,9 @@ object Writer {
      * TODO make sure to write targets for replaced nodes
      */
     val badExports =
-      g.nodes.filter { c => model.dependencies.exportedUnversioned(c.unversioned).isLeft }
+      g.nodes.filter { c =>
+        model.dependencies.exportedUnversioned(c.unversioned, model.getReplacements).isLeft
+      }
 
     /**
      * Here are all the explicit artifacts
@@ -156,7 +158,7 @@ object Writer {
         val (lab, lang) = labLang(u)
         // Build explicit exports:
         val uvexports = model.dependencies
-          .exportedUnversioned(u).right.get
+          .exportedUnversioned(u, model.getReplacements).right.get
           .map(labLang(_)._1)
 
         val exports = lab :: (depLabels ::: uvexports)
@@ -165,7 +167,7 @@ object Writer {
       def targetFor(u: UnversionedCoordinate): Target =
         replacedTarget(u).getOrElse(coordToTarget(u))
 
-      Right(allUnversioned.iterator.map(coordToTarget).toList)
+      Right(allUnversioned.iterator.map(targetFor).toList)
     }
   }
 }
