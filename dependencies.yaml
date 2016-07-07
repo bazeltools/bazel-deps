@@ -1,6 +1,7 @@
 options:
   languages: ["java", "scala:2.11.8"]
   versionConflictPolicy: highest
+  transitivity: runtime_deps
   resolvers:
     - id: mavencentral
       type: default
@@ -16,8 +17,16 @@ dependencies:
   io.circe:
     circe:
       version: "0.5.0-M2"
-      modules: [core, generic, jackson, parser]
+      modules: [core, jackson, parser]
       lang: scala
+    circe-generic:
+      version: "0.5.0-M2"
+      lang: scala
+      exports:
+        - "com.chuusai:shapeless"
+        - "org.typelevel:cats-core"
+        - "org.typelevel:cats-kernel"
+        - "org.typelevel:macro-compat"
 
   org.apache.maven:
     maven-aether-provider:
@@ -38,7 +47,12 @@ dependencies:
     cats:
       version: 0.6.0
       lang: scala
-      modules: [core, kernel, macros, free]
+      modules: [kernel, macros, free]
+    cats-core:
+      version: 0.6.0
+      lang: scala
+      exports: ["org.typelevel:cats-kernel"]
+
     macro-compat:
       lang: scala
 
@@ -49,6 +63,7 @@ dependencies:
   com.github.mpilquist:
     simulacrum:
       lang: scala # not using explicitly, declaring as scala
+      exports: ["org.typelevel:macro-compat"]
 
 replacements:
   org.scala-lang:

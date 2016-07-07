@@ -435,11 +435,18 @@ object DirectoryName {
   def default: DirectoryName = DirectoryName("3rdparty/jvm")
 }
 
+sealed abstract class Transitivity
+object Transitivity {
+  case object RuntimeDeps extends Transitivity
+  case object Exports extends Transitivity
+}
+
 case class Options(
   versionConflictPolicy: Option[VersionConflictPolicy],
   thirdPartyDirectory: Option[DirectoryName],
   languages: Option[List[Language]],
-  resolvers: Option[List[MavenServer]]) {
+  resolvers: Option[List[MavenServer]],
+  transitivity: Option[Transitivity]) {
 
   def getThirdPartyDirectory: DirectoryName =
     thirdPartyDirectory.getOrElse(DirectoryName.default)
@@ -454,8 +461,11 @@ case class Options(
   def getResolvers: List[MavenServer] =
     resolvers.getOrElse(
       List(MavenServer("central", "default", "http://central.maven.org/maven2/")))
+
+  def getTransitivity: Transitivity =
+    transitivity.getOrElse(Transitivity.Exports)
 }
 
 object Options {
-  def default: Options = Options(None, None, None, None)
+  def default: Options = Options(None, None, None, None, None)
 }

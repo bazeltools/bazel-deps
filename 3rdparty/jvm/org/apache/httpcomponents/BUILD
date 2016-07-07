@@ -1,7 +1,7 @@
 java_library(name = "httpclient",
-             exports = ["//3rdparty/jvm/commons_codec:commons_codec",
-                        "//external:jar/org/apache/httpcomponents/httpclient",
-                        ":httpcore"],
+             exports = ["//external:jar/org/apache/httpcomponents/httpclient"],
+             runtime_deps = ["//3rdparty/jvm/commons_codec:commons_codec",
+                             ":httpcore"],
              visibility = ["//visibility:public"])
 
 java_library(name = "httpcore",
