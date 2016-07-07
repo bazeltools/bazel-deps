@@ -140,7 +140,7 @@ object Writer {
       val langFn = language(g, model)
       def replacedTarget(u: UnversionedCoordinate): Option[Target] =
         Label.replaced(u, model.getReplacements).map { case (lab, lang) =>
-          Target(lang, Label.localTarget(pathInRoot, u, lang), Nil, List(lab), Nil)
+          Target(lang, Label.localTarget(pathInRoot, u, lang), Set.empty, Set(lab), Set.empty)
         }
       /*
        * We make 1 label for each target, the path
@@ -149,7 +149,7 @@ object Writer {
       val cache = scala.collection.mutable.Map[UnversionedCoordinate, Target]()
       def coordToTarget(u: UnversionedCoordinate): Target = cache.getOrElseUpdate(u, {
         val deps = g.hasSource(uvToVerExplicit(u))
-        val depLabels = deps.map { e => targetFor(e.destination.unversioned).name }.toList
+        val depLabels = deps.map { e => targetFor(e.destination.unversioned).name }
         def labLang(u: UnversionedCoordinate): (Label, Language) =
           Label.replaced(u, model.getReplacements)
             .getOrElse {
@@ -161,8 +161,11 @@ object Writer {
           .exportedUnversioned(u, model.getReplacements).right.get
           .map(labLang(_)._1)
 
-        val exports = lab :: (depLabels ::: uvexports)
-        Target(lang, Label.localTarget(pathInRoot, u, lang), Nil, exports, Nil)
+        val (exports, runtime_deps) = model.getOptions.getTransitivity match {
+          case Transitivity.Exports => (depLabels + lab, Set.empty[Label])
+          case Transitivity.RuntimeDeps => (Set(lab), depLabels)
+        }
+        Target(lang, Label.localTarget(pathInRoot, u, lang), Set.empty, exports ++ uvexports, runtime_deps)
       })
       def targetFor(u: UnversionedCoordinate): Target =
         replacedTarget(u).getOrElse(coordToTarget(u))
@@ -237,9 +240,9 @@ object Label {
 case class Target(
   lang: Language,
   name: Label,
-  deps: List[Label],
-  exports: List[Label],
-  runtimeDeps: List[Label]) {
+  deps: Set[Label],
+  exports: Set[Label],
+  runtimeDeps: Set[Label]) {
 
   def toBazelString: String = {
   /**
@@ -250,7 +253,7 @@ case class Target(
    *   runtime_deps = [ ],
    *   visibility = ["//visibility:public"])
    */
-    def labelList(outerIndent: Int, key: String, l: List[Label]): String = {
+    def labelList(outerIndent: Int, key: String, l: Set[Label]): String = {
       if (l.isEmpty) ""
       else {
         val prefix = s"$key = ["
@@ -259,7 +262,7 @@ case class Target(
         l.map { label =>
           val str = label.asStringFrom(name.path)
           s""""$str""""
-        }.sorted.mkString("[", s",\n$spaced", "]")
+        }.toList.sorted.mkString("[", s",\n$spaced", "]")
       }
     }
     val langName = lang match {

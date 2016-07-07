@@ -9,6 +9,12 @@ object Decoders {
   implicit val subprojDecoder: Decoder[Subproject] = stringWrapper(Subproject(_))
   implicit val dirnameDecoder: Decoder[DirectoryName] = stringWrapper(DirectoryName(_))
   implicit val targetDecoder: Decoder[BazelTarget] = stringWrapper(BazelTarget(_))
+  implicit val transitivityDecoder: Decoder[Transitivity] =
+    Decoder.decodeString.emap {
+      case "exports" => Xor.right(Transitivity.Exports)
+      case "runtime_deps" => Xor.right(Transitivity.RuntimeDeps)
+      case other => Xor.left(s"unrecogized transitivity: $other")
+    }
   implicit val groupArtDecoder: Decoder[(MavenGroup, ArtifactOrProject)] =
     Decoder.decodeString.emap { s =>
       s.split(':') match {
