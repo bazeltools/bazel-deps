@@ -70,9 +70,15 @@ dependencies:
 Each group id can only appear once, so you should collocate dependencies by group.
 
 ### <a name="options">Options</a>
-In the options, we set the allowed languages (and in the case of scala, the version).
+In the options we set:
+
+* languages: java and scala
+* versionConflictPolicy: `fixed`, `fail` or `highest`
+* transitivity: `runtime_deps` or `exports`
+* resolvers: the maven servers to use.
+
 In the default case, with no options given, we use the `highest` versionConflictPolicy,
-allow java and scala `2.11`, and use maven central as the resolver.
+exports transitivity, allow java and scala `2.11`, and use maven central as the resolver.
 
 ### <a name="replacements">Replacements</a>
 Some maven jars should not be used and instead are replaced by internal targets. Here are

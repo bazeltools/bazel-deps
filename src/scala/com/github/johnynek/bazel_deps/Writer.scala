@@ -150,22 +150,25 @@ object Writer {
       def coordToTarget(u: UnversionedCoordinate): Target = cache.getOrElseUpdate(u, {
         val deps = g.hasSource(uvToVerExplicit(u))
         val depLabels = deps.map { e => targetFor(e.destination.unversioned).name }
-        def labLang(u: UnversionedCoordinate): (Label, Language) =
+        val (lab, lang) =
           Label.replaced(u, model.getReplacements)
             .getOrElse {
               (Label.parse(u.bindTarget), langFn(u))
             }
-        val (lab, lang) = labLang(u)
-        // Build explicit exports:
+        // Build explicit exports, no need to add these to runtime deps
         val uvexports = model.dependencies
           .exportedUnversioned(u, model.getReplacements).right.get
-          .map(labLang(_)._1)
+          .map(targetFor(_).name)
 
         val (exports, runtime_deps) = model.getOptions.getTransitivity match {
           case Transitivity.Exports => (depLabels + lab, Set.empty[Label])
           case Transitivity.RuntimeDeps => (Set(lab), depLabels)
         }
-        Target(lang, Label.localTarget(pathInRoot, u, lang), Set.empty, exports ++ uvexports, runtime_deps)
+        Target(lang,
+          Label.localTarget(pathInRoot, u, lang),
+          Set.empty,
+          exports ++ uvexports,
+          runtime_deps -- uvexports)
       })
       def targetFor(u: UnversionedCoordinate): Target =
         replacedTarget(u).getOrElse(coordToTarget(u))

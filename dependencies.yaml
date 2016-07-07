@@ -63,6 +63,7 @@ dependencies:
   com.github.mpilquist:
     simulacrum:
       lang: scala # not using explicitly, declaring as scala
+      exports: ["org.typelevel:macro-compat"]
 
 replacements:
   org.scala-lang:
