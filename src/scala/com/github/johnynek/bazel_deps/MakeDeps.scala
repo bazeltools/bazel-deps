@@ -15,7 +15,7 @@ trait MakeDeps {
     val (model, workspacePath, projectRoot) = getSettings(args)
     val deps = model.dependencies
     val resolver = new Resolver(model.getOptions.getResolvers)
-    val graph = resolver.addAll(Graph.empty, deps.roots, model.getReplacements)
+    val graph = resolver.addAll(Graph.empty, deps.roots, model)
     // This is a defensive check that can be removed as we add more tests
     deps.roots.foreach { m => require(graph.nodes(m), s"$m") }
 

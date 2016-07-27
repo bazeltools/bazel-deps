@@ -146,16 +146,16 @@ class Resolver(servers: List[MavenServer]) {
 
   type Node = MavenCoordinate
 
-  def addAll(deps: Graph[Node, Unit], coords: TraversableOnce[MavenCoordinate], r: Replacements): Graph[Node, Unit] =
-    coords.foldLeft(deps)(addToGraph(_, _, r))
+  def addAll(deps: Graph[Node, Unit], coords: TraversableOnce[MavenCoordinate], m: Model): Graph[Node, Unit] =
+    coords.foldLeft(deps)(addToGraph(_, _, m))
 
-  def addToGraph(deps: Graph[Node, Unit], dep: MavenCoordinate, r: Replacements): Graph[Node, Unit] = {
-    val visitor = new Visitor(deps, r)
+  def addToGraph(deps: Graph[Node, Unit], dep: MavenCoordinate, m: Model): Graph[Node, Unit] = {
+    val visitor = new Visitor(deps, m)
     val result = request(dep).getRoot.accept(visitor)
     visitor.currentDeps
   }
 
-  private class Visitor(initDeps: Graph[Node, Unit], r: Replacements) extends DependencyVisitor {
+  private class Visitor(initDeps: Graph[Node, Unit], model: Model) extends DependencyVisitor {
     var currentDeps = initDeps
     private var visited: Set[(Dependency, Boolean)] = Set.empty
     private var stack: List[Dependency] = Nil
@@ -182,6 +182,19 @@ class Resolver(servers: List[MavenServer]) {
         case other => sys.error(s"unknown scope: $other in $d")
       })
 
+    /**
+     * Some maven artifacts are replaced, meaning we deal with them and
+     * their dependencies manually. If this is true, never follow (but
+     * we do add the edges to the node in such cases
+     */
+    def notReplaced(m: MavenCoordinate): Boolean =
+      model.getReplacements
+        .get(m.unversioned)
+        .isEmpty
+
+    def excludeEdge(src: MavenCoordinate, dest: MavenCoordinate): Boolean =
+      model.dependencies.excludes(src.unversioned).contains(dest.unversioned)
+
     def visitEnter(depNode: DependencyNode): Boolean = {
       val dep = depNode.getDependency
       val shouldAdd = addEdgeTo(dep)
@@ -203,18 +216,14 @@ class Resolver(servers: List[MavenServer]) {
         stack match {
           case Nil => ()
           case h :: _ =>
-            if (shouldAdd) {
+            val src = coord(h)
+            if (shouldAdd && !excludeEdge(src, mvncoord)) {
               currentDeps = currentDeps
-                .addEdge(Edge(coord(h), mvncoord, ()))
+                .addEdge(Edge(src, mvncoord, ()))
             }
         }
         stack = dep :: stack
-        /**
-         * Some maven artifacts are replaced, meaning we deal with them and
-         * their dependencies manually. If this is true, never follow (but
-         * we do add the edges to the node in such cases
-         */
-        shouldAdd && r.get(mvncoord.unversioned).isEmpty
+        shouldAdd && notReplaced(mvncoord)
       }
     }
     def visitLeave(dep: DependencyNode): Boolean = {
