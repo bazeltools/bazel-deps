@@ -57,7 +57,8 @@ case class Sha1Value(toHex: String)
 case class MavenServer(id: String, contentType: String, url: String)
 
 object Version {
-  private val isNum: Set[Char] = Set('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')
+  private def isNum(c: Char): Boolean =
+    ('0' <= c) && (c <= '9')
   /**
    * break a string into alternating runs of Longs and Strings
    */
@@ -255,7 +256,8 @@ case class ProjectRecord(
   lang: Language,
   version: Option[Version],
   modules: Option[List[Subproject]],
-  exports: Option[List[(MavenGroup, ArtifactOrProject)]]) {
+  exports: Option[List[(MavenGroup, ArtifactOrProject)]],
+  exclude: Option[List[(MavenGroup, ArtifactOrProject)]]) {
 
   def getModules: List[Subproject] = modules.getOrElse(Nil)
 
@@ -278,7 +280,7 @@ case class ProjectRecord(
 
 case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]]) {
   // Returns 1 if there is exactly one candidate that matches.
-  private def unversionedCoordinatesOf(g: MavenGroup, a: ArtifactOrProject): Option[UnversionedCoordinate] =
+  def unversionedCoordinatesOf(g: MavenGroup, a: ArtifactOrProject): Option[UnversionedCoordinate] =
     toMap.get(g).flatMap { ap =>
       a.splitSubprojects match {
         case Nil =>
@@ -343,7 +345,18 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
 
   def languageOf(m: UnversionedCoordinate): Option[Language] =
     recordOf(m).map(_.lang)
+
+  def excludes(m: UnversionedCoordinate): Set[UnversionedCoordinate] =
+    recordOf(m).flatMap(_.exclude) match {
+      case None => Set.empty
+      case Some(uvs) =>
+        uvs.map { case (g, a) =>
+          unversionedCoordinatesOf(g, a)
+            .getOrElse(UnversionedCoordinate(g, MavenArtifactId(a)))
+        }.toSet
+    }
 }
+
 object Dependencies {
   def apply(items: (MavenGroup, Map[ArtifactOrProject, ProjectRecord])*): Dependencies =
     Dependencies(items.groupBy(_._1)
