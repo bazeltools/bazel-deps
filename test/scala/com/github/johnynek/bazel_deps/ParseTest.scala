@@ -24,8 +24,10 @@ class ParseTest extends FunSuite {
             Map(ArtifactOrProject("scalding") ->
               ProjectRecord(
                 Language.Scala(Version("2.11.8"), true),
-                Version("0.16.0"),
-                Some(List("core", "args", "date").map(Subproject(_)))))),
+                Some(Version("0.16.0")),
+                Some(List("core", "args", "date").map(Subproject(_))),
+                None,
+                None))),
           None,
           None)))
   }
@@ -49,14 +51,17 @@ class ParseTest extends FunSuite {
             Map(ArtifactOrProject("scalding") ->
               ProjectRecord(
                 Language.Scala(Version("2.11.7"), true),
-                Version("0.16.0"),
-                Some(List("core", "args", "date").map(Subproject(_)))))),
+                Some(Version("0.16.0")),
+                Some(List("core", "args", "date").map(Subproject(_))),
+                None,
+                None))),
           None,
           Some(
             Options(
               None,
               Some(DirectoryName("3rdparty/jvm")),
               Some(List(Language.Scala(Version("2.11.7"), true), Language.Java)),
+              None,
               None)))))
   }
   test("parse empty subproject version") {
@@ -79,17 +84,41 @@ class ParseTest extends FunSuite {
             Map(ArtifactOrProject("scalding") ->
               ProjectRecord(
                 Language.Scala(Version("2.11.7"), true),
-                Version("0.16.0"),
-                Some(List("", "core", "args", "date").map(Subproject(_)))))),
+                Some(Version("0.16.0")),
+                Some(List("", "core", "args", "date").map(Subproject(_))),
+                None,
+                None
+                ))),
           None,
           Some(
             Options(
               None,
               Some(DirectoryName("3rdparty/jvm")),
               Some(List(Language.Scala(Version("2.11.7"), true), Language.Java)),
+              None,
               None)))))
 
     assert(MavenArtifactId(ArtifactOrProject("a"), Subproject("")).asString === "a")
     assert(MavenArtifactId(ArtifactOrProject("a"), Subproject("b")).asString === "a-b")
   }
+  /*
+   * TODO make this test pass
+   * see: https://github.com/johnynek/bazel-deps/issues/15
+  test("parse fails with duplicated groups") {
+    val str = """dependencies:
+                |  com.twitter:
+                |    scalding:
+                |      lang: scala
+                |      version: 0.16.0
+                |      modules: ["", core, args, date]
+                |  com.twitter:
+                |    foo:
+                |      lang: java
+                |      version: "42"
+                |
+                |""".stripMargin('|')
+
+    assert(Decoders.decodeModel(Yaml, str).isLeft)
+  }
+    */
 }
