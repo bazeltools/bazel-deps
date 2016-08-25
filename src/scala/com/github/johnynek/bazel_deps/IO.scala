@@ -5,7 +5,9 @@ import cats.data.Xor
 import cats.Eval
 import cats.free.Free
 import cats.free.Free.liftF
-import java.io.{File, FileOutputStream}
+import java.io.{File, FileOutputStream, IOException}
+import java.nio.file.{Files, SimpleFileVisitor, FileVisitResult, Path => JPath}
+import java.nio.file.attribute.BasicFileAttributes
 /**
  * To enable mocking and testing, we keep IO
  * abstract and then plug in implementations
@@ -19,6 +21,7 @@ object IO {
   sealed abstract class Ops[+T]
   case class Exists(path: Path) extends Ops[Boolean]
   case class MkDirs(path: Path) extends Ops[Boolean]
+  case class RmRf(path: Path) extends Ops[Unit]
   /*
    * Since we generally only write data once, use Eval
    * here so by using `always` we can avoid holding
@@ -37,6 +40,9 @@ object IO {
   def mkdirs(f: Path): Result[Boolean] =
     liftF[Ops, Boolean](MkDirs(f))
 
+  def recursiveRm(path: Path): Result[Unit] =
+    liftF[Ops, Unit](RmRf(path))
+
   def writeUtf8(f: Path, s: => String): Result[Unit] =
     liftF[Ops, Unit](WriteFile(f, Eval.always(s)))
 
@@ -51,6 +57,22 @@ object IO {
     def apply[A](o: Ops[A]): Xor[Throwable, A] = o match {
       case Exists(f) => Xor.catchNonFatal(fileFor(f).exists())
       case MkDirs(f) => Xor.catchNonFatal(fileFor(f).mkdirs())
+      case RmRf(f) => Xor.catchNonFatal {
+        // get the java path
+        val file = fileFor(f)
+        require(file.isDirectory, s"$f is not a directory")
+        val path = file.toPath
+        Files.walkFileTree(path, new SimpleFileVisitor[JPath] {
+          override def visitFile(file: JPath, attrs: BasicFileAttributes) = {
+            Files.delete(file)
+            FileVisitResult.CONTINUE
+          }
+          override def postVisitDirectory(dir: JPath, exc: IOException) = {
+            Files.delete(dir)
+            FileVisitResult.CONTINUE
+          }})
+        ()
+      }
       case WriteFile(f, d) =>
         Xor.catchNonFatal {
           val os = new FileOutputStream(fileFor(f))
