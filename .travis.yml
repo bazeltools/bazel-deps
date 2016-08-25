@@ -28,3 +28,4 @@ script:
   - bazel test //...
   - bazel build src/scala/com/github/johnynek/bazel_deps/parseproject_deploy.jar
   - ./gen_maven_deps.sh `pwd` 3rdparty/workspace.bzl dependencies.yaml
+  - git diff --exit-code
