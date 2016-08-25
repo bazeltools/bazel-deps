@@ -29,7 +29,7 @@ maven_dependencies(declare_maven)
 To your workspace to load the maven dependencies. Note you will need to implement load.bzl `declare_maven`. A standard implementation
 might be:
 ```python
-def maven_load(hash):
+def declare_maven(hash):
     native.maven_jar(
         name = hash["name"],
         artifact = hash["artifact"],
