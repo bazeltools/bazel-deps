@@ -20,7 +20,7 @@ before_install:
   - sha256sum -c .bazel-installer-linux-x86_64.sh.sha256
   - chmod +x bazel-0.2.3-installer-linux-x86_64.sh
   - ./bazel-0.2.3-installer-linux-x86_64.sh --user
-  - mv .bazelrc.travis .bazelrc
+  - cp .bazelrc.travis .bazelrc
   - cat ~/.bazelrc >> .bazelrc
 
 script:
