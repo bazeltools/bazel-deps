@@ -23,6 +23,10 @@ before_install:
   - cp .bazelrc.travis .bazelrc
   - cat ~/.bazelrc >> .bazelrc
 
+cache:
+  directories:
+    - $HOME/.cache/bazel
+
 script:
   - bazel build //...
   - bazel test //...

@@ -79,7 +79,8 @@ dependencies:
       modules: [core, date, args, db, arvo]
 ```
 
-Each group id can only appear once, so you should collocate dependencies by group.
+Each group id can only appear once (but the parser unfortunately does
+not fail if you fail to ensure this), so you should collocate dependencies by group.
 
 ### <a name="options">Options</a>
 In the options we set:
