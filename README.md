@@ -79,7 +79,13 @@ dependencies:
       modules: [core, date, args, db, arvo]
 ```
 
-Each group id can only appear once, so you should collocate dependencies by group.
+A target may optionally add `exports` and `exclude` lists to a dependency. `exports` should be just the group and
+artifact (such as: `com.twitter:scalding-core` in the above), and they should be listed in the dependencies. `exclude`
+list should also be only the group and artifact.
+
+Each group id can only appear once, so you should collocate dependencies by group. WARNING the parsing library
+we are using does not fail on duplicate keys, it just takes the last one, so watch out. It would be good
+to fix that, but writing a new yaml parser is out of scope.
 
 ### <a name="options">Options</a>
 In the options we set:
