@@ -39,10 +39,22 @@ scala_library(name = "normalizer",
                       ],
               visibility = ["//visibility:public"])
 
+scala_library(name = "target",
+              srcs = ["Target.scala"],
+              deps = [
+                  ":depsmodel",
+                  ":io",
+                  "//3rdparty/jvm/org/typelevel:cats_core",
+                  "//3rdparty/jvm/org/typelevel:cats_free",
+              ],
+              visibility = ["//visibility:public"]
+              )
+
 scala_library(name = "writer",
               srcs = ["Writer.scala"],
               deps = [":depsmodel",
                       ":graph",
+                      ":target",
                       ":io",
                       "//3rdparty/jvm/org/typelevel:cats_core",
                       "//3rdparty/jvm/org/typelevel:cats_free",
@@ -60,6 +72,7 @@ scala_library(name = "makedeps",
                  ":io",
                  ":normalizer",
                  ":resolver",
+                 ":target",
                  ":writer",
              ],
              visibility = ["//visibility:public"])

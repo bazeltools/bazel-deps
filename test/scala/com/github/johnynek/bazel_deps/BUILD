@@ -16,3 +16,11 @@ scala_test(name = "parsetest",
                "//src/scala/com/github/johnynek/bazel_deps:decoders",
                "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
                ])
+scala_test(name = "targettest",
+           srcs = ["TargetTest.scala"],
+           deps = [
+               "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+               "//src/scala/com/github/johnynek/bazel_deps:target",
+               "//src/scala/com/github/johnynek/bazel_deps:io",
+               "//3rdparty/jvm/org/typelevel:cats_core",
+           ])
