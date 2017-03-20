@@ -65,6 +65,11 @@ dependencies:
       lang: scala # not using explicitly, declaring as scala
       exports: ["org.typelevel:macro-compat"]
 
+  org.scala-lang.modules:
+    scala-xml:
+      lang: scala
+      version: "1.0.6"
+
 replacements:
   org.scala-lang:
     scala-library:
