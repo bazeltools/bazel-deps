@@ -44,7 +44,7 @@ object Tool {
     version: String)
 
   def parseDep(e: Node, props: Map[String, String]): Dep = {
-    val Symbol = """\$\{(.+)\}""".r
+    val Symbol = """\$\{(.+?)\}""".r
     def resolve(name: String): String = {
       val s = singleText(e \ name)
       Symbol.replaceAllIn(s, { m =>
