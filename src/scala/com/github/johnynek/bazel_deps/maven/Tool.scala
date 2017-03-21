@@ -38,7 +38,7 @@ object Tool {
     props: Map[String, String],
     parentPath: Option[String], //fixme
     modules: Seq[String], //fixme
-    dependencies: Seq[Dep] //fixme
+    dependencies: List[Dep] //fixme
   ) {
     def toDep: Dep = Dep(groupId, artifactId, version, None)
 
@@ -111,7 +111,7 @@ object Tool {
     val props = parentProps ++ localProps //fixme
 
     val modules = (root \ "modules" \ "module").map(_.text)
-    val deps = (root \ "dependencies" \ "dependency").map(parseDep)
+    val deps = (root \ "dependencies" \ "dependency").map(parseDep).toList
 
     Project(path, name, version, artifactId, groupId, packaging, props, parent, modules, deps)
   }
@@ -227,23 +227,72 @@ maven_dependencies(maven_load)
      *   - (testing????)
      *   - write build file
      */
-    val rootPath = IO.path(s"${root.dir}/BUILD")
+    val rootPath = IO.path(root.dir)
     val allProjs = allProjects(root)
     val localDeps: Map[Dep, Project] = allProjs.map { p => (p.toDep, p) }.toMap
+    val localKeys = localDeps.keySet
+
+    def labelFor(p: Project, targetName: String): Label =
+      Label(None, IO.path(p.dir), targetName)
+
+    val scalaBinaryVersion = root.props("scala.binary.version")
+    val scalaLang = Language.Scala(Version(scalaBinaryVersion), true)
+
+    val externalDeps: Map[Dep, Label] =
+      allProjs.iterator.flatMap { p =>
+        p.dependencies.map { d => (d, d.resolve(p.props)) }
+      }
+      .filterNot { case (d, resd) => localKeys(d) }
+      .map { case (dep, resolvedDep) =>
+        val lang =
+          if (dep.hasScalaBinaryVersion) scalaLang
+          else Language.Java
+
+        (dep, Label.localTarget(rootPath.parts ::: (List("3rdparty", "jvm")),
+          UnversionedCoordinate(MavenGroup(resolvedDep.groupId), MavenArtifactId(resolvedDep.artifactId)),
+          lang))
+      }
+      .toMap
+
+    def getLabelFor(d: Dep): IO.Result[Label] =
+      externalDeps.get(d)
+        .orElse(localDeps.get(d).map(labelFor(_, "main"))) match {
+          case None => IO.failed(new Exception(s"Could not find local or remote dependency $d"))
+          case Some(t) => IO.const(t)
+        }
 
     def writeBuild(proj: Project): IO.Result[Unit] = {
       val buildPath = IO.path(s"${proj.dir}/BUILD")
-      val io = if (proj.packaging == "jar") {
-        def contents: String = header.fold("\n")(_ + "\n")
-        IO.writeUtf8(buildPath, contents)
+      /**
+       * 1) in proj.dir/BUILD make main, test targets
+       */
+      val depLabels = proj.dependencies.traverse(getLabelFor)
+
+      def mainTarget(labs: List[Label]): Target =
+        Target(scalaLang,
+          labelFor(proj, "main"),
+          deps = labs.toSet,
+          sources = Set("""glob(["**/*.scala"], ["**/*.java"])"""))
+
+      val thisBuild = if (proj.packaging == "jar") {
+        def contents(t: Target): String =
+          header.fold("\n")(_ + "\n") ++ t.toBazelString
+
+        for {
+          labs <- depLabels
+          targ = mainTarget(labs)
+          _ <- IO.writeUtf8(buildPath, contents(targ))
+        } yield ()
       } else IO.unit
 
-      io.flatMap { _ =>
-        proj.parseModuleProjects
-          .traverse(writeBuilds(_, header))
-          .map(_ => ())
-      }
+      val childBuilds = proj.parseModuleProjects.traverse(writeBuild)
+
+      for {
+        _ <- thisBuild
+        _ <- childBuilds
+      } yield ()
     }
+
     writeBuild(root) //fixme
   }
 

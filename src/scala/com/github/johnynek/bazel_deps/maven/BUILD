@@ -5,6 +5,7 @@ scala_library(name = "maven",
                   "//3rdparty/jvm/org/scala_lang/modules:scala_xml",
                   "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
                   "//src/scala/com/github/johnynek/bazel_deps:io",
+                  "//src/scala/com/github/johnynek/bazel_deps:writer",
               ],
               visibility = ["//visibility:public"])
 

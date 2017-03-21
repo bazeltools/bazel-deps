@@ -34,6 +34,7 @@ object IO {
    * data longer than needed if that is desired.
    */
   case class WriteFile(f: Path, data: Eval[String]) extends Ops[Unit]
+  case class Failed(err: Throwable) extends Ops[Nothing]
 
   type Result[T] = Free[Ops, T]
 
@@ -45,6 +46,9 @@ object IO {
 
   def exists(f: Path): Result[Boolean] =
     liftF[Ops, Boolean](Exists(f))
+
+  def failed[T](t: Throwable): Result[T] =
+    liftF[Ops, T](Failed(t))
 
   def mkdirs(f: Path): Result[Boolean] =
     liftF[Ops, Boolean](MkDirs(f))
@@ -103,6 +107,7 @@ object IO {
           val os = new FileOutputStream(fileFor(f))
           try os.write(d.value.getBytes("UTF-8")) finally { os.close() }
         }
+      case Failed(err) => Xor.left(err)
     }
   }
 }
