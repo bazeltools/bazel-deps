@@ -18,6 +18,12 @@ object IO {
     def child(p: String): Path = Path(parts ++ List(p))
   }
 
+  def path(s: String): Path =
+    Path(s.split("/").toList match {
+      case "" :: rest => rest
+      case list => list
+    })
+
   sealed abstract class Ops[+T]
   case class Exists(path: Path) extends Ops[Boolean]
   case class MkDirs(path: Path) extends Ops[Boolean]
@@ -31,6 +37,9 @@ object IO {
 
   type Result[T] = Free[Ops, T]
 
+  val unit: Result[Unit] =
+    const(())
+
   def const[T](t: T): Result[T] =
     Free.pure[Ops, T](t)
 
@@ -43,10 +52,26 @@ object IO {
   def recursiveRm(path: Path): Result[Unit] =
     liftF[Ops, Unit](RmRf(path))
 
+  def recursiveRmF(path: Path): Result[Unit] =
+    exists(path).flatMap {
+      case true => recursiveRm(path)
+      case false => unit
+    }
+
   def writeUtf8(f: Path, s: => String): Result[Unit] =
     liftF[Ops, Unit](WriteFile(f, Eval.always(s)))
 
   type XorTry[T] = Xor[Throwable, T]
+
+  def run[A](io: Result[A], root: File)(resume: A => Unit): Unit =
+    io.foldMap(IO.fileSystemExec(root)) match {
+      case Xor.Left(err) =>
+        System.err.println(err)
+        System.exit(-1)
+      case Xor.Right(result) =>
+        resume(result)
+        System.exit(0)
+    }
 
   def fileSystemExec(root: File): NaturalTransformation[Ops, XorTry] = new NaturalTransformation[Ops, XorTry] {
     require(root.isAbsolute, s"Absolute path required, found: $root")
@@ -60,7 +85,7 @@ object IO {
       case RmRf(f) => Xor.catchNonFatal {
         // get the java path
         val file = fileFor(f)
-        require(file.isDirectory, s"$f is not a directory")
+        //require(file.isDirectory, s"$f is not a directory")
         val path = file.toPath
         Files.walkFileTree(path, new SimpleFileVisitor[JPath] {
           override def visitFile(file: JPath, attrs: BasicFileAttributes) = {

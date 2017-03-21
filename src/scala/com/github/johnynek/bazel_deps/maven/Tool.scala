@@ -1,6 +1,9 @@
 package com.github.johnynek.bazel_deps
 package maven
 
+import cats.implicits._
+import java.io._
+import scala.sys.process.Process
 import scala.xml._
 
 object Tool {
@@ -39,12 +42,12 @@ object Tool {
   ) {
     def toDep: Dep = Dep(groupId, artifactId, version, None)
 
-    private def dir: String = directoryFor(path).get
+    def dir: String = directoryFor(path).getOrElse(".")
 
-    lazy val parseModuleProjects: Seq[Project] =
+    lazy val parseModuleProjects: List[Project] =
       modules.map { m =>
         parse(s"$dir/$m/pom.xml")
-      }
+      }.toList
   }
 
   case class Dep(
@@ -83,7 +86,7 @@ object Tool {
       optionalText(e \ "scope"))
 
   private def directoryFor(path: String): Option[String] = {
-    val f = new java.io.File(path)
+    val f = new File(path)
     if (f.isFile) Option(f.getParent) else None
   }
 
@@ -113,12 +116,15 @@ object Tool {
     Project(path, name, version, artifactId, groupId, packaging, props, parent, modules, deps)
   }
 
-  def allDependencies(root: Project): Dependencies = {
-
+  def allProjects(root: Project): Set[Project] = {
     def allChildren(p: Project): Set[Project] =
       Set(p) ++ p.parseModuleProjects.flatMap(allChildren)
+    allChildren(root)
+  }
 
-    val allProjs: Set[Project] = allChildren(root)
+  def allDependencies(root: Project): Dependencies = {
+
+    val allProjs = allProjects(root)
     val scalaVersion: Option[Language.Scala] =
       (allProjs.flatMap { _.props.get("scala.binary.version") }.toList) match {
         case Nil => None
@@ -164,9 +170,105 @@ object Tool {
     Dependencies(asMap)
   }
 
-
-  def main(args: Array[String]): Unit = {
-    val rootPom = parse(args(0))
-    println(Model(allDependencies(rootPom), None, None).asString)
+  def writeDependencies(proj: Project): IO.Result[Unit] = {
+    val yamlPath = IO.path(s"${proj.dir}/dependencies.yaml")
+    def contents: String = Model(allDependencies(proj), None, None).asString
+    IO.writeUtf8(yamlPath, contents)
   }
+
+  def bazelize(s: String): String =
+    s.map { c =>
+      if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9')) c else '_'
+    }
+
+  def writeWorkspace(proj: Project): IO.Result[Unit] = {
+    val workspacePath = IO.path(s"${proj.dir}/WORKSPACE")
+    val bazelName = bazelize(proj.name.getOrElse("default_name"))
+
+    def contents: String = s"""
+workspace(name = "$bazelName")
+
+git_repository(
+  name = "io_bazel_rules_scala",
+  remote = "git://github.com/bazelbuild/rules_scala",
+  commit = "73743b830ae98d13a946b25ad60cad5fee58e6d3",
+)
+
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repositories")
+scala_repositories()
+
+# use bazel-deps to manage transitive maven dependencies
+# https://github.com/johnynek/bazel-deps
+load("//3rdparty:workspace.bzl", "maven_dependencies")
+load("//3rdparty:maven_load.bzl", "maven_load")
+maven_dependencies(maven_load)
+"""
+
+    IO.writeUtf8(workspacePath, contents)
+  }
+
+  val DefaultHeader: String =
+    """load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library", "scala_binary", "scala_test")"""
+
+  def writeBuilds(root: Project, header: Option[String] = Some(DefaultHeader)): IO.Result[Unit] = {
+
+    /**
+     * load all project:
+     *   - get their maven coords
+     *   - get their files (*.scala, *.java)
+     *   - get their explicit deps
+     *   - &c
+     *
+     * for each project:
+     *   - create the transitive closure of projects
+     *   - partition closure into internal/external
+     *   - for external, translate to maven coord -> build label
+     *   - for internal, find corresponding project -> build label
+     *   - (testing????)
+     *   - write build file
+     */
+    val rootPath = IO.path(s"${root.dir}/BUILD")
+    val allProjs = allProjects(root)
+    val localDeps: Map[Dep, Project] = allProjs.map { p => (p.toDep, p) }.toMap
+
+    def writeBuild(proj: Project): IO.Result[Unit] = {
+      val buildPath = IO.path(s"${proj.dir}/BUILD")
+      val io = if (proj.packaging == "jar") {
+        def contents: String = header.fold("\n")(_ + "\n")
+        IO.writeUtf8(buildPath, contents)
+      } else IO.unit
+
+      io.flatMap { _ =>
+        proj.parseModuleProjects
+          .traverse(writeBuilds(_, header))
+          .map(_ => ())
+      }
+    }
+    writeBuild(root) //fixme
+  }
+
+  def cleanUpBuild(proj: Project): IO.Result[Unit] =
+    for {
+      _ <- IO.recursiveRmF(IO.path(s"${proj.dir}/BUILD"))
+      _ <- IO.recursiveRmF(IO.path(s"${proj.dir}/WORKSPACE"))
+      _ <- IO.recursiveRmF(IO.path(s"${proj.dir}/dependencies.yaml"))
+    } yield ()
+
+  def main(args: Array[String]): Unit =
+    if (args.length == 0) {
+      println("no pom.xml path provided!")
+      System.exit(1)
+    } else {
+      val pomPath = args(0)
+      val rootProject = parse(pomPath)
+
+      val io = for {
+        _ <- cleanUpBuild(rootProject)
+        _ <- writeDependencies(rootProject)
+        _ <- writeWorkspace(rootProject)
+        _ <- writeBuilds(rootProject)
+      } yield ()
+
+      IO.run(io, new File("/"))(_ => println("done"))
+    }
 }
