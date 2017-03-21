@@ -14,6 +14,23 @@ case class Model(
 
   def getReplacements: Replacements =
     replacements.getOrElse(Replacements.empty)
+
+  def asString: String = {
+    def optStr = options match {
+      case Some(o) =>
+        s"options:\n  ${o.asString}\n"
+      case None => ""
+    }
+
+    def repStr = replacements match {
+      case Some(r) => s"replacements:\n  ${r.asString}\n"
+      case None => ""
+    }
+    // this should be indendented 2
+    def depStr = dependencies.asString
+
+    s"${optStr}dependencies:\n$depStr$repStr"
+  }
 }
 
 object Model {
@@ -54,7 +71,9 @@ case class ArtifactOrProject(asString: String) {
 case class Subproject(asString: String)
 case class Version(asString: String)
 case class Sha1Value(toHex: String)
-case class MavenServer(id: String, contentType: String, url: String)
+case class MavenServer(id: String, contentType: String, url: String) {
+  def asString: String = ???
+}
 
 object Version {
   private def isNum(c: Char): Boolean =
@@ -259,6 +278,29 @@ case class ProjectRecord(
   exports: Option[List[(MavenGroup, ArtifactOrProject)]],
   exclude: Option[List[(MavenGroup, ArtifactOrProject)]]) {
 
+  def withModule(m: Subproject): ProjectRecord = modules match {
+    case None =>
+      copy(modules = Some(List(m)))
+    case Some(subs) =>
+      // we need to put "m-" on the front of everything
+      val newMod = Some(subs.map { sp => Subproject(s"${m.asString}-${sp.asString}") })
+      copy(modules = newMod)
+  }
+
+  def combineModules(that: ProjectRecord): Option[ProjectRecord] =
+    if ((lang == that.lang) &&
+        (version.flatMap { v => that.version.map(_ == v) }.forall(_ == true)) &&
+        (exports == that.exports) &&
+        (exclude == that.exclude)) {
+      val mods = (modules, that.modules) match {
+        case (Some(a), Some(b)) => Some(a ++ b)
+        case (None, s) => s
+        case (s, None) => s
+      }
+
+      Some(copy(modules = mods))
+    } else None
+
   def getModules: List[Subproject] = modules.getOrElse(Nil)
 
   def versionedDependencies(g: MavenGroup,
@@ -276,9 +318,65 @@ case class ProjectRecord(
       case mods => mods.map { m => lang.unversioned(g, ap, m) }
     }
 
+  def asString(indent: Int): String = {
+    val ind = " " * indent
+    List(List(s"lang: ${lang.asString}"),
+      version.toList.map { v => s"""version: "${v.asString}"""" },
+      modules.toList.map { ms => "modules: " + (ms.map(_.asString).mkString("[", ", ", "]")) })
+      .flatten
+      .sorted
+      .map { str => s"$ind$str" }
+      .mkString("\n")
+  }
 }
 
 case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]]) {
+
+  def asString: String = {
+    type Pair = (ArtifactOrProject, ProjectRecord)
+    def merge(a: Pair, b: Pair): Option[Pair] = {
+      def subs(p: Pair): List[Pair] =
+        p._1.splitSubprojects match {
+          case Nil => List(p)
+          case sub => sub.map { case (a, s) => (a, p._2.withModule(s)) }
+        }
+
+      val merges = for {
+        (aa, pra) <- subs(a)
+        (ab, prb) <- subs(b)
+        if (aa == ab)
+        merged <- pra.combineModules(prb).toList.map((aa, _))
+      } yield merged
+
+      if (merges.isEmpty) None
+      else Some(merges.maxBy(_._1.asString.length)) // if more than 1 pick the one with the longest string
+    }
+
+    toMap.toList
+      .sortBy(_._1.asString)
+      .map { case (g, map) =>
+        val mStr: String = map.toList
+          .sortBy(_._1.asString)
+          .foldLeft(List.empty[(ArtifactOrProject, ProjectRecord)]) {
+            case (Nil, ap) => List(ap)
+            case (head :: tail, item) => merge(head, item) match {
+              case None =>
+                item :: head :: tail
+              case Some(merged) =>
+                merged :: tail
+            }
+          }
+          .reverse
+          .map { case (a, p) =>
+            val proj: String = p.asString(6)
+            s"    ${a.asString}:\n$proj"
+          }.mkString("", "\n", "\n")
+
+        s"  ${g.asString}:\n$mStr"
+      }
+      .mkString("", "\n", "\n")
+  }
+
   // Returns 1 if there is exactly one candidate that matches.
   def unversionedCoordinatesOf(g: MavenGroup, a: ArtifactOrProject): Option[UnversionedCoordinate] =
     toMap.get(g).flatMap { ap =>
@@ -389,13 +487,15 @@ case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, Replacemen
 
   def get(uv: UnversionedCoordinate): Option[ReplacementRecord] =
     unversionedToReplacementRecord.get(uv)
+
+  def asString: String = ???
 }
 
 object Replacements {
   val empty: Replacements = Replacements(Map.empty)
 }
 
-sealed abstract class VersionConflictPolicy {
+sealed abstract class VersionConflictPolicy(val asString: String) {
   /**
    * TODO we currenly only have policies that always keep roots,
    * if this invariant changes, Normalizer will need to change
@@ -409,7 +509,7 @@ object VersionConflictPolicy {
   /**
    * there must be only 1 version.
    */
-  case object Fail extends VersionConflictPolicy {
+  case object Fail extends VersionConflictPolicy("fail") {
     def resolve(root: Option[Version], s: Set[Version]) = root match {
       case Some(v) if s.size == 1 && s(v) => Right(v)
       case None if s.size == 1 => Right(s.head)
@@ -420,7 +520,7 @@ object VersionConflictPolicy {
    * It a version is explicitly declared, it is always used,
    * otherwise there must be only 1 version.
    */
-  case object Fixed extends VersionConflictPolicy {
+  case object Fixed extends VersionConflictPolicy("fixed") {
     def resolve(root: Option[Version], s: Set[Version]) = root match {
       case Some(v) => Right(v)
       case None if s.size == 1 => Right(s.head)
@@ -431,7 +531,7 @@ object VersionConflictPolicy {
    * It a version is explicitly declared, it is always used,
    * otherwise we take the highest version.
    */
-  case object Highest extends VersionConflictPolicy {
+  case object Highest extends VersionConflictPolicy("highest") {
     def resolve(root: Option[Version], s: Set[Version]) = root match {
       case Some(v) => Right(v)
       case None => Right(s.max) // there must be at least one version, so this won't throw
@@ -448,10 +548,10 @@ object DirectoryName {
   def default: DirectoryName = DirectoryName("3rdparty/jvm")
 }
 
-sealed abstract class Transitivity
+sealed abstract class Transitivity(val asString: String)
 object Transitivity {
-  case object RuntimeDeps extends Transitivity
-  case object Exports extends Transitivity
+  case object RuntimeDeps extends Transitivity("runtime_deps")
+  case object Exports extends Transitivity("exports")
 }
 
 case class Options(
@@ -477,6 +577,31 @@ case class Options(
 
   def getTransitivity: Transitivity =
     transitivity.getOrElse(Transitivity.Exports)
+
+  def asString: String = {
+    def opt(k: String, o: Option[String]): String =
+      o match {
+        case None => ""
+        case Some(v) => "  $k: $v\n"
+      }
+
+    val items = List(
+      ("versionConflictPolicy", versionConflictPolicy.map(_.asString)),
+      ("thirdPartyDirectory", thirdPartyDirectory.map(_.asString)),
+      ("resolvers", resolvers.map(_.map(_.asString).mkString("[", ", ", "]"))),
+      ("languages", resolvers.map(_.map(_.asString).mkString("[", ", ", "]"))),
+      ("transitivity", transitivity.map(_.asString)))
+        .sortBy(_._1)
+        .flatMap {
+          case (k, Some(v)) => List(s"$k: $v")
+          case (k, None) => Nil
+        }
+
+    items match {
+      case Nil => ""
+      case other => other.mkString("  ", "\n", "\n")
+    }
+  }
 }
 
 object Options {
