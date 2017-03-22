@@ -5,6 +5,36 @@ object Target {
   case object Library extends Kind("library")
   case object Test extends Kind("test")
   case object Binary extends Kind("binary")
+
+  sealed abstract class SourceList {
+    def render(outerIndent: Int, key: String): String
+
+  }
+  object SourceList {
+    case object Empty extends SourceList {
+      def render(outerIndent: Int, key: String): String = ""
+    }
+
+    case class Explicit(srcs: Set[String]) extends SourceList {
+      def render(outerIndent: Int, key: String): String =
+        if (srcs.isEmpty) ""
+        else {
+          val prefix = s"$key = ["
+          val indent = prefix.length
+          val spaced = List.fill(outerIndent + indent)(' ').mkString
+          srcs.toList.sorted.mkString("[", s",\n$spaced", "]")
+        }
+    }
+    case class Globs(globs: List[String]) extends SourceList {
+      def render(outerIndent: Int, key: String): String =
+        if (globs.isEmpty) ""
+        else {
+          def quote(s: String): String = "\"%s\"".format(s)
+          val gstr = globs.map(quote).mkString(", ")
+          s"glob([$gstr])"
+        }
+    }
+  }
 }
 
 case class Target(
@@ -12,7 +42,7 @@ case class Target(
   name: Label,
   kind: Target.Kind = Target.Library,
   deps: Set[Label] = Set.empty,
-  sources: Set[String] = Set.empty,
+  sources: Target.SourceList = Target.SourceList.Empty,
   exports: Set[Label] = Set.empty,
   runtimeDeps: Set[Label] = Set.empty) {
 
@@ -36,7 +66,10 @@ case class Target(
       }
 
     def labelList(outerIndent: Int, key: String, l: Set[Label]): String =
-      renderList(outerIndent, key, l)(_.asStringFrom(name.path))
+      renderList(outerIndent, key, l) { label =>
+        val str = label.asStringFrom(name.path)
+        "\"%s\"".format(str)
+      }
 
     val langName = lang match {
       case Language.Java => "java"
@@ -58,7 +91,7 @@ case class Target(
     sortKeys(List(
       "visibility" ->  """["//visibility:public"]""",
       "deps" -> labelList(indent, "deps", deps),
-      "sources" -> renderList(indent, "sources", sources)(identity),
+      "srcs" -> sources.render(indent, "srcs"),
       "exports" -> labelList(indent, "exports", exports),
       "runtime_deps" -> labelList(indent, "runtime_deps", runtimeDeps)))
   }

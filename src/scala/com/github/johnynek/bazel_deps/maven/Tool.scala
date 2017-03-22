@@ -1,7 +1,9 @@
 package com.github.johnynek.bazel_deps
 package maven
 
+import cats.data.Xor
 import cats.implicits._
+import io.circe.jawn.JawnParser
 import java.io._
 import scala.sys.process.Process
 import scala.xml._
@@ -48,6 +50,12 @@ object Tool {
       modules.map { m =>
         parse(s"$dir/$m/pom.xml")
       }.toList
+
+    def allProps: Stream[Map[String, String]] =
+      props #:: (parseModuleProjects.toStream.flatMap(_.allProps))
+
+    def findProp(p: String): Option[String] =
+      allProps.flatMap(_.get(p)).headOption
   }
 
   case class Dep(
@@ -170,9 +178,14 @@ object Tool {
     Dependencies(asMap)
   }
 
-  def writeDependencies(proj: Project): IO.Result[Unit] = {
+  def writeDependencies(opt: Option[Options], proj: Project): IO.Result[Unit] = {
     val yamlPath = IO.path(s"${proj.dir}/dependencies.yaml")
-    def contents: String = Model(allDependencies(proj), None, None).asString
+    def contents: String =
+      Model(allDependencies(proj),
+        None,
+        opt
+      ).asString
+
     IO.writeUtf8(yamlPath, contents)
   }
 
@@ -232,10 +245,13 @@ maven_dependencies(maven_load)
     val localDeps: Map[Dep, Project] = allProjs.map { p => (p.toDep, p) }.toMap
     val localKeys = localDeps.keySet
 
-    def labelFor(p: Project, targetName: String): Label =
-      Label(None, IO.path(p.dir), targetName)
+    def labelFor(p: Project, targetName: String): IO.Result[Label] = {
+      val pdir = p.dir
+      if (pdir.startsWith(root.dir)) IO.const(Label(None, IO.path(pdir.drop(root.dir.length)), targetName))
+      else IO.failed(new Exception(s"$pdir is not inside root: ${root.dir}"))
+    }
 
-    val scalaBinaryVersion = root.props("scala.binary.version")
+    val scalaBinaryVersion = root.findProp("scala.binary.version").get
     val scalaLang = Language.Scala(Version(scalaBinaryVersion), true)
 
     val externalDeps: Map[Dep, Label] =
@@ -248,18 +264,21 @@ maven_dependencies(maven_load)
           if (dep.hasScalaBinaryVersion) scalaLang
           else Language.Java
 
-        (dep, Label.localTarget(rootPath.parts ::: (List("3rdparty", "jvm")),
+        (dep, Label.localTarget(List("3rdparty", "jvm"),
           UnversionedCoordinate(MavenGroup(resolvedDep.groupId), MavenArtifactId(resolvedDep.artifactId)),
           lang))
       }
       .toMap
 
     def getLabelFor(d: Dep): IO.Result[Label] =
-      externalDeps.get(d)
-        .orElse(localDeps.get(d).map(labelFor(_, "main"))) match {
+      for {
+        loc <- localDeps.get(d).traverse(labelFor(_, "main"))
+        ex = externalDeps.get(d)
+        res <- (ex.orElse(loc) match {
           case None => IO.failed(new Exception(s"Could not find local or remote dependency $d"))
           case Some(t) => IO.const(t)
-        }
+        })
+      } yield res
 
     def writeBuild(proj: Project): IO.Result[Unit] = {
       val buildPath = IO.path(s"${proj.dir}/BUILD")
@@ -268,11 +287,13 @@ maven_dependencies(maven_load)
        */
       val depLabels = proj.dependencies.traverse(getLabelFor)
 
-      def mainTarget(labs: List[Label]): Target =
-        Target(scalaLang,
-          labelFor(proj, "main"),
-          deps = labs.toSet,
-          sources = Set("""glob(["**/*.scala"], ["**/*.java"])"""))
+      def mainTarget(labs: List[Label]): IO.Result[Target] =
+        labelFor(proj, "main").map { lab =>
+          Target(scalaLang,
+            lab,
+            deps = labs.toSet,
+            sources = Target.SourceList.Globs(List("src/main/**/*.scala", "src/main/**/*.java")))
+        }
 
       val thisBuild = if (proj.packaging == "jar") {
         def contents(t: Target): String =
@@ -280,7 +301,7 @@ maven_dependencies(maven_load)
 
         for {
           labs <- depLabels
-          targ = mainTarget(labs)
+          targ <- mainTarget(labs)
           _ <- IO.writeUtf8(buildPath, contents(targ))
         } yield ()
       } else IO.unit
@@ -311,9 +332,20 @@ maven_dependencies(maven_load)
       val pomPath = args(0)
       val rootProject = parse(pomPath)
 
+      val options = if (args.length >= 2) {
+        val optFile = args(1)
+        val parser = if (optFile.endsWith(".json")) new JawnParser else Yaml
+        parser.decode(Model.readFile(new File(optFile)).get)(Decoders.optionsDecoder) match {
+          case Xor.Left(err) => sys.error("could not decode $optFile. $err")
+          case Xor.Right(opt) =>
+            if (opt.isDefault) None
+            else Some(opt)
+        }
+      } else Some(Options.default.copy(buildHeader = Some(DefaultHeader)))
+
       val io = for {
         _ <- cleanUpBuild(rootProject)
-        _ <- writeDependencies(rootProject)
+        _ <- writeDependencies(options, rootProject)
         _ <- writeWorkspace(rootProject)
         _ <- writeBuilds(rootProject)
       } yield ()
