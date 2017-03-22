@@ -68,8 +68,10 @@ trait MakeDeps {
         // Build up the IO operations that need to run. Till now,
         // nothing was written
         val io = for {
-          _ <- IO.recursiveRm(IO.Path(model.getOptions.getThirdPartyDirectory.parts))
-          _ <- IO.writeUtf8(IO.Path(workspacePath), ws)
+          _ <- IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts))
+          wsp = IO.Path(workspacePath)
+          _ <- IO.mkdirs(wsp.parent)
+          _ <- IO.writeUtf8(wsp, ws)
           builds <- Writer.createBuildFiles(model.getOptions.getBuildHeader, targets)
         } yield builds
 

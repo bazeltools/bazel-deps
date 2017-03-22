@@ -16,6 +16,7 @@ import java.nio.file.attribute.BasicFileAttributes
 object IO {
   case class Path(parts: List[String]) {
     def child(p: String): Path = Path(parts ++ List(p))
+    def parent: Path = Path(parts.dropRight(1))
   }
 
   def path(s: String): Path =
