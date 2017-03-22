@@ -7,14 +7,19 @@ import scala.util.{ Failure, Success, Try }
 
 object Writer {
 
-  def createBuildFiles(ts: List[Target]): Result[Int] = {
+  def createBuildFiles(buildHeader: String, ts: List[Target]): Result[Int] = {
     val pathGroups = ts.groupBy(_.name.path).toList
 
     Traverse[List].traverseU(pathGroups) {
       case (filePath, ts) =>
+
+        def withNewline(s: String): String =
+          if (s.isEmpty) ""
+          else s + "\n"
+
         def data = ts.sortBy(_.name.name)
           .map(_.toBazelString)
-          .mkString("", "\n\n", "\n")
+          .mkString(withNewline(buildHeader), "\n\n", "\n")
 
           for {
             b <- IO.exists(filePath)

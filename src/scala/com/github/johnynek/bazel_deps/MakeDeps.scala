@@ -70,7 +70,7 @@ trait MakeDeps {
         val io = for {
           _ <- IO.recursiveRm(IO.Path(model.getOptions.getThirdPartyDirectory.parts))
           _ <- IO.writeUtf8(IO.Path(workspacePath), ws)
-          builds <- Writer.createBuildFiles(targets)
+          builds <- Writer.createBuildFiles(model.getOptions.getBuildHeader, targets)
         } yield builds
 
         // Here we actually run the whole thing

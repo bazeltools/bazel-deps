@@ -18,7 +18,7 @@ case class Model(
   def asString: String = {
     def optStr = options match {
       case Some(o) =>
-        s"options:\n  ${o.asString}\n"
+        s"options:\n${o.asString(2)}\n"
       case None => ""
     }
 
@@ -72,7 +72,12 @@ case class Subproject(asString: String)
 case class Version(asString: String)
 case class Sha1Value(toHex: String)
 case class MavenServer(id: String, contentType: String, url: String) {
-  def asString: String = ???
+  def asString(indent: Int): String = {
+    val in = " " * indent
+    List(s"id: $id",
+      s"type: $contentType",
+      s"url: $url").mkString("\n" + in)
+  }
 }
 
 object Version {
@@ -189,6 +194,7 @@ object MavenCoordinate {
 
 sealed abstract class Language {
   def asString: String
+  def asOptionsString: String
   def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate
   def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate
   def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate
@@ -198,6 +204,7 @@ sealed abstract class Language {
 object Language {
   case object Java extends Language {
     def asString = "java"
+    def asOptionsString = asString
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
       MavenCoordinate(g, MavenArtifactId(a), v)
 
@@ -213,6 +220,8 @@ object Language {
 
   case class Scala(v: Version, mangle: Boolean) extends Language {
     def asString = if (mangle) "scala" else "scala/unmangled"
+    def asOptionsString: String = s"scala:${v.asString}"
+
     val major = v.asString.split('.') match {
       case Array("2", x) if (x.toInt >= 10) => s"2.$x"
       case Array("2", x, _) if (x.toInt >= 10) => s"2.$x"
@@ -559,7 +568,16 @@ case class Options(
   thirdPartyDirectory: Option[DirectoryName],
   languages: Option[List[Language]],
   resolvers: Option[List[MavenServer]],
-  transitivity: Option[Transitivity]) {
+  transitivity: Option[Transitivity],
+  buildHeader: Option[String]) {
+
+  def isDefault: Boolean =
+    versionConflictPolicy.isEmpty &&
+    thirdPartyDirectory.isEmpty &&
+    languages.isEmpty &&
+    resolvers.isEmpty &&
+    transitivity.isEmpty &&
+    buildHeader.isEmpty
 
   def getThirdPartyDirectory: DirectoryName =
     thirdPartyDirectory.getOrElse(DirectoryName.default)
@@ -578,18 +596,22 @@ case class Options(
   def getTransitivity: Transitivity =
     transitivity.getOrElse(Transitivity.Exports)
 
-  def asString: String = {
-    def opt(k: String, o: Option[String]): String =
-      o match {
-        case None => ""
-        case Some(v) => "  $k: $v\n"
-      }
+  def getBuildHeader: String = buildHeader.getOrElse("")
 
+  def asString(indent: Int): String = {
     val items = List(
       ("versionConflictPolicy", versionConflictPolicy.map(_.asString)),
       ("thirdPartyDirectory", thirdPartyDirectory.map(_.asString)),
-      ("resolvers", resolvers.map(_.map(_.asString).mkString("[", ", ", "]"))),
-      ("languages", resolvers.map(_.map(_.asString).mkString("[", ", ", "]"))),
+      ("resolvers",
+          resolvers.map { ms =>
+             ms.map(_.asString(indent + 4)).mkString("\n    - ", "\n", "")
+          }),
+      ("languages",
+        languages.map { ls =>
+          ls.map { l => "\"%s\"".format(l.asOptionsString) }
+            .mkString("[", ", ", "]")
+        }),
+      ("buildHeader", buildHeader),
       ("transitivity", transitivity.map(_.asString)))
         .sortBy(_._1)
         .flatMap {
@@ -599,11 +621,13 @@ case class Options(
 
     items match {
       case Nil => ""
-      case other => other.mkString("  ", "\n", "\n")
+      case other =>
+        val i = " " * indent
+        other.mkString(i, "\n" + i, "\n")
     }
   }
 }
 
 object Options {
-  def default: Options = Options(None, None, None, None, None)
+  def default: Options = Options(None, None, None, None, None, None)
 }
