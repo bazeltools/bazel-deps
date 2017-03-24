@@ -569,7 +569,7 @@ case class Options(
   languages: Option[List[Language]],
   resolvers: Option[List[MavenServer]],
   transitivity: Option[Transitivity],
-  buildHeader: Option[String]) {
+  buildHeader: Option[List[String]]) {
 
   def isDefault: Boolean =
     versionConflictPolicy.isEmpty &&
@@ -596,9 +596,15 @@ case class Options(
   def getTransitivity: Transitivity =
     transitivity.getOrElse(Transitivity.Exports)
 
-  def getBuildHeader: String = buildHeader.getOrElse("")
+  def getBuildHeader: String = buildHeader match {
+    case Some(lines) => lines.mkString("\n")
+    case None => ""
+  }
 
   def asString(indent: Int): String = {
+    def list[T](i: Iterable[T])(show: T => String): String =
+      i.iterator.map(show).mkString("[", ", ", "]")
+
     val items = List(
       ("versionConflictPolicy", versionConflictPolicy.map(_.asString)),
       ("thirdPartyDirectory", thirdPartyDirectory.map(_.asString)),
@@ -608,10 +614,9 @@ case class Options(
           }),
       ("languages",
         languages.map { ls =>
-          ls.map { l => "\"%s\"".format(l.asOptionsString) }
-            .mkString("[", ", ", "]")
+          list(ls) { l => "\"%s\"".format(l.asOptionsString) }
         }),
-      ("buildHeader", buildHeader),
+      ("buildHeader", buildHeader.map(list(_)(identity))),
       ("transitivity", transitivity.map(_.asString)))
         .sortBy(_._1)
         .flatMap {

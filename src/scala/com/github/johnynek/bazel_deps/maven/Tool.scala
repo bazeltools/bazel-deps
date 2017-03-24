@@ -341,7 +341,7 @@ maven_dependencies(maven_load)
             if (opt.isDefault) None
             else Some(opt)
         }
-      } else Some(Options.default.copy(buildHeader = Some(DefaultHeader)))
+      } else None
 
       val io = for {
         _ <- cleanUpBuild(rootProject)
