@@ -62,6 +62,7 @@ class ParseTest extends FunSuite {
               Some(DirectoryName("3rdparty/jvm")),
               Some(List(Language.Scala(Version("2.11.7"), true), Language.Java)),
               None,
+              None,
               None)))))
   }
   test("parse empty subproject version") {
@@ -95,6 +96,7 @@ class ParseTest extends FunSuite {
               None,
               Some(DirectoryName("3rdparty/jvm")),
               Some(List(Language.Scala(Version("2.11.7"), true), Language.Java)),
+              None,
               None,
               None)))))
 
