@@ -1,0 +1,6 @@
+scala_library(
+  name = "paiges",
+  srcs = glob(["core/src/main/**/*.scala"]),
+  visibility = ["//visibility:public"],
+  scalacopts = [], # we don't own this code, so no need to lint/warn
+  )

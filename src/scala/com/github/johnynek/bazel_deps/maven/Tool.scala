@@ -184,7 +184,7 @@ object Tool {
       Model(allDependencies(proj),
         None,
         opt
-      ).asString
+      ).toDoc.render(80)
 
     IO.writeUtf8(yamlPath, contents)
   }

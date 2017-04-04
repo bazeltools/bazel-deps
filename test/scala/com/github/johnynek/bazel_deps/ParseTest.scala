@@ -1,7 +1,8 @@
 package com.github.johnynek.bazel_deps
 
-import org.scalatest.FunSuite
 import cats.data.Xor
+import org.scalatest.FunSuite
+import org.scalatest.prop.PropertyChecks._
 
 class ParseTest extends FunSuite {
   test("parse a file with no options, yaml") {
@@ -123,4 +124,16 @@ class ParseTest extends FunSuite {
     assert(Decoders.decodeModel(Yaml, str).isLeft)
   }
     */
+
+  test("parse randomly generated Model.toDoc") {
+    forAll(ModelGenerators.modelGen) { model =>
+      val str = model.toDoc.render(70)
+      val good = Decoders.decodeModel(Yaml, str) == Xor.right(model)
+      if (!good) {
+        println(model)
+        println(str)
+      }
+      assert(Decoders.decodeModel(Yaml, str) == Xor.right(model))
+    }
+  }
 }
