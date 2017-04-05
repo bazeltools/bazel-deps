@@ -22,8 +22,8 @@ object ModelGenerators {
   } yield ProjectRecord(lang, v, m, exports, exclude)
 
   def depGen(o: Options): Gen[Dependencies] = {
-    def artMap = Gen.mapOf(join(artifactOrProjGen, projectRecordGen(o.getLanguages)))
-    Gen.mapOf(join(mavenGroupGen, artMap)).map(Dependencies(_))
+    def artMap = Gen.mapOf(join(artifactOrProjGen, projectRecordGen(o.getLanguages))).map(_.take(30))
+    Gen.mapOf(join(mavenGroupGen, artMap)).map { m => Dependencies(m.take(100)) }
   }
 
   def replacementGen: Gen[Replacements] = ???
