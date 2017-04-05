@@ -60,7 +60,7 @@ case class Model(
     val reps = replacements.map { r => ("replacements", r.toDoc) }
     val opts = options.map { o => ("options", o.toDoc) }
 
-    yamlMap(List(opts, deps, reps).collect { case Some(kv) => kv }, 2)
+    yamlMap(List(opts, deps, reps).collect { case Some(kv) => kv }, 2) +: Doc.line
   }
 }
 
@@ -311,13 +311,13 @@ case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
 case class ProjectRecord(
   lang: Language,
   version: Option[Version],
-  modules: Option[List[Subproject]],
-  exports: Option[List[(MavenGroup, ArtifactOrProject)]],
-  exclude: Option[List[(MavenGroup, ArtifactOrProject)]]) {
+  modules: Option[Set[Subproject]],
+  exports: Option[Set[(MavenGroup, ArtifactOrProject)]],
+  exclude: Option[Set[(MavenGroup, ArtifactOrProject)]]) {
 
   def withModule(m: Subproject): ProjectRecord = modules match {
     case None =>
-      copy(modules = Some(List(m)))
+      copy(modules = Some(Set(m)))
     case Some(subs) =>
       // we need to put "m-" on the front of everything
       val newMod = Some(subs.map { sp => Subproject(s"${m.asString}-${sp.asString}") })
@@ -338,7 +338,7 @@ case class ProjectRecord(
       Some(copy(modules = mods))
     } else None
 
-  def getModules: List[Subproject] = modules.getOrElse(Nil)
+  def getModules: List[Subproject] = modules.getOrElse(Set.empty).toList.sortBy(_.asString)
 
   def versionedDependencies(g: MavenGroup,
     ap: ArtifactOrProject): List[MavenCoordinate] =
@@ -355,15 +355,21 @@ case class ProjectRecord(
       case mods => mods.map { m => lang.unversioned(g, ap, m) }
     }
 
+  private def toList(s: Set[(MavenGroup, ArtifactOrProject)]): List[(MavenGroup, ArtifactOrProject)] =
+    s.toList.sortBy { case (a, b) => (a.asString, b.asString) }
+
   def toDoc: Doc = {
     def colonPair(a: MavenGroup, b: ArtifactOrProject): Doc =
       quoteDoc(s"${a.asString}:${b.asString}")
 
     val record = List(List(("lang", Doc.text(lang.asString))),
       version.toList.map { v => ("version", quoteDoc(v.asString)) },
-      modules.toList.map { ms => ("modules", list(ms) { m => quoteDoc(m.asString) }) },
-      exports.toList.map { ms => ("exports", list(ms) { case (a, b) => colonPair(a, b) }) },
-      exclude.toList.map { ms => ("exclude", list(ms) { case (a, b) => colonPair(a, b)}) })
+      modules.toList.map { ms =>
+        ("modules", list(ms.toList.sortBy(_.asString)) { m => quoteDoc(m.asString) }) },
+      exports.toList.map { ms =>
+        ("exports", list(toList(ms)) { case (a, b) => colonPair(a, b) }) },
+      exclude.toList.map { ms =>
+        ("exclude", list(toList(ms)) { case (a, b) => colonPair(a, b)}) })
       .flatten
       .sortBy(_._1)
     packedYamlMap(record)
@@ -449,8 +455,8 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
           unversionedCoordinatesOf(g, a).orElse(r.unversionedCoordinatesOf(g, a))
 
         val errs = l.filter { case (g, a) => uv(g, a).isEmpty }
-        if (errs.nonEmpty) Left(errs)
-        else Right(l.flatMap { case (g, a) => uv(g, a) })
+        if (errs.nonEmpty) Left(l.toList)
+        else Right(l.toList.flatMap { case (g, a) => uv(g, a) })
     }
 
   private val coordToProj: Map[MavenCoordinate, ProjectRecord] =
@@ -508,7 +514,13 @@ case class BazelTarget(asString: String)
 
 case class ReplacementRecord(
   lang: Language,
-  target: BazelTarget)
+  target: BazelTarget) {
+
+  def toDoc: Doc =
+    packedYamlMap(
+      List(("lang", quoteDoc(lang.asString)),
+        ("target", quoteDoc(target.asString))))
+}
 
 case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, ReplacementRecord]]) {
   val unversionedToReplacementRecord: Map[UnversionedCoordinate, ReplacementRecord] =
@@ -527,7 +539,21 @@ case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, Replacemen
   def get(uv: UnversionedCoordinate): Option[ReplacementRecord] =
     unversionedToReplacementRecord.get(uv)
 
-  def toDoc: Doc = Doc.empty
+  def toDoc: Doc = {
+    val allDepDoc = toMap.toList
+      .map { case (g, map) =>
+        val parts: List[(ArtifactOrProject, ReplacementRecord)] =
+          map.toList
+          .sortBy(_._1.asString)
+
+        val groupMap = yamlMap(parts.map { case (a, rr) => (a.asString, rr.toDoc) })
+
+        (g.asString, groupMap)
+      }
+      .sorted
+
+    yamlMap(allDepDoc, 2)
+  }
 }
 
 object Replacements {

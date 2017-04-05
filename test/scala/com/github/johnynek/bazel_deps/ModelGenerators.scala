@@ -16,9 +16,9 @@ object ModelGenerators {
   def projectRecordGen(langs: List[Language]): Gen[ProjectRecord] = for {
     lang <- Gen.oneOf(langs)
     v <- Gen.option(Gen.listOfN(3, Gen.choose('0', '9')).map { l => Version(l.mkString) })
-    m <- Gen.option(Gen.listOf(subprojGen))
-    exports <- Gen.option(Gen.listOf(join(mavenGroupGen, artifactOrProjGen)))
-    exclude <- Gen.option(Gen.listOf(join(mavenGroupGen, artifactOrProjGen)))
+    m <- Gen.option(Gen.listOf(subprojGen).map(_.toSet))
+    exports <- Gen.option(Gen.listOf(join(mavenGroupGen, artifactOrProjGen)).map(_.toSet))
+    exclude <- Gen.option(Gen.listOf(join(mavenGroupGen, artifactOrProjGen)).map(_.toSet))
   } yield ProjectRecord(lang, v, m, exports, exclude)
 
   def depGen(o: Options): Gen[Dependencies] = {
@@ -26,7 +26,19 @@ object ModelGenerators {
     Gen.mapOf(join(mavenGroupGen, artMap)).map { m => Dependencies(m.take(100)) }
   }
 
-  def replacementGen: Gen[Replacements] = ???
+  val genBazelTarget: Gen[BazelTarget] =
+    Gen.listOf(Gen.identifier).map { l => BazelTarget(l.mkString("//", "/", "")) }
+
+  def rrGen(langs: List[Language]): Gen[ReplacementRecord] =
+    for {
+      l <- Gen.oneOf(langs)
+      t <- genBazelTarget
+    } yield ReplacementRecord(l, t)
+
+  def replacementGen(langs: List[Language]): Gen[Replacements] = {
+    def artMap = Gen.mapOf(join(artifactOrProjGen, rrGen(langs))).map(_.take(30))
+    Gen.mapOf(join(mavenGroupGen, artMap)).map { m => Replacements(m.take(100)) }
+  }
 
   val mavenServerGen: Gen[MavenServer] = for {
     id <- Gen.identifier
@@ -49,7 +61,6 @@ object ModelGenerators {
     o <- Gen.option(optionGen)
     opts = o.getOrElse(Options.default)
     d <- depGen(opts)
-    //r <- Gen.option(replacementGen) todo
-    r = None
+    r <- Gen.option(replacementGen(opts.getLanguages))
   } yield Model(d, r, o)
 }
