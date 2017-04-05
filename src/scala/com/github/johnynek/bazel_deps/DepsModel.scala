@@ -362,12 +362,16 @@ case class ProjectRecord(
     def colonPair(a: MavenGroup, b: ArtifactOrProject): Doc =
       quoteDoc(s"${a.asString}:${b.asString}")
 
+    def exportsDoc(e: Set[(MavenGroup, ArtifactOrProject)]): Doc =
+      if (e.isEmpty) Doc.text("[]")
+      else (Doc.line +: vlist(toList(e).map { case (a, b) => colonPair(a, b) })).nest(2)
+
     val record = List(List(("lang", Doc.text(lang.asString))),
       version.toList.map { v => ("version", quoteDoc(v.asString)) },
       modules.toList.map { ms =>
         ("modules", list(ms.toList.sortBy(_.asString)) { m => quoteDoc(m.asString) }) },
       exports.toList.map { ms =>
-        ("exports", list(toList(ms)) { case (a, b) => colonPair(a, b) }) },
+        ("exports", exportsDoc(ms)) },
       exclude.toList.map { ms =>
         ("exclude", list(toList(ms)) { case (a, b) => colonPair(a, b)}) })
       .flatten
@@ -518,7 +522,7 @@ case class ReplacementRecord(
 
   def toDoc: Doc =
     packedYamlMap(
-      List(("lang", quoteDoc(lang.asString)),
+      List(("lang", Doc.text(lang.asString)),
         ("target", quoteDoc(target.asString))))
 }
 
@@ -622,7 +626,7 @@ object Transitivity {
 case class Options(
   versionConflictPolicy: Option[VersionConflictPolicy],
   thirdPartyDirectory: Option[DirectoryName],
-  languages: Option[List[Language]],
+  languages: Option[Set[Language]],
   resolvers: Option[List[MavenServer]],
   transitivity: Option[Transitivity],
   buildHeader: Option[List[String]]) {
@@ -643,7 +647,7 @@ case class Options(
 
   def getLanguages: List[Language] = languages match {
     case None => List(Language.Java, Language.Scala(Version("2.11.8"), true))
-    case Some(langs) => langs
+    case Some(langs) => langs.toList.sortBy(_.asString)
   }
   def getResolvers: List[MavenServer] =
     resolvers.getOrElse(
@@ -669,7 +673,7 @@ case class Options(
           case ms => (Doc.line +: vlist(ms.map(_.toDoc))).nest(2)
         }),
       ("languages",
-        languages.map { ls => list(ls) { l => quoteDoc(l.asOptionsString) } }),
+        languages.map { ls => list(ls.map(_.asOptionsString).toList.sorted)(quoteDoc) }),
       ("buildHeader",
         buildHeader.map(list(_) { s => quoteDoc(s) })),
       ("transitivity", transitivity.map { t => Doc.text(t.asString) }))

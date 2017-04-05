@@ -51,7 +51,7 @@ object ModelGenerators {
   val optionGen: Gen[Options] = for {
     vcp <- Gen.option(Gen.oneOf(VersionConflictPolicy.Fail, VersionConflictPolicy.Fixed, VersionConflictPolicy.Highest))
     dir <- Gen.option(Gen.identifier.map(DirectoryName(_)))
-    langs <- Gen.option(Gen.listOf(langGen))
+    langs <- Gen.option(Gen.listOf(langGen).map(_.toSet))
     res <- Gen.option(Gen.listOf(mavenServerGen))
     trans <- Gen.option(Gen.oneOf(Transitivity.RuntimeDeps, Transitivity.Exports))
     heads <- Gen.option(Gen.listOf(Gen.identifier))
@@ -61,6 +61,6 @@ object ModelGenerators {
     o <- Gen.option(optionGen)
     opts = o.getOrElse(Options.default)
     d <- depGen(opts)
-    r <- Gen.option(replacementGen(opts.getLanguages))
+    r <- Gen.option(replacementGen(opts.getLanguages.toList))
   } yield Model(d, r, o)
 }

@@ -61,7 +61,7 @@ class ParseTest extends FunSuite {
             Options(
               None,
               Some(DirectoryName("3rdparty/jvm")),
-              Some(List(Language.Scala(Version("2.11.7"), true), Language.Java)),
+              Some(Set(Language.Scala(Version("2.11.7"), true), Language.Java)),
               None,
               None,
               None)))))
@@ -96,7 +96,7 @@ class ParseTest extends FunSuite {
             Options(
               None,
               Some(DirectoryName("3rdparty/jvm")),
-              Some(List(Language.Scala(Version("2.11.7"), true), Language.Java)),
+              Some(Set(Language.Scala(Version("2.11.7"), true), Language.Java)),
               None,
               None,
               None)))))
