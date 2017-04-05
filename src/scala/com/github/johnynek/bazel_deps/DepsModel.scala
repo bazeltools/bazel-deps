@@ -411,11 +411,17 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
           .sortBy(_._1.asString)
           .foldLeft(List.empty[(ArtifactOrProject, ProjectRecord)]) {
             case (Nil, ap) => List(ap)
-            case (head :: tail, item) => merge(head, item) match {
+            case (acc@(head :: tail), item) => merge(head, item) match {
               case None =>
-                item :: head :: tail
+                item :: acc
               case Some(merged) =>
-                merged :: tail
+                tail match {
+                  case Nil => merged :: Nil
+                  case (pa, pr) :: ptail if (pa == merged._1) =>
+                    // we can't merge since we already have a previous item
+                    item :: acc
+                  case otherwise => merged :: otherwise
+                }
             }
           }
           .reverse

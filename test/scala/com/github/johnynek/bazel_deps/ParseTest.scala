@@ -140,4 +140,21 @@ class ParseTest extends FunSuite {
       assert(Decoders.decodeModel(Yaml, str) == Xor.right(model))
     }
   }
+  test("don't combine incorrectly") {
+    val str = """dependencies:
+                |  com.twitter:
+                |    scalding:
+                |      lang: scala
+                |      version: 0.16.0
+                |      modules: ["", core, args, date]
+                |    scalding-foo:
+                |      lang: java
+                |    scalding-bar:
+                |      lang: java
+                |
+                |""".stripMargin('|')
+
+    val Xor.Right(mod) = Decoders.decodeModel(Yaml, str)
+    assert(Decoders.decodeModel(Yaml, mod.toDoc.render(70)) == Xor.right(mod))
+  }
 }
