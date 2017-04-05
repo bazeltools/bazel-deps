@@ -1,6 +1,6 @@
 package com.github.johnynek.bazel_deps
 
-import java.io.File
+import java.io.{ File, PrintWriter }
 import cats.data.Xor
 import io.circe.jawn.JawnParser
 import scala.util.{ Failure, Success }
@@ -24,8 +24,15 @@ object FormatDeps {
         sys.error("unreachable")
     }
 
-    model.toDoc.renderStream(100).foreach { chunk =>
-      System.out.print(chunk)
+    val stream = model.toDoc.renderStream(100)
+    if (overwrite) {
+      val pw = new PrintWriter(path)
+      stream.foreach(pw.print(_))
+      pw.flush
+      pw.close
+    }
+    else {
+      stream.foreach(System.out.print(_))
     }
   }
 }
