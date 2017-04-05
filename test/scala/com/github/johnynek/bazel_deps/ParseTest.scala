@@ -26,7 +26,7 @@ class ParseTest extends FunSuite {
               ProjectRecord(
                 Language.Scala(Version("2.11.8"), true),
                 Some(Version("0.16.0")),
-                Some(List("core", "args", "date").map(Subproject(_))),
+                Some(Set("core", "args", "date").map(Subproject(_))),
                 None,
                 None))),
           None,
@@ -53,7 +53,7 @@ class ParseTest extends FunSuite {
               ProjectRecord(
                 Language.Scala(Version("2.11.7"), true),
                 Some(Version("0.16.0")),
-                Some(List("core", "args", "date").map(Subproject(_))),
+                Some(Set("core", "args", "date").map(Subproject(_))),
                 None,
                 None))),
           None,
@@ -61,7 +61,7 @@ class ParseTest extends FunSuite {
             Options(
               None,
               Some(DirectoryName("3rdparty/jvm")),
-              Some(List(Language.Scala(Version("2.11.7"), true), Language.Java)),
+              Some(Set(Language.Scala(Version("2.11.7"), true), Language.Java)),
               None,
               None,
               None)))))
@@ -87,7 +87,7 @@ class ParseTest extends FunSuite {
               ProjectRecord(
                 Language.Scala(Version("2.11.7"), true),
                 Some(Version("0.16.0")),
-                Some(List("", "core", "args", "date").map(Subproject(_))),
+                Some(Set("", "core", "args", "date").map(Subproject(_))),
                 None,
                 None
                 ))),
@@ -96,7 +96,7 @@ class ParseTest extends FunSuite {
             Options(
               None,
               Some(DirectoryName("3rdparty/jvm")),
-              Some(List(Language.Scala(Version("2.11.7"), true), Language.Java)),
+              Some(Set(Language.Scala(Version("2.11.7"), true), Language.Java)),
               None,
               None,
               None)))))

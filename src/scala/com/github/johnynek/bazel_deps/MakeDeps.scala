@@ -2,17 +2,30 @@ package com.github.johnynek.bazel_deps
 
 import java.io.File
 import cats.data.Xor
+import io.circe.jawn.JawnParser
+import scala.util.{ Failure, Success }
 
-trait MakeDeps {
-  /**
-   * the second item is a relative path to the workspace.bzl file
-   * we will create. The third item is an absolute path to the root
-   * of the directory
-   */
-  def getSettings(args: Array[String]): (Model, List[String], File)
+object MakeDeps {
+  def apply(g: Command.Generate): Unit = {
 
-  def main(args: Array[String]): Unit = {
-    val (model, workspacePath, projectRoot) = getSettings(args)
+    val content: String = Model.readFile(g.absDepsFile) match {
+      case Success(str) => str
+      case Failure(err) =>
+        System.err.println(s"[ERROR]: Failed to read ${g.depsFile}.\n$err")
+        System.exit(1)
+        sys.error("unreachable")
+    }
+
+    val parser = if (g.depsFile.endsWith(".json")) new JawnParser else Yaml
+    val model = Decoders.decodeModel(parser, content) match {
+      case Xor.Right(m) => m
+      case Xor.Left(err) =>
+        System.err.println(s"[ERROR]: Failed to parse ${g.depsFile}.\n$err")
+        System.exit(1)
+        sys.error("unreachable")
+    }
+    val workspacePath = g.shaFilePath
+    val projectRoot = g.repoRoot
     val deps = model.dependencies
     val resolver = new Resolver(model.getOptions.getResolvers)
     val graph = resolver.addAll(Graph.empty, deps.roots, model)

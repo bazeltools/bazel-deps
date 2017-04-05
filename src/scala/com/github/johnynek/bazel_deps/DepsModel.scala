@@ -28,9 +28,14 @@ object DocUtil {
     Doc.intercalate(Doc.line, ds.map { d => dash +: d.nest(2) })
   }
 
-  def yamlMap(kvs: List[(String, Doc)]): Doc =
+  def yamlMap(kvs: List[(String, Doc)], lines: Int = 1): Doc = {
+    def rep(x: Int): Doc =
+      if (x <= 0) Doc.empty
+      else Doc.line +: rep(x - 1)
+
     if (kvs.isEmpty) Doc.text("{}")
-    else Doc.intercalate(Doc.line, kvs.map { case (k, v) => kv(k, v) })
+    else Doc.intercalate(rep(lines), kvs.map { case (k, v) => kv(k, v) })
+  }
 
   def packedYamlMap(kvs: List[(String, Doc)]): Doc =
     if (kvs.isEmpty) Doc.text("{}")
@@ -55,7 +60,7 @@ case class Model(
     val reps = replacements.map { r => ("replacements", r.toDoc) }
     val opts = options.map { o => ("options", o.toDoc) }
 
-    yamlMap(List(opts, deps, reps).collect { case Some(kv) => kv })
+    yamlMap(List(opts, deps, reps).collect { case Some(kv) => kv }, 2) +: Doc.line
   }
 }
 
@@ -99,8 +104,8 @@ case class Version(asString: String)
 case class Sha1Value(toHex: String)
 case class MavenServer(id: String, contentType: String, url: String) {
   def toDoc: Doc =
-    Doc.intercalate(Doc.line,
-      List(kv("id", quoteDoc(id)), kv("type", quoteDoc(contentType)), kv("url", Doc.text(url))))
+    packedYamlMap(
+      List(("id", quoteDoc(id)), ("type", quoteDoc(contentType)), ("url", Doc.text(url))))
 }
 
 object Version {
@@ -306,13 +311,13 @@ case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
 case class ProjectRecord(
   lang: Language,
   version: Option[Version],
-  modules: Option[List[Subproject]],
-  exports: Option[List[(MavenGroup, ArtifactOrProject)]],
-  exclude: Option[List[(MavenGroup, ArtifactOrProject)]]) {
+  modules: Option[Set[Subproject]],
+  exports: Option[Set[(MavenGroup, ArtifactOrProject)]],
+  exclude: Option[Set[(MavenGroup, ArtifactOrProject)]]) {
 
   def withModule(m: Subproject): ProjectRecord = modules match {
     case None =>
-      copy(modules = Some(List(m)))
+      copy(modules = Some(Set(m)))
     case Some(subs) =>
       // we need to put "m-" on the front of everything
       val newMod = Some(subs.map { sp => Subproject(s"${m.asString}-${sp.asString}") })
@@ -333,7 +338,7 @@ case class ProjectRecord(
       Some(copy(modules = mods))
     } else None
 
-  def getModules: List[Subproject] = modules.getOrElse(Nil)
+  def getModules: List[Subproject] = modules.getOrElse(Set.empty).toList.sortBy(_.asString)
 
   def versionedDependencies(g: MavenGroup,
     ap: ArtifactOrProject): List[MavenCoordinate] =
@@ -350,15 +355,25 @@ case class ProjectRecord(
       case mods => mods.map { m => lang.unversioned(g, ap, m) }
     }
 
+  private def toList(s: Set[(MavenGroup, ArtifactOrProject)]): List[(MavenGroup, ArtifactOrProject)] =
+    s.toList.sortBy { case (a, b) => (a.asString, b.asString) }
+
   def toDoc: Doc = {
     def colonPair(a: MavenGroup, b: ArtifactOrProject): Doc =
       quoteDoc(s"${a.asString}:${b.asString}")
 
+    def exportsDoc(e: Set[(MavenGroup, ArtifactOrProject)]): Doc =
+      if (e.isEmpty) Doc.text("[]")
+      else (Doc.line +: vlist(toList(e).map { case (a, b) => colonPair(a, b) })).nest(2)
+
     val record = List(List(("lang", Doc.text(lang.asString))),
       version.toList.map { v => ("version", quoteDoc(v.asString)) },
-      modules.toList.map { ms => ("modules", list(ms) { m => quoteDoc(m.asString) }) },
-      exports.toList.map { ms => ("exports", list(ms) { case (a, b) => colonPair(a, b) }) },
-      exclude.toList.map { ms => ("exclude", list(ms) { case (a, b) => colonPair(a, b)}) })
+      modules.toList.map { ms =>
+        ("modules", list(ms.toList.sortBy(_.asString)) { m => quoteDoc(m.asString) }) },
+      exports.toList.map { ms =>
+        ("exports", exportsDoc(ms)) },
+      exclude.toList.map { ms =>
+        ("exclude", list(toList(ms)) { case (a, b) => colonPair(a, b)}) })
       .flatten
       .sortBy(_._1)
     packedYamlMap(record)
@@ -408,7 +423,7 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
       }
       .sorted
 
-    yamlMap(allDepDoc)
+    yamlMap(allDepDoc, 2)
   }
 
   // Returns 1 if there is exactly one candidate that matches.
@@ -444,8 +459,8 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
           unversionedCoordinatesOf(g, a).orElse(r.unversionedCoordinatesOf(g, a))
 
         val errs = l.filter { case (g, a) => uv(g, a).isEmpty }
-        if (errs.nonEmpty) Left(errs)
-        else Right(l.flatMap { case (g, a) => uv(g, a) })
+        if (errs.nonEmpty) Left(l.toList)
+        else Right(l.toList.flatMap { case (g, a) => uv(g, a) })
     }
 
   private val coordToProj: Map[MavenCoordinate, ProjectRecord] =
@@ -503,7 +518,13 @@ case class BazelTarget(asString: String)
 
 case class ReplacementRecord(
   lang: Language,
-  target: BazelTarget)
+  target: BazelTarget) {
+
+  def toDoc: Doc =
+    packedYamlMap(
+      List(("lang", Doc.text(lang.asString)),
+        ("target", quoteDoc(target.asString))))
+}
 
 case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, ReplacementRecord]]) {
   val unversionedToReplacementRecord: Map[UnversionedCoordinate, ReplacementRecord] =
@@ -522,9 +543,21 @@ case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, Replacemen
   def get(uv: UnversionedCoordinate): Option[ReplacementRecord] =
     unversionedToReplacementRecord.get(uv)
 
-  def asString: String = ???
+  def toDoc: Doc = {
+    val allDepDoc = toMap.toList
+      .map { case (g, map) =>
+        val parts: List[(ArtifactOrProject, ReplacementRecord)] =
+          map.toList
+          .sortBy(_._1.asString)
 
-  def toDoc: Doc = ???
+        val groupMap = yamlMap(parts.map { case (a, rr) => (a.asString, rr.toDoc) })
+
+        (g.asString, groupMap)
+      }
+      .sorted
+
+    yamlMap(allDepDoc, 2)
+  }
 }
 
 object Replacements {
@@ -593,7 +626,7 @@ object Transitivity {
 case class Options(
   versionConflictPolicy: Option[VersionConflictPolicy],
   thirdPartyDirectory: Option[DirectoryName],
-  languages: Option[List[Language]],
+  languages: Option[Set[Language]],
   resolvers: Option[List[MavenServer]],
   transitivity: Option[Transitivity],
   buildHeader: Option[List[String]]) {
@@ -614,7 +647,7 @@ case class Options(
 
   def getLanguages: List[Language] = languages match {
     case None => List(Language.Java, Language.Scala(Version("2.11.8"), true))
-    case Some(langs) => langs
+    case Some(langs) => langs.toList.sortBy(_.asString)
   }
   def getResolvers: List[MavenServer] =
     resolvers.getOrElse(
@@ -637,10 +670,10 @@ case class Options(
       ("resolvers",
         resolvers.map {
           case Nil => Doc.text("[]")
-          case ms => vlist(ms.map(_.toDoc))
+          case ms => (Doc.line +: vlist(ms.map(_.toDoc))).nest(2)
         }),
       ("languages",
-        languages.map { ls => list(ls) { l => quoteDoc(l.asOptionsString) } }),
+        languages.map { ls => list(ls.map(_.asOptionsString).toList.sorted)(quoteDoc) }),
       ("buildHeader",
         buildHeader.map(list(_) { s => quoteDoc(s) })),
       ("transitivity", transitivity.map { t => Doc.text(t.asString) }))
@@ -648,7 +681,7 @@ case class Options(
         .collect { case (k, Some(v)) => (k, v) }
 
     // we can't pack resolvers (yet)
-    yamlMap(items)
+    packedYamlMap(items)
   }
 }
 
