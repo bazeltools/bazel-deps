@@ -4,6 +4,41 @@ import java.io.{ File, BufferedReader, FileReader }
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
+import com.github.johnynek.paiges.Doc
+
+/**
+ * These should be upstreamed to paiges
+ */
+object DocUtil {
+  def packedKV(k: String, v: Doc): Doc =
+    Doc.text(k) +: Doc.text(":") +: Doc.spaceOrLine.nest(2) +: v
+
+  def kv(k: String, v: Doc, tight: Boolean = false): Doc =
+    Doc.text(k) +: Doc.text(":") +: ((Doc.line +: v).nest(2))
+  def quote(s: String): String = "\"%s\"".format(s)
+  def quoteDoc(s: String): Doc = Doc.text(quote(s))
+
+  def list[T](i: Iterable[T])(show: T => Doc): Doc = {
+    val parts = Doc.intercalate(Doc.comma, i.map { j => (Doc.line +: show(j)).group })
+    "[" +: (parts :+ " ]").nest(2)
+  }
+  // Here is a vertical list of docs
+  def vlist(ds: Iterable[Doc]): Doc = {
+    val dash = Doc.text("- ")
+    Doc.intercalate(Doc.line, ds.map { d => dash +: d.nest(2) })
+  }
+
+  def yamlMap(kvs: List[(String, Doc)]): Doc =
+    if (kvs.isEmpty) Doc.text("{}")
+    else Doc.intercalate(Doc.line, kvs.map { case (k, v) => kv(k, v) })
+
+  def packedYamlMap(kvs: List[(String, Doc)]): Doc =
+    if (kvs.isEmpty) Doc.text("{}")
+    else Doc.intercalate(Doc.line, kvs.map { case (k, v) => packedKV(k, v) })
+}
+
+import DocUtil._
+
 case class Model(
   dependencies: Dependencies,
   replacements: Option[Replacements],
@@ -15,21 +50,12 @@ case class Model(
   def getReplacements: Replacements =
     replacements.getOrElse(Replacements.empty)
 
-  def asString: String = {
-    def optStr = options match {
-      case Some(o) =>
-        s"options:\n${o.asString(2)}\n"
-      case None => ""
-    }
+  def toDoc: Doc = {
+    val deps = Some(("dependencies", dependencies.toDoc))
+    val reps = replacements.map { r => ("replacements", r.toDoc) }
+    val opts = options.map { o => ("options", o.toDoc) }
 
-    def repStr = replacements match {
-      case Some(r) => s"replacements:\n  ${r.asString}\n"
-      case None => ""
-    }
-    // this should be indendented 2
-    def depStr = dependencies.asString
-
-    s"${optStr}dependencies:\n$depStr$repStr"
+    yamlMap(List(opts, deps, reps).collect { case Some(kv) => kv })
   }
 }
 
@@ -72,12 +98,9 @@ case class Subproject(asString: String)
 case class Version(asString: String)
 case class Sha1Value(toHex: String)
 case class MavenServer(id: String, contentType: String, url: String) {
-  def asString(indent: Int): String = {
-    val in = " " * indent
-    List(s"id: $id",
-      s"type: $contentType",
-      s"url: $url").mkString("\n" + in)
-  }
+  def toDoc: Doc =
+    Doc.intercalate(Doc.line,
+      List(kv("id", quoteDoc(id)), kv("type", quoteDoc(contentType)), kv("url", Doc.text(url))))
 }
 
 object Version {
@@ -327,21 +350,24 @@ case class ProjectRecord(
       case mods => mods.map { m => lang.unversioned(g, ap, m) }
     }
 
-  def asString(indent: Int): String = {
-    val ind = " " * indent
-    List(List(s"lang: ${lang.asString}"),
-      version.toList.map { v => s"""version: "${v.asString}"""" },
-      modules.toList.map { ms => "modules: " + (ms.map(_.asString).mkString("[", ", ", "]")) })
+  def toDoc: Doc = {
+    def colonPair(a: MavenGroup, b: ArtifactOrProject): Doc =
+      quoteDoc(s"${a.asString}:${b.asString}")
+
+    val record = List(List(("lang", Doc.text(lang.asString))),
+      version.toList.map { v => ("version", quoteDoc(v.asString)) },
+      modules.toList.map { ms => ("modules", list(ms) { m => quoteDoc(m.asString) }) },
+      exports.toList.map { ms => ("exports", list(ms) { case (a, b) => colonPair(a, b) }) },
+      exclude.toList.map { ms => ("exclude", list(ms) { case (a, b) => colonPair(a, b)}) })
       .flatten
-      .sorted
-      .map { str => s"$ind$str" }
-      .mkString("\n")
+      .sortBy(_._1)
+    packedYamlMap(record)
   }
 }
 
 case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]]) {
 
-  def asString: String = {
+  def toDoc: Doc = {
     type Pair = (ArtifactOrProject, ProjectRecord)
     def merge(a: Pair, b: Pair): Option[Pair] = {
       def subs(p: Pair): List[Pair] =
@@ -361,10 +387,9 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
       else Some(merges.maxBy(_._1.asString.length)) // if more than 1 pick the one with the longest string
     }
 
-    toMap.toList
-      .sortBy(_._1.asString)
+    val allDepDoc = toMap.toList
       .map { case (g, map) =>
-        val mStr: String = map.toList
+        val parts: List[(ArtifactOrProject, ProjectRecord)] = map.toList
           .sortBy(_._1.asString)
           .foldLeft(List.empty[(ArtifactOrProject, ProjectRecord)]) {
             case (Nil, ap) => List(ap)
@@ -376,14 +401,14 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
             }
           }
           .reverse
-          .map { case (a, p) =>
-            val proj: String = p.asString(6)
-            s"    ${a.asString}:\n$proj"
-          }.mkString("", "\n", "\n")
 
-        s"  ${g.asString}:\n$mStr"
+          val groupMap = yamlMap(parts.map { case (a, p) => (a.asString, p.toDoc) })
+
+        (g.asString, groupMap)
       }
-      .mkString("", "\n", "\n")
+      .sorted
+
+    yamlMap(allDepDoc)
   }
 
   // Returns 1 if there is exactly one candidate that matches.
@@ -498,6 +523,8 @@ case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, Replacemen
     unversionedToReplacementRecord.get(uv)
 
   def asString: String = ???
+
+  def toDoc: Doc = ???
 }
 
 object Replacements {
@@ -601,35 +628,27 @@ case class Options(
     case None => ""
   }
 
-  def asString(indent: Int): String = {
-    def list[T](i: Iterable[T])(show: T => String): String =
-      i.iterator.map(show).mkString("[", ", ", "]")
-
+  def toDoc: Doc = {
     val items = List(
-      ("versionConflictPolicy", versionConflictPolicy.map(_.asString)),
-      ("thirdPartyDirectory", thirdPartyDirectory.map(_.asString)),
+      ("versionConflictPolicy",
+        versionConflictPolicy.map { p => Doc.text(p.asString) }),
+      ("thirdPartyDirectory",
+        thirdPartyDirectory.map { tpd => quoteDoc(tpd.asString) }),
       ("resolvers",
-          resolvers.map { ms =>
-             ms.map(_.asString(indent + 4)).mkString("\n    - ", "\n", "")
-          }),
-      ("languages",
-        languages.map { ls =>
-          list(ls) { l => "\"%s\"".format(l.asOptionsString) }
+        resolvers.map {
+          case Nil => Doc.text("[]")
+          case ms => vlist(ms.map(_.toDoc))
         }),
-      ("buildHeader", buildHeader.map(list(_)(identity))),
-      ("transitivity", transitivity.map(_.asString)))
+      ("languages",
+        languages.map { ls => list(ls) { l => quoteDoc(l.asOptionsString) } }),
+      ("buildHeader",
+        buildHeader.map(list(_) { s => quoteDoc(s) })),
+      ("transitivity", transitivity.map { t => Doc.text(t.asString) }))
         .sortBy(_._1)
-        .flatMap {
-          case (k, Some(v)) => List(s"$k: $v")
-          case (k, None) => Nil
-        }
+        .collect { case (k, Some(v)) => (k, v) }
 
-    items match {
-      case Nil => ""
-      case other =>
-        val i = " " * indent
-        other.mkString(i, "\n" + i, "\n")
-    }
+    // we can't pack resolvers (yet)
+    yamlMap(items)
   }
 }
 
