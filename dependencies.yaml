@@ -19,7 +19,8 @@ dependencies:
   
   com.github.mpilquist:
     simulacrum:
-      exports: [ "org.typelevel:macro-compat" ]
+      exports: 
+        - "org.typelevel:macro-compat"
       lang: scala
   
   io.circe:
@@ -28,8 +29,11 @@ dependencies:
       modules: [ "core", "jackson", "parser" ]
       version: "0.5.0-M2"
     circe-generic:
-      exports: [ "com.chuusai:shapeless", "org.typelevel:cats-core", "org.typelevel:cats-kernel",
-        "org.typelevel:macro-compat" ]
+      exports: 
+        - "com.chuusai:shapeless"
+        - "org.typelevel:cats-core"
+        - "org.typelevel:cats-kernel"
+        - "org.typelevel:macro-compat"
       lang: scala
       version: "0.5.0-M2"
   
@@ -65,7 +69,8 @@ dependencies:
       modules: [ "free", "kernel", "macros" ]
       version: "0.6.0"
     cats-core:
-      exports: [ "org.typelevel:cats-kernel" ]
+      exports: 
+        - "org.typelevel:cats-kernel"
       lang: scala
       version: "0.6.0"
     macro-compat:
@@ -74,13 +79,13 @@ dependencies:
 replacements:
   org.scala-lang:
     scala-library:
-      lang: "scala/unmangled"
+      lang: scala/unmangled
       target: "//3rdparty/manual:scala_library_file"
     scala-reflect:
-      lang: "scala/unmangled"
+      lang: scala/unmangled
       target: "//3rdparty/manual:scala_reflect_file"
   
   org.scala-lang.modules:
     scala-parser-combinators:
-      lang: "scala"
+      lang: scala
       target: "//3rdparty/manual:scala_parser_combinators_file"
