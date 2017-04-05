@@ -17,7 +17,7 @@ scala_library(name = "modelgen",
 
 scala_test(name = "parsetest",
            srcs = ["ParseTest.scala"],
-           jvm_flags = ["-Xmx500M", "-Xms500M"],
+           jvm_flags = ["-Xmx1000M", "-Xms1000M"],
            deps = [
                ":modelgen",
                "//3rdparty/jvm/org/scalacheck",
