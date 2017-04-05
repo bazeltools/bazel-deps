@@ -126,6 +126,10 @@ class ParseTest extends FunSuite {
     */
 
   test("parse randomly generated Model.toDoc") {
+    // this test is slow and takes a lot of memory sadly
+    implicit val generatorDrivenConfig =
+      PropertyCheckConfig(minSuccessful = 20)
+
     forAll(ModelGenerators.modelGen) { model =>
       val str = model.toDoc.render(70)
       val good = Decoders.decodeModel(Yaml, str) == Xor.right(model)
