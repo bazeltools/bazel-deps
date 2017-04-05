@@ -366,6 +366,9 @@ case class ProjectRecord(
       if (e.isEmpty) Doc.text("[]")
       else (Doc.line +: vlist(toList(e).map { case (a, b) => colonPair(a, b) })).nest(2)
 
+    def quoteEmpty(s: String): Doc =
+      if (s.isEmpty) quoteDoc("") else Doc.text(s)
+
     val record = List(List(("lang", Doc.text(lang.asString))),
       version.toList.map { v => ("version", quoteDoc(v.asString)) },
       modules.toList.map { ms =>
@@ -373,7 +376,7 @@ case class ProjectRecord(
       exports.toList.map { ms =>
         ("exports", exportsDoc(ms)) },
       exclude.toList.map { ms =>
-        ("exclude", list(toList(ms)) { case (a, b) => colonPair(a, b)}) })
+        ("exclude", exportsDoc(ms)) })
       .flatten
       .sortBy(_._1)
     packedYamlMap(record)
@@ -408,11 +411,17 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
           .sortBy(_._1.asString)
           .foldLeft(List.empty[(ArtifactOrProject, ProjectRecord)]) {
             case (Nil, ap) => List(ap)
-            case (head :: tail, item) => merge(head, item) match {
+            case (acc@(head :: tail), item) => merge(head, item) match {
               case None =>
-                item :: head :: tail
+                item :: acc
               case Some(merged) =>
-                merged :: tail
+                tail match {
+                  case Nil => merged :: Nil
+                  case (pa, pr) :: ptail if (pa == merged._1) =>
+                    // we can't merge since we already have a previous item
+                    item :: acc
+                  case otherwise => merged :: otherwise
+                }
             }
           }
           .reverse
