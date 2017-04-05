@@ -1,3 +1,7 @@
+scala_library(name = "commands",
+              srcs = ["Commands.scala"],
+              deps = ["//3rdparty/jvm/org/rogach:scallop"])
+
 scala_library(name = "depsmodel",
               srcs = ["DepsModel.scala"],
               deps = ["@com_github_johnynek_paiges//:paiges"],
@@ -56,11 +60,16 @@ scala_library(name = "writer",
               visibility = ["//visibility:public"])
 
 scala_library(name = "makedeps",
-             srcs = ["MakeDeps.scala"],
+             srcs = ["MakeDeps.scala", "FormatDeps.scala"],
              deps = [
+                 "//3rdparty/jvm/io/circe:circe_core",
+                 "//3rdparty/jvm/io/circe:circe_jawn_2_11",
                  "//3rdparty/jvm/org/eclipse/aether:aether_api",
                  "//3rdparty/jvm/org/typelevel:cats_core",
                  "//3rdparty/jvm/org/typelevel:cats_free",
+                 ":circeyaml",
+                 ":commands",
+                 ":decoders",
                  ":depsmodel",
                  ":graph",
                  ":io",
@@ -74,12 +83,8 @@ scala_binary(name = "parseproject",
              srcs = ["ParseProject.scala"],
              deps = [
                  ":makedeps",
-                 ":depsmodel",
-                 ":circeyaml",
-                 ":decoders",
-                 "//3rdparty/jvm/io/circe:circe_core",
-                 "//3rdparty/jvm/org/typelevel:cats_core",
-                 "//3rdparty/jvm/io/circe:circe_jawn_2_11",
+                 ":commands",
+                 "//3rdparty/jvm/org/rogach:scallop",
                  ],
              main_class = "com.github.johnynek.bazel_deps.ParseProject",
              visibility = ["//visibility:public"])
@@ -104,3 +109,4 @@ scala_library(name = "decoders",
                   "//3rdparty/jvm/io/circe:circe_generic",
               ],
               visibility = ["//visibility:public"])
+

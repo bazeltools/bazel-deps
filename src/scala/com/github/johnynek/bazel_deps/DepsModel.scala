@@ -28,9 +28,14 @@ object DocUtil {
     Doc.intercalate(Doc.line, ds.map { d => dash +: d.nest(2) })
   }
 
-  def yamlMap(kvs: List[(String, Doc)]): Doc =
+  def yamlMap(kvs: List[(String, Doc)], lines: Int = 1): Doc = {
+    def rep(x: Int): Doc =
+      if (x <= 0) Doc.empty
+      else Doc.line +: rep(x - 1)
+
     if (kvs.isEmpty) Doc.text("{}")
-    else Doc.intercalate(Doc.line, kvs.map { case (k, v) => kv(k, v) })
+    else Doc.intercalate(rep(lines), kvs.map { case (k, v) => kv(k, v) })
+  }
 
   def packedYamlMap(kvs: List[(String, Doc)]): Doc =
     if (kvs.isEmpty) Doc.text("{}")
@@ -55,7 +60,7 @@ case class Model(
     val reps = replacements.map { r => ("replacements", r.toDoc) }
     val opts = options.map { o => ("options", o.toDoc) }
 
-    yamlMap(List(opts, deps, reps).collect { case Some(kv) => kv })
+    yamlMap(List(opts, deps, reps).collect { case Some(kv) => kv }, 2)
   }
 }
 
@@ -99,8 +104,8 @@ case class Version(asString: String)
 case class Sha1Value(toHex: String)
 case class MavenServer(id: String, contentType: String, url: String) {
   def toDoc: Doc =
-    Doc.intercalate(Doc.line,
-      List(kv("id", quoteDoc(id)), kv("type", quoteDoc(contentType)), kv("url", Doc.text(url))))
+    packedYamlMap(
+      List(("id", quoteDoc(id)), ("type", quoteDoc(contentType)), ("url", Doc.text(url))))
 }
 
 object Version {
@@ -408,7 +413,7 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
       }
       .sorted
 
-    yamlMap(allDepDoc)
+    yamlMap(allDepDoc, 2)
   }
 
   // Returns 1 if there is exactly one candidate that matches.
@@ -522,9 +527,7 @@ case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, Replacemen
   def get(uv: UnversionedCoordinate): Option[ReplacementRecord] =
     unversionedToReplacementRecord.get(uv)
 
-  def asString: String = ???
-
-  def toDoc: Doc = ???
+  def toDoc: Doc = Doc.empty
 }
 
 object Replacements {
@@ -637,7 +640,7 @@ case class Options(
       ("resolvers",
         resolvers.map {
           case Nil => Doc.text("[]")
-          case ms => vlist(ms.map(_.toDoc))
+          case ms => (Doc.line +: vlist(ms.map(_.toDoc))).nest(2)
         }),
       ("languages",
         languages.map { ls => list(ls) { l => quoteDoc(l.asOptionsString) } }),
@@ -648,7 +651,7 @@ case class Options(
         .collect { case (k, Some(v)) => (k, v) }
 
     // we can't pack resolvers (yet)
-    yamlMap(items)
+    packedYamlMap(items)
   }
 }
 

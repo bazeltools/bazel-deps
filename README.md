@@ -9,10 +9,10 @@ Run parseproject on your project yaml file. For instance, this project is setup 
 
 ```bash
 bazel build src/scala/com/github/johnynek/bazel_deps:parseproject_deploy.jar
-./gen_maven_deps.sh `pwd` 3rdparty/workspace.bzl dependencies.yaml
+./gen_maven_deps.sh generate -r `pwd` -s 3rdparty/workspace.bzl -d dependencies.yaml
 ```
 We give three arguments: the path to the file we will include in our workspace. The path to the root
-of our bazel repo. The path to the dependencies file.
+of our bazel repo. The path to the dependencies file. You can also run with `--help`.
 
 This will create a tree of BUILD files that match the maven group id, and the artifact id will be
 a label in a BUILD file. You should not edit these by hand, and instead have a separate directory
