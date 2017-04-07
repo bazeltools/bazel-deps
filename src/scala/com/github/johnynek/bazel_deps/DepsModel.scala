@@ -11,10 +11,10 @@ import com.github.johnynek.paiges.Doc
  */
 object DocUtil {
   def packedKV(k: String, v: Doc): Doc =
-    Doc.text(k) :+ ":" + Doc.spaceOrLine.nest(2) + v
+    Doc.text(k) + Doc.text(":") + Doc.spaceOrLine.nest(2) + v
 
   def kv(k: String, v: Doc, tight: Boolean = false): Doc =
-    Doc.text(k) :+ ":" + ((Doc.line + v).nest(2))
+    Doc.text(k) + Doc.text(":") + ((Doc.line + v).nest(2))
   def quote(s: String): String = "\"%s\"".format(s)
   def quoteDoc(s: String): Doc = Doc.text(quote(s))
 
