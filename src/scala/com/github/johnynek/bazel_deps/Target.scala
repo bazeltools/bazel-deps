@@ -1,37 +1,47 @@
 package com.github.johnynek.bazel_deps
 
+import com.github.johnynek.paiges.Doc
+
 object Target {
+  def renderList[T](front: Doc, l: List[T], back: Doc)(show: T => Doc): Doc =
+    if (l.isEmpty) Doc.empty
+    else {
+      val spreadParts = Doc.intercalate(Doc.comma + Doc.line, l.map(show))
+      front + (Doc.line + spreadParts).nest(4) + Doc.line + back
+    }
+
+  def quote(s: String): Doc =
+    Doc.text("\"%s\"".format(s))
+
   sealed abstract class Kind(override val toString: String)
   case object Library extends Kind("library")
   case object Test extends Kind("test")
   case object Binary extends Kind("binary")
 
   sealed abstract class SourceList {
-    def render(outerIndent: Int, key: String): String
+    def render: Doc
 
   }
   object SourceList {
     case object Empty extends SourceList {
-      def render(outerIndent: Int, key: String): String = ""
+      def render: Doc = Doc.empty
     }
 
     case class Explicit(srcs: Set[String]) extends SourceList {
-      def render(outerIndent: Int, key: String): String =
-        if (srcs.isEmpty) ""
+      def render: Doc =
+        if (srcs.isEmpty) Doc.empty
         else {
-          val prefix = s"$key = ["
-          val indent = prefix.length
-          val spaced = List.fill(outerIndent + indent)(' ').mkString
-          srcs.toList.sorted.mkString("[", s",\n$spaced", "]")
+          renderList(Doc.text("["), srcs.toList.sorted, Doc.text("]"))(quote)
+            .grouped
         }
     }
     case class Globs(globs: List[String]) extends SourceList {
-      def render(outerIndent: Int, key: String): String =
-        if (globs.isEmpty) ""
+      def render: Doc =
+        if (globs.isEmpty) Doc.empty
         else {
-          def quote(s: String): String = "\"%s\"".format(s)
-          val gstr = globs.map(quote).mkString(", ")
-          s"glob([$gstr])"
+          val gstr = renderList(Doc.text("["), globs, Doc.text("]"))(quote)
+            .grouped
+          Doc.text("glob(") + gstr + Doc.text(")")
         }
     }
   }
@@ -46,53 +56,44 @@ case class Target(
   exports: Set[Label] = Set.empty,
   runtimeDeps: Set[Label] = Set.empty) {
 
-  def toBazelString: String = {
-
+  def toDoc: Doc = {
+    import Target._
     /**
      * e.g.
-     * scala_library(name = "foo",
-     *   deps = [ ],
-     *   exports = [ ],
-     *   runtime_deps = [ ],
-     *   visibility = ["//visibility:public"])
+     * scala_library(
+     *     name = "foo",
+     *     deps = [ ],
+     *     exports = [ ],
+     *     runtime_deps = [ ],
+     *     visibility = ["//visibility:public"]
+     * )
      */
-    def renderList[T](outerIndent: Int, key: String, l: Set[T])(show: T => String): String =
-      if (l.isEmpty) ""
-      else {
-        val prefix = s"$key = ["
-        val indent = prefix.length
-        val spaced = List.fill(outerIndent + indent)(' ').mkString
-        l.iterator.map(show).toList.sorted.mkString("[", s",\n$spaced", "]")
-      }
-
-    def labelList(outerIndent: Int, key: String, l: Set[Label]): String =
-      renderList(outerIndent, key, l) { label =>
-        val str = label.asStringFrom(name.path)
-        "\"%s\"".format(str)
-      }
 
     val langName = lang match {
       case Language.Java => "java"
       case Language.Scala(_, _) => "scala"
     }
-    val header = s"${langName}_${kind}("
-    def sortKeys(items: List[(String, String)]): String = {
+
+    val targetType = Doc.text(s"${langName}_${kind}")
+
+    def sortKeys(items: List[(String, Doc)]): Doc = {
       // everything has a name
-      val nm = s"""name = "${name.name}""""
-      if (items.isEmpty) { header + nm + ")" }
-      else {
-        val sorted = items.filter(_._2.nonEmpty).sortBy(_._1)
-        val prefixIndent = List.fill(header.length)(' ').mkString
-        (nm :: (sorted.map { case (k, v) => s"$prefixIndent$k = $v" }))
-          .mkString(header, ",\n", ")")
-      }
+      val nm = ("name", quote(name.name))
+      val sorted = items.collect { case (s, d) if !(d.isEmpty) => (s, d) }.sorted
+
+      renderList(Doc.text("$targetType("), nm :: sorted, Doc.text(")")) { case (k, v) =>
+        k +: " = " +: v
+      } + Doc.line.repeat(2)
     }
-    val indent = header.length
+
+    def labelList(ls: Set[Label]): Doc =
+      renderList(Doc.text("["), ls.toList.map(_.asStringFrom(name.path)).sorted, Doc.text("]"))(quote)
+
     sortKeys(List(
-      "visibility" ->  """["//visibility:public"]""",
-      "deps" -> labelList(indent, "deps", deps),
-      "srcs" -> sources.render(indent, "srcs"),
-      "exports" -> labelList(indent, "exports", exports),
-      "runtime_deps" -> labelList(indent, "runtime_deps", runtimeDeps)))
+      "visibility" -> renderList(Doc.text("["), List("//visibility:public"), Doc.text("]"))(quote),
+      "deps" -> labelList(deps),
+      "srcs" -> sources.render,
+      "exports" -> labelList(exports),
+      "runtime_deps" -> labelList(runtimeDeps)))
   }
 }

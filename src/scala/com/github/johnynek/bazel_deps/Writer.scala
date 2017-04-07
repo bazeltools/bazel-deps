@@ -18,7 +18,7 @@ object Writer {
           else s + "\n"
 
         def data = ts.sortBy(_.name.name)
-          .map(_.toBazelString)
+          .map(_.toDoc.render(60))
           .mkString(withNewline(buildHeader), "\n\n", "\n")
 
           for {
