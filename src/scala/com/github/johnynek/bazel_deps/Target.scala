@@ -81,7 +81,7 @@ case class Target(
       val nm = ("name", quote(name.name))
       val sorted = items.collect { case (s, d) if !(d.isEmpty) => (s, d) }.sorted
 
-      renderList(Doc.text("$targetType("), nm :: sorted, Doc.text(")")) { case (k, v) =>
+      renderList(targetType + Doc.text("("), nm :: sorted, Doc.text(")")) { case (k, v) =>
         k +: " = " +: v
       } + Doc.line.repeat(2)
     }
