@@ -297,7 +297,7 @@ maven_dependencies(maven_load)
 
       val thisBuild = if (proj.packaging == "jar") {
         def contents(t: Target): String =
-          header.fold("\n")(_ + "\n") ++ t.toBazelString
+          header.fold("\n")(_ + "\n") ++ t.toDoc.render(60)
 
         for {
           labs <- depLabels

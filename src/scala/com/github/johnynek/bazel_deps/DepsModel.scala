@@ -11,27 +11,27 @@ import com.github.johnynek.paiges.Doc
  */
 object DocUtil {
   def packedKV(k: String, v: Doc): Doc =
-    Doc.text(k) +: Doc.text(":") +: Doc.spaceOrLine.nest(2) +: v
+    Doc.text(k) + Doc.text(":") + Doc.spaceOrLine.nest(2) + v
 
   def kv(k: String, v: Doc, tight: Boolean = false): Doc =
-    Doc.text(k) +: Doc.text(":") +: ((Doc.line +: v).nest(2))
+    Doc.text(k) + Doc.text(":") + ((Doc.line + v).nest(2))
   def quote(s: String): String = "\"%s\"".format(s)
   def quoteDoc(s: String): Doc = Doc.text(quote(s))
 
   def list[T](i: Iterable[T])(show: T => Doc): Doc = {
-    val parts = Doc.intercalate(Doc.comma, i.map { j => (Doc.line +: show(j)).group })
+    val parts = Doc.intercalate(Doc.comma, i.map { j => (Doc.line + show(j)).grouped })
     "[" +: (parts :+ " ]").nest(2)
   }
   // Here is a vertical list of docs
   def vlist(ds: Iterable[Doc]): Doc = {
     val dash = Doc.text("- ")
-    Doc.intercalate(Doc.line, ds.map { d => dash +: d.nest(2) })
+    Doc.intercalate(Doc.line, ds.map { d => dash + d.nest(2) })
   }
 
   def yamlMap(kvs: List[(String, Doc)], lines: Int = 1): Doc = {
     def rep(x: Int): Doc =
       if (x <= 0) Doc.empty
-      else Doc.line +: rep(x - 1)
+      else Doc.line + rep(x - 1)
 
     if (kvs.isEmpty) Doc.text("{}")
     else Doc.intercalate(rep(lines), kvs.map { case (k, v) => kv(k, v) })
@@ -60,7 +60,7 @@ case class Model(
     val reps = replacements.map { r => ("replacements", r.toDoc) }
     val opts = options.map { o => ("options", o.toDoc) }
 
-    yamlMap(List(opts, deps, reps).collect { case Some(kv) => kv }, 2) +: Doc.line
+    yamlMap(List(opts, deps, reps).collect { case Some(kv) => kv }, 2) + Doc.line
   }
 }
 
@@ -364,7 +364,7 @@ case class ProjectRecord(
 
     def exportsDoc(e: Set[(MavenGroup, ArtifactOrProject)]): Doc =
       if (e.isEmpty) Doc.text("[]")
-      else (Doc.line +: vlist(toList(e).map { case (a, b) => colonPair(a, b) })).nest(2)
+      else (Doc.line + vlist(toList(e).map { case (a, b) => colonPair(a, b) })).nest(2)
 
     def quoteEmpty(s: String): Doc =
       if (s.isEmpty) quoteDoc("") else Doc.text(s)
@@ -679,7 +679,7 @@ case class Options(
       ("resolvers",
         resolvers.map {
           case Nil => Doc.text("[]")
-          case ms => (Doc.line +: vlist(ms.map(_.toDoc))).nest(2)
+          case ms => (Doc.line + vlist(ms.map(_.toDoc))).nest(2)
         }),
       ("languages",
         languages.map { ls => list(ls.map(_.asOptionsString).toList.sorted)(quoteDoc) }),
