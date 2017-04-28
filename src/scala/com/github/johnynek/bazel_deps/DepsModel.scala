@@ -331,8 +331,8 @@ case class ProjectRecord(
         (exclude == that.exclude)) {
       val mods = (modules, that.modules) match {
         case (Some(a), Some(b)) => Some(a ++ b)
-        case (None, s) => s
-        case (s, None) => s
+        case (None, s) => s.map(_ + Subproject(""))
+        case (s, None) => s.map(_ + Subproject(""))
       }
 
       Some(copy(modules = mods))
@@ -386,32 +386,13 @@ case class ProjectRecord(
 case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]]) {
 
   def toDoc: Doc = {
-    type Pair = (ArtifactOrProject, ProjectRecord)
-    def merge(a: Pair, b: Pair): Option[Pair] = {
-      def subs(p: Pair): List[Pair] =
-        p._1.splitSubprojects match {
-          case Nil => List(p)
-          case sub => sub.map { case (a, s) => (a, p._2.withModule(s)) }
-        }
-
-      val merges = for {
-        (aa, pra) <- subs(a)
-        (ab, prb) <- subs(b)
-        if (aa == ab)
-        merged <- pra.combineModules(prb).toList.map((aa, _))
-      } yield merged
-
-      if (merges.isEmpty) None
-      else Some(merges.maxBy(_._1.asString.length)) // if more than 1 pick the one with the longest string
-    }
-
     val allDepDoc = toMap.toList
       .map { case (g, map) =>
         val parts: List[(ArtifactOrProject, ProjectRecord)] = map.toList
           .sortBy(_._1.asString)
           .foldLeft(List.empty[(ArtifactOrProject, ProjectRecord)]) {
             case (Nil, ap) => List(ap)
-            case (acc@(head :: tail), item) => merge(head, item) match {
+            case (acc@(head :: tail), item) => Dependencies.merge(head, item) match {
               case None =>
                 item :: acc
               case Some(merged) =>
@@ -521,6 +502,25 @@ object Dependencies {
         (g, finalMap)
       }
       .toMap)
+
+  type Pair = (ArtifactOrProject, ProjectRecord)
+  def merge(a: Pair, b: Pair): Option[Pair] = {
+    def subs(p: Pair): List[Pair] =
+      p._1.splitSubprojects match {
+        case Nil => List(p)
+        case sub => sub.map { case (a, s) => (a, p._2.withModule(s)) }
+      }
+
+    val merges = for {
+      (aa, pra) <- subs(a)
+      (ab, prb) <- subs(b)
+      if (aa == ab)
+      merged <- pra.combineModules(prb).toList.map((aa, _))
+    } yield merged
+
+    if (merges.isEmpty) None
+    else Some(merges.maxBy(_._1.asString.length)) // if more than 1 pick the one with the longest string
+  }
 }
 
 case class BazelTarget(asString: String)
