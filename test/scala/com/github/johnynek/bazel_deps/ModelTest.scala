@@ -27,4 +27,21 @@ class ModelTest extends FunSuite {
     val rand = scala.util.Random.shuffle(sorted)
     assert(rand.sorted === sorted)
   }
+
+  test("project record combination works") {
+    def makeRec(artifact: String, module: Option[String]): (ArtifactOrProject, ProjectRecord) =
+      (ArtifactOrProject(artifact), ProjectRecord(
+        Language.Java,
+        None,
+        module.map { s => Set(Subproject(s)) },
+        None,
+        None))
+
+    Dependencies.merge(makeRec("poi", None), makeRec("poi-ooxml", None)) match {
+      case Some((ap, pr)) =>
+        assert(ap == ArtifactOrProject("poi"))
+        assert(pr.modules.get.map(_.asString) == Set("", "ooxml"))
+      case None => fail("couldn't merge")
+    }
+  }
 }
