@@ -90,6 +90,11 @@ to fix that, but writing a new yaml parser is out of scope.
 ### <a name="options">Options</a>
 In the options we set:
 
+* buildHeader: usually you will want to configure your scala support here:
+```
+  buildHeader:
+    - load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
+```
 * languages: java and scala
 * versionConflictPolicy: `fixed`, `fail` or `highest`
 * transitivity: `runtime_deps` or `exports`
