@@ -1,7 +1,6 @@
 package com.github.johnynek.bazel_deps
 package maven
 
-import cats.data.Xor
 import cats.implicits._
 import io.circe.jawn.JawnParser
 import java.io._
@@ -336,8 +335,8 @@ maven_dependencies(maven_load)
         val optFile = args(1)
         val parser = if (optFile.endsWith(".json")) new JawnParser else Yaml
         parser.decode(Model.readFile(new File(optFile)).get)(Decoders.optionsDecoder) match {
-          case Xor.Left(err) => sys.error("could not decode $optFile. $err")
-          case Xor.Right(opt) =>
+          case Left(err) => sys.error("could not decode $optFile. $err")
+          case Right(opt) =>
             if (opt.isDefault) None
             else Some(opt)
         }

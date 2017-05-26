@@ -1,9 +1,9 @@
 package com.github.johnynek.bazel_deps
 
 import java.io.File
-import cats.data.Xor
 import io.circe.jawn.JawnParser
 import scala.util.{ Failure, Success }
+import cats.instances.try_._
 
 object MakeDeps {
   def apply(g: Command.Generate): Unit = {
@@ -18,8 +18,8 @@ object MakeDeps {
 
     val parser = if (g.depsFile.endsWith(".json")) new JawnParser else Yaml
     val model = Decoders.decodeModel(parser, content) match {
-      case Xor.Right(m) => m
-      case Xor.Left(err) =>
+      case Right(m) => m
+      case Left(err) =>
         System.err.println(s"[ERROR]: Failed to parse ${g.depsFile}.\n$err")
         System.exit(1)
         sys.error("unreachable")
@@ -90,10 +90,10 @@ object MakeDeps {
 
         // Here we actually run the whole thing
         io.foldMap(IO.fileSystemExec(projectRoot)) match {
-          case Xor.Left(err) =>
+          case Failure(err) =>
             System.err.println(err)
             System.exit(-1)
-          case Xor.Right(builds) =>
+          case Success(builds) =>
             println(s"wrote ${targets.size} targets in $builds BUILD files")
         }
     }

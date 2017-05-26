@@ -4,8 +4,15 @@ scala_library(name = "commands",
 
 scala_library(name = "depsmodel",
               srcs = ["DepsModel.scala"],
-              deps = ["@com_github_johnynek_paiges//:paiges"],
-              exports = ["@com_github_johnynek_paiges//:paiges"],
+              deps = [
+                  "@com_github_johnynek_paiges//:paiges",
+                  "//3rdparty/jvm/org/typelevel:cats_core",
+                  "//3rdparty/jvm/org/typelevel:cats_kernel",
+              ],
+              exports = [
+                  "@com_github_johnynek_paiges//:paiges",
+                  "//3rdparty/jvm/org/typelevel:cats_core",
+              ],
               visibility = ["//visibility:public"])
 
 scala_library(name = "graph",
@@ -94,7 +101,7 @@ scala_library(name = "circeyaml",
               deps = [
                   "//3rdparty/jvm/org/typelevel:cats_core",
                   "//3rdparty/jvm/io/circe:circe_core",
-                  "//3rdparty/jvm/io/circe:circe_jackson",
+                  "//3rdparty/jvm/io/circe:circe_jackson25",
                   "//3rdparty/jvm/com/fasterxml/jackson/core:jackson_core",
                   "//3rdparty/jvm/com/fasterxml/jackson/core:jackson_databind",
                   "//3rdparty/jvm/com/fasterxml/jackson/dataformat:jackson_dataformat_yaml",

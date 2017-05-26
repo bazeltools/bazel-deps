@@ -1,16 +1,17 @@
 package com.github.johnynek.bazel_deps
 
 import org.scalatest.FunSuite
+import cats.data.Validated
 
 class ModelTest extends FunSuite {
   test("specific versions sort correctly") {
     assert(VersionConflictPolicy
       .Highest
-      .resolve(None, Set(Version("11.0.2"), Version("18.0"))) === Right(Version("18.0")))
+      .resolve(None, Set(Version("11.0.2"), Version("18.0"))) == Validated.valid(Version("18.0")))
 
     assert(VersionConflictPolicy
       .Highest
-      .resolve(Some(Version("18.1")), Set(Version("11.0.2"))) === Right(Version("18.1")))
+      .resolve(Some(Version("18.1")), Set(Version("11.0.2"))) == Validated.valid(Version("18.1")))
   }
   test("RC/M is less than final") {
     val ord = Ordering[Version]

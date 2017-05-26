@@ -1,6 +1,5 @@
 package com.github.johnynek.bazel_deps
 
-import cats.data.Xor
 import org.scalatest.FunSuite
 import org.scalatest.prop.PropertyChecks._
 
@@ -19,7 +18,7 @@ class ParseTest extends FunSuite {
                 // |  thirdPartyDirectory: 3rdparty/jvm
 
     assert(Decoders.decodeModel(Yaml, str) ==
-      Xor.right(Model(
+      Right(Model(
         Dependencies(
           MavenGroup("com.twitter") ->
             Map(ArtifactOrProject("scalding") ->
@@ -46,7 +45,7 @@ class ParseTest extends FunSuite {
                 |""".stripMargin('|')
 
     assert(Decoders.decodeModel(Yaml, str) ==
-      Xor.right(Model(
+      Right(Model(
         Dependencies(
           MavenGroup("com.twitter") ->
             Map(ArtifactOrProject("scalding") ->
@@ -80,7 +79,7 @@ class ParseTest extends FunSuite {
                 |""".stripMargin('|')
 
     assert(Decoders.decodeModel(Yaml, str) ==
-      Xor.right(Model(
+      Right(Model(
         Dependencies(
           MavenGroup("com.twitter") ->
             Map(ArtifactOrProject("scalding") ->
@@ -132,12 +131,12 @@ class ParseTest extends FunSuite {
 
     forAll(ModelGenerators.modelGen) { model =>
       val str = model.toDoc.render(70)
-      val good = Decoders.decodeModel(Yaml, str) == Xor.right(model)
+      val good = Decoders.decodeModel(Yaml, str) == Right(model)
       if (!good) {
         println(model)
         println(str)
       }
-      assert(Decoders.decodeModel(Yaml, str) == Xor.right(model))
+      assert(Decoders.decodeModel(Yaml, str) == Right(model))
     }
   }
   test("don't combine incorrectly") {
@@ -154,7 +153,7 @@ class ParseTest extends FunSuite {
                 |
                 |""".stripMargin('|')
 
-    val Xor.Right(mod) = Decoders.decodeModel(Yaml, str)
-    assert(Decoders.decodeModel(Yaml, mod.toDoc.render(70)) == Xor.right(mod))
+    val Right(mod) = Decoders.decodeModel(Yaml, str)
+    assert(Decoders.decodeModel(Yaml, mod.toDoc.render(70)) == Right(mod))
   }
 }
