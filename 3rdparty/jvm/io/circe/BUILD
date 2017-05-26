@@ -36,9 +36,9 @@ scala_library(
 
 
 scala_library(
-    name = "circe_jackson",
+    name = "circe_jackson25",
     exports = [
-        "//external:jar/io/circe/circe_jackson_2_11"
+        "//external:jar/io/circe/circe_jackson25_2_11"
     ],
     runtime_deps = [
         "//3rdparty/jvm/com/fasterxml/jackson/core:jackson_core",

@@ -2,7 +2,7 @@ package com.github.johnynek.bazel_deps
 
 import IO.{Path, Result}
 import cats.Traverse
-import cats.std.list._
+import cats.implicits._
 import scala.util.{ Failure, Success, Try }
 
 object Writer {

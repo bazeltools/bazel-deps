@@ -1,7 +1,6 @@
 package com.github.johnynek.bazel_deps
 
 import java.io.{ File, PrintWriter }
-import cats.data.Xor
 import io.circe.jawn.JawnParser
 import scala.util.{ Failure, Success }
 
@@ -17,8 +16,8 @@ object FormatDeps {
 
     val parser = if (path.toString.endsWith(".json")) new JawnParser else Yaml
     val model = Decoders.decodeModel(parser, content) match {
-      case Xor.Right(m) => m
-      case Xor.Left(err) =>
+      case Right(m) => m
+      case Left(err) =>
         System.err.println(s"[ERROR]: Failed to parse ${path}.\n$err")
         System.exit(1)
         sys.error("unreachable")

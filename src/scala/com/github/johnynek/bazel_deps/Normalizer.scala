@@ -1,5 +1,7 @@
 package com.github.johnynek.bazel_deps
 
+import cats.data.{ Validated, ValidatedNel }
+
 object Normalizer {
   type Candidate = Either[Set[Version], Version]
   type Table = Map[Node, List[(Option[MavenCoordinate], Candidate)]]
@@ -57,11 +59,11 @@ object Normalizer {
           declared.roots.contains(MavenCoordinate(node, v))
         }
         pickCanonical(node, rootVersion, dups, opts) match {
-          case Right(m) =>
+          case Validated.Valid(m) =>
             val newItems = items.map { case (p, _) => (p, Right(m.version)) }
             table.updated(node, newItems)
             // requirement is that isAmbiguous(node) is now false
-          case Left(errorMessage) =>
+          case Validated.Invalid(errorMessages) =>
             errorize(node)
         }
       }
@@ -154,9 +156,8 @@ object Normalizer {
     unversioned: UnversionedCoordinate,
     rootVersion: Option[Version],
     duplicates: Set[Version],
-    opts: Options): Either[String, MavenCoordinate] =
+    opts: Options): ValidatedNel[String, MavenCoordinate] =
       opts.getVersionConflictPolicy
         .resolve(rootVersion, duplicates)
-        .right
         .map { v => MavenCoordinate(unversioned, v) }
 }

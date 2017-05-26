@@ -26,8 +26,8 @@ dependencies:
   io.circe:
     circe:
       lang: scala
-      modules: [ "core", "jackson", "parser" ]
-      version: "0.5.0-M2"
+      modules: [ "core", "jackson25", "parser" ]
+      version: "0.8.0"
     circe-generic:
       exports: 
         - "com.chuusai:shapeless"
@@ -35,7 +35,7 @@ dependencies:
         - "org.typelevel:cats-kernel"
         - "org.typelevel:macro-compat"
       lang: scala
-      version: "0.5.0-M2"
+      version: "0.8.0"
   
   org.apache.maven:
     maven-aether-provider:
@@ -67,12 +67,12 @@ dependencies:
     cats:
       lang: scala
       modules: [ "free", "kernel", "macros" ]
-      version: "0.6.0"
+      version: "0.9.0"
     cats-core:
       exports: 
         - "org.typelevel:cats-kernel"
       lang: scala
-      version: "0.6.0"
+      version: "0.9.0"
     macro-compat:
       lang: scala
 

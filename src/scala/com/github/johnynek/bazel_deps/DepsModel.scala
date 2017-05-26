@@ -5,6 +5,12 @@ import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 import com.github.johnynek.paiges.Doc
+import cats.kernel.{ CommutativeMonoid, Monoid, Semigroup }
+import cats.kernel.instances.option._
+import cats.kernel.instances.list._
+import cats.kernel.instances.set._
+import cats.data.{ Validated, ValidatedNel }
+import cats.Traverse
 
 /**
  * These should be upstreamed to paiges
@@ -495,6 +501,19 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
 }
 
 object Dependencies {
+
+  // def combine(vcp: VersionConflictPolicy, a: Dependencies, b: Dependencies): ValidatedNel[String, Dependencies] = {
+  //   type M1[T] = Map[MavenGroup, T]
+  //   type M2[T] = Map[ArtifactOrProject, T]
+
+  //   val t1 = Traverse[M1].compose[M2]
+
+  //   val t3 = t1.compose(ap2)
+
+
+// case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]]) {
+  // }
+
   def apply(items: (MavenGroup, Map[ArtifactOrProject, ProjectRecord])*): Dependencies =
     Dependencies(items.groupBy(_._1)
       .map { case (g, pairs) =>
@@ -579,9 +598,26 @@ sealed abstract class VersionConflictPolicy(val asString: String) {
    * if this invariant changes, Normalizer will need to change
    * the dead node elimination step
    */
-  def resolve(root: Option[Version], s: Set[Version]): Either[String, Version]
+  def resolve(root: Option[Version], s: Set[Version]): ValidatedNel[String, Version]
 }
 object VersionConflictPolicy {
+  /**
+   * This is a way to combine VersionConflictPolicy taking the strictest of the two
+   * it is actually a bounded semilattice (it is idempotent and commutative).
+   */
+  implicit val vcpMonoid: CommutativeMonoid[VersionConflictPolicy] =
+    new CommutativeMonoid[VersionConflictPolicy] {
+      def empty = Highest
+      def combine(a: VersionConflictPolicy, b: VersionConflictPolicy) =
+        (a, b) match {
+          case (Fail, _) => Fail
+          case (_, Fail) => Fail
+          case (Fixed, _) => Fixed
+          case (_, Fixed) => Fixed
+          case (Highest, Highest) => Highest
+        }
+    }
+
   def default: VersionConflictPolicy = Highest
 
   /**
@@ -589,9 +625,9 @@ object VersionConflictPolicy {
    */
   case object Fail extends VersionConflictPolicy("fail") {
     def resolve(root: Option[Version], s: Set[Version]) = root match {
-      case Some(v) if s.size == 1 && s(v) => Right(v)
-      case None if s.size == 1 => Right(s.head)
-      case _ => Left(s"multiple versions found in Fail policy, root: $root, transitive: ${s.toList.sorted}")
+      case Some(v) if s.size == 1 && s(v) => Validated.valid(v)
+      case None if s.size == 1 => Validated.valid(s.head)
+      case _ => Validated.invalidNel(s"multiple versions found in Fail policy, root: $root, transitive: ${s.toList.sorted}")
     }
   }
   /**
@@ -600,9 +636,9 @@ object VersionConflictPolicy {
    */
   case object Fixed extends VersionConflictPolicy("fixed") {
     def resolve(root: Option[Version], s: Set[Version]) = root match {
-      case Some(v) => Right(v)
-      case None if s.size == 1 => Right(s.head)
-      case None => Left(s"fixed requires 1, or a declared version, found: ${s.toList.sorted}")
+      case Some(v) => Validated.valid(v)
+      case None if s.size == 1 => Validated.valid(s.head)
+      case None => Validated.invalidNel(s"fixed requires 1, or a declared version, found: ${s.toList.sorted}")
     }
   }
   /**
@@ -611,8 +647,8 @@ object VersionConflictPolicy {
    */
   case object Highest extends VersionConflictPolicy("highest") {
     def resolve(root: Option[Version], s: Set[Version]) = root match {
-      case Some(v) => Right(v)
-      case None => Right(s.max) // there must be at least one version, so this won't throw
+      case Some(v) => Validated.valid(v)
+      case None => Validated.valid(s.max) // there must be at least one version, so this won't throw
     }
   }
 }
@@ -624,12 +660,29 @@ case class DirectoryName(asString: String) {
 
 object DirectoryName {
   def default: DirectoryName = DirectoryName("3rdparty/jvm")
+
+  /** Take the right-most (most recent)
+   */
+  implicit val dirNameSemigroup: Semigroup[DirectoryName] = new Semigroup[DirectoryName] {
+    def combine(a: DirectoryName, b: DirectoryName) = b
+  }
 }
 
 sealed abstract class Transitivity(val asString: String)
 object Transitivity {
   case object RuntimeDeps extends Transitivity("runtime_deps")
   case object Exports extends Transitivity("exports")
+
+  implicit val transitivityMonoid: CommutativeMonoid[Transitivity] =
+    new CommutativeMonoid[Transitivity] {
+      def empty = RuntimeDeps
+      def combine(a: Transitivity, b: Transitivity): Transitivity =
+        (a, b) match {
+          case (RuntimeDeps, t) => t
+          case (t, RuntimeDeps) => t
+          case (Exports, Exports) => Exports
+        }
+    }
 }
 
 case class Options(
@@ -695,5 +748,23 @@ case class Options(
 }
 
 object Options {
-  def default: Options = Options(None, None, None, None, None, None)
+  def default: Options = optionsMonoid.empty
+
+  /**
+   * A monoid on options that is just the point-wise monoid
+   */
+  implicit val optionsMonoid: Monoid[Options] = new Monoid[Options] {
+    val empty = Options(None, None, None, None, None, None)
+
+    def combine(a: Options, b: Options): Options = {
+      val vcp = Monoid[Option[VersionConflictPolicy]].combine(a.versionConflictPolicy, b.versionConflictPolicy)
+      val tpd = Monoid[Option[DirectoryName]].combine(a.thirdPartyDirectory, b.thirdPartyDirectory)
+      val langs = Monoid[Option[Set[Language]]].combine(a.languages, b.languages)
+      val resolvers = Monoid[Option[List[MavenServer]]].combine(a.resolvers, b.resolvers).map(_.distinct)
+      val trans = Monoid[Option[Transitivity]].combine(a.transitivity, b.transitivity)
+      val headers = Monoid[Option[List[String]]].combine(a.buildHeader, b.buildHeader).map(_.distinct)
+
+      Options(vcp, tpd, langs, resolvers, trans, headers)
+    }
+  }
 }

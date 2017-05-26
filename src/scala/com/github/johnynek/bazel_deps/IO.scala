@@ -1,13 +1,15 @@
 package com.github.johnynek.bazel_deps
 
-import cats.arrow.NaturalTransformation
-import cats.data.Xor
 import cats.Eval
+import cats.arrow.FunctionK
 import cats.free.Free
 import cats.free.Free.liftF
 import java.io.{File, FileOutputStream, IOException}
 import java.nio.file.{Files, SimpleFileVisitor, FileVisitResult, Path => JPath}
 import java.nio.file.attribute.BasicFileAttributes
+import scala.util.{ Failure, Success, Try }
+
+import cats.implicits._
 /**
  * To enable mocking and testing, we keep IO
  * abstract and then plug in implementations
@@ -66,28 +68,26 @@ object IO {
   def writeUtf8(f: Path, s: => String): Result[Unit] =
     liftF[Ops, Unit](WriteFile(f, Eval.always(s)))
 
-  type XorTry[T] = Xor[Throwable, T]
-
   def run[A](io: Result[A], root: File)(resume: A => Unit): Unit =
     io.foldMap(IO.fileSystemExec(root)) match {
-      case Xor.Left(err) =>
+      case Failure(err) =>
         System.err.println(err)
         System.exit(-1)
-      case Xor.Right(result) =>
+      case Success(result) =>
         resume(result)
         System.exit(0)
     }
 
-  def fileSystemExec(root: File): NaturalTransformation[Ops, XorTry] = new NaturalTransformation[Ops, XorTry] {
+  def fileSystemExec(root: File): FunctionK[Ops, Try] = new FunctionK[Ops, Try] {
     require(root.isAbsolute, s"Absolute path required, found: $root")
 
     def fileFor(p: Path): File =
       p.parts.foldLeft(root) { (p, element) => new File(p, element) }
 
-    def apply[A](o: Ops[A]): Xor[Throwable, A] = o match {
-      case Exists(f) => Xor.catchNonFatal(fileFor(f).exists())
-      case MkDirs(f) => Xor.catchNonFatal(fileFor(f).mkdirs())
-      case RmRf(f) => Xor.catchNonFatal {
+    def apply[A](o: Ops[A]): Try[A] = o match {
+      case Exists(f) => Try(fileFor(f).exists())
+      case MkDirs(f) => Try(fileFor(f).mkdirs())
+      case RmRf(f) => Try {
         // get the java path
         val file = fileFor(f)
         //require(file.isDirectory, s"$f is not a directory")
@@ -104,11 +104,11 @@ object IO {
         ()
       }
       case WriteFile(f, d) =>
-        Xor.catchNonFatal {
+        Try {
           val os = new FileOutputStream(fileFor(f))
           try os.write(d.value.getBytes("UTF-8")) finally { os.close() }
         }
-      case Failed(err) => Xor.left(err)
+      case Failed(err) => Failure(err)
     }
   }
 }
