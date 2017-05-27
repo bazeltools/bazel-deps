@@ -588,6 +588,7 @@ object Dependencies {
     def mergeArtifact(p1: ProjectRecord, p2: ProjectRecord): ValidatedNel[String, ProjectRecord] = {
       (p1.version, p2.version) match {
         case (None, None) => Validated.valid(p2) // right wins
+        case (Some(v1), Some(v2)) if v1 == v2 => Validated.valid(p2) // right wins
         case (Some(v1), Some(v2)) =>
           vcp.resolve(None, Set(v1, v2)).map { v =>
             if (v == v1) p1
