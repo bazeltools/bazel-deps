@@ -67,7 +67,7 @@ scala_library(name = "writer",
               visibility = ["//visibility:public"])
 
 scala_library(name = "makedeps",
-             srcs = ["MakeDeps.scala", "FormatDeps.scala"],
+             srcs = ["MakeDeps.scala", "FormatDeps.scala", "MergeDeps.scala"],
              deps = [
                  "//3rdparty/jvm/io/circe:circe_core",
                  "//3rdparty/jvm/io/circe:circe_jawn_2_11",

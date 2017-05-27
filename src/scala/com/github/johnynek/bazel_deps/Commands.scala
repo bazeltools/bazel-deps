@@ -34,6 +34,14 @@ object Command {
       else if (!depsFile.isFile) Left(s"$depsFile is not a file")
       else Right(this)
   }
+
+  case class MergeDeps(deps: List[File], output: Option[File]) extends Command {
+    def validate =
+      deps match {
+        case Nil => Left("Require at least one deps file to merge")
+        case _ => Right(this)
+      }
+  }
 }
 
 class CommandParser(args: Seq[String]) extends ScallopConf(args) {
@@ -53,6 +61,12 @@ class CommandParser(args: Seq[String]) extends ScallopConf(args) {
   }
   addSubcommand(FmtDeps)
 
+  object MDeps extends Subcommand("merge-deps") {
+    val depsFiles = opt[List[String]](name = "deps", required = true, descr = "list of ABSOLUTE paths of files to merge")
+    val out = opt[File](name = "output", descr = "merged output file")
+  }
+  addSubcommand(MDeps)
+
   verify()
   override def onError(t: Throwable): Unit = t match {
     case ScallopException(message) =>
@@ -70,6 +84,8 @@ class CommandParser(args: Seq[String]) extends ScallopConf(args) {
       case Some(gen@FmtDeps) =>
         val c = Command.FormatDeps(gen.depsFile(), gen.overwrite())
         c.validate
+      case Some(d@MDeps) =>
+        Command.MergeDeps(d.depsFiles().map(new File(_)), d.out.toOption).validate
       case None =>
         Left("expected subcommand, found None")
       case other =>

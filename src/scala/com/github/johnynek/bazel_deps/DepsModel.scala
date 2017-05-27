@@ -6,11 +6,9 @@ import scala.util.control.NonFatal
 
 import com.github.johnynek.paiges.Doc
 import cats.kernel.{ CommutativeMonoid, Monoid, Semigroup }
-import cats.kernel.instances.option._
-import cats.kernel.instances.list._
-import cats.kernel.instances.set._
-import cats.data.{ Validated, ValidatedNel }
-import cats.Traverse
+import cats.implicits._
+import cats.data.{ Validated, ValidatedNel, Ior, NonEmptyList }
+import cats.{ Applicative, Functor, Foldable, Traverse }
 
 /**
  * These should be upstreamed to paiges
@@ -21,7 +19,14 @@ object DocUtil {
 
   def kv(k: String, v: Doc, tight: Boolean = false): Doc =
     Doc.text(k) + Doc.text(":") + ((Doc.line + v).nest(2))
-  def quote(s: String): String = "\"%s\"".format(s)
+  def quote(s: String): String = {
+    val escape = s.flatMap {
+      case '\\' => "\\\\"
+      case '"' => "\\\""
+      case o => o.toString
+    }
+    "\"%s\"".format(escape)
+  }
   def quoteDoc(s: String): Doc = Doc.text(quote(s))
 
   def list[T](i: Iterable[T])(show: T => Doc): Doc = {
@@ -91,6 +96,36 @@ object Model {
       fr.close
     }
   }.flatten
+
+  def combine(a: Model, b: Model): ValidatedNel[String, Model] = {
+    val oo = Monoid[Option[Options]].combine(a.options, b.options)
+
+    val vcp = oo.getOrElse(Monoid[Options].empty).getVersionConflictPolicy
+
+    def combineO[F[_]: Applicative, T](a: Option[T], b: Option[T])(fn: (T, T) => F[T]): F[Option[T]] = {
+      def p[A](a: A): F[A] = Applicative[F].pure(a)
+
+      (a, b) match {
+        case (None, right) => p(right)
+        case (left, None) => p(left)
+        case (Some(l), Some(r)) => fn(l, r).map(Some(_))
+      }
+    }
+
+    type AE[T] = ValidatedNel[String, T]
+    val validatedDeps = Dependencies.combine(vcp, a.dependencies, b.dependencies)
+    val validatedOptR = combineO[AE, Replacements](a.replacements, b.replacements)(Replacements.combine)
+
+    Applicative[AE].map2(validatedDeps, validatedOptR) { (deps, reps) =>
+      Model(deps, reps, oo)
+    }
+  }
+
+  def combine(ms: NonEmptyList[Model]): Either[NonEmptyList[String], Model] = {
+    type M[T] = Either[NonEmptyList[String], T]
+
+    Foldable[List].foldM[M, Model, Model](ms.tail, ms.head)(combine(_, _).toEither)
+  }
 }
 
 case class MavenGroup(asString: String)
@@ -104,6 +139,9 @@ case class ArtifactOrProject(asString: String) {
       }.toList
     }
     else Nil
+
+  def toArtifact(sp: Subproject): ArtifactOrProject =
+    ArtifactOrProject(s"$asString-${sp.asString}")
 }
 case class Subproject(asString: String)
 case class Version(asString: String)
@@ -321,6 +359,14 @@ case class ProjectRecord(
   exports: Option[Set[(MavenGroup, ArtifactOrProject)]],
   exclude: Option[Set[(MavenGroup, ArtifactOrProject)]]) {
 
+  def flatten(ap: ArtifactOrProject): List[(ArtifactOrProject, ProjectRecord)] =
+    getModules match {
+      case Nil => List((ap, this))
+      case mods => mods.map { sp =>
+        (ap.toArtifact(sp), copy(modules = None))
+      }
+    }
+
   def withModule(m: Subproject): ProjectRecord = modules match {
     case None =>
       copy(modules = Some(Set(m)))
@@ -501,18 +547,73 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
 }
 
 object Dependencies {
+  private[bazel_deps] def joinWith[F[_]: Applicative, K, A, B, C](m1: Map[K, A], m2: Map[K, B])(fn: Ior[A, B] => F[C]): F[Map[K, C]] = {
+    val allKeys = (m1.keySet | m2.keySet).toList
+    def travFn(k: K): F[(K, C)] = {
 
-  // def combine(vcp: VersionConflictPolicy, a: Dependencies, b: Dependencies): ValidatedNel[String, Dependencies] = {
-  //   type M1[T] = Map[MavenGroup, T]
-  //   type M2[T] = Map[ArtifactOrProject, T]
+      def withKey(f: F[C]): F[(K, C)] = f.map((k, _))
 
-  //   val t1 = Traverse[M1].compose[M2]
+      (m1.get(k), m2.get(k)) match {
+        case (Some(a), None) => withKey(fn(Ior.left(a)))
+        case (None, Some(b)) => withKey(fn(Ior.right(b)))
+        case (Some(a), Some(b)) => withKey(fn(Ior.both(a, b)))
+        case (None, None) => sys.error(s"somehow $k has no values in either")
+      }
+    }
 
-  //   val t3 = t1.compose(ap2)
+    val fl: F[List[(K, C)]] = allKeys.traverse(travFn)
+    fl.map(_.toMap)
+  }
+
+  private[bazel_deps] def onBoth[F[_]: Applicative, A](fn: (A, A) => F[A]): Ior[A, A] => F[A] = {
+    case Ior.Right(a) => Applicative[F].pure(a)
+    case Ior.Left(a) => Applicative[F].pure(a)
+    case Ior.Both(a1, a2) => fn(a1, a2)
+  }
+
+  def combine(vcp: VersionConflictPolicy, a: Dependencies, b: Dependencies): ValidatedNel[String, Dependencies] = {
+
+    type M1[T] = Map[MavenGroup, T]
+
+    val trav1 = Traverse[M1]
+    def flatten(d: Dependencies): Dependencies = {
+      val m: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]] =
+        trav1.map(d.toMap) { m: Map[ArtifactOrProject, ProjectRecord] =>
+          m.iterator.flatMap { case (ap, pr) => pr.flatten(ap) }.toMap
+        }
+      Dependencies(m)
+    }
 
 
-// case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]]) {
-  // }
+    def mergeArtifact(p1: ProjectRecord, p2: ProjectRecord): ValidatedNel[String, ProjectRecord] = {
+      (p1.version, p2.version) match {
+        case (None, None) => Validated.valid(p2) // right wins
+        case (Some(v1), Some(v2)) =>
+          vcp.resolve(None, Set(v1, v2)).map { v =>
+            if (v == v1) p1
+            else p2
+          }
+        case (Some(v1), None) => Validated.valid(p1)
+        case (None, Some(v2)) => Validated.valid(p2)
+      }
+    }
+
+    type Artifacts = Map[ArtifactOrProject, ProjectRecord]
+    type AE[T] = ValidatedNel[String, T]
+
+    val mergeGroup: Ior[Artifacts, Artifacts] => AE[Artifacts] = {
+      val fn1: Ior[ProjectRecord, ProjectRecord] => AE[ProjectRecord] =
+        onBoth[AE, ProjectRecord](mergeArtifact(_, _))
+
+      onBoth[AE, Artifacts](joinWith[AE, ArtifactOrProject, ProjectRecord, ProjectRecord, ProjectRecord](_, _)(fn1))
+    }
+
+    val flatA = flatten(a).toMap
+    val flatB = flatten(b).toMap
+
+    joinWith[AE, MavenGroup, Artifacts, Artifacts, Artifacts](flatA, flatB)(mergeGroup)
+      .map { map => Dependencies(map.toList: _*) }
+  }
 
   def apply(items: (MavenGroup, Map[ArtifactOrProject, ProjectRecord])*): Dependencies =
     Dependencies(items.groupBy(_._1)
@@ -589,7 +690,25 @@ case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, Replacemen
 }
 
 object Replacements {
-  val empty: Replacements = Replacements(Map.empty)
+  def empty: Replacements = Replacements(Map.empty)
+
+  /**
+   * Combine two replacements lists. Fail if there is a collision which is not
+   * identical on both sides
+   */
+  def combine(a: Replacements, b: Replacements): ValidatedNel[String, Replacements] = {
+    import Dependencies.{ joinWith, onBoth }
+
+    def bothMatch[A](a: A, b: A): ValidatedNel[String, A] =
+      if (a == b) Validated.valid(a)
+      else Validated.invalidNel(s"in replacements combine: $a != $b")
+
+    type AE[T] = ValidatedNel[String, T]
+    val innerFn = onBoth[AE, ReplacementRecord](bothMatch(_, _))
+    val outerFn = onBoth[AE, Map[ArtifactOrProject, ReplacementRecord]](joinWith(_, _)(innerFn))
+    joinWith(a.toMap, b.toMap)(outerFn)
+      .map(Replacements(_))
+  }
 }
 
 sealed abstract class VersionConflictPolicy(val asString: String) {
