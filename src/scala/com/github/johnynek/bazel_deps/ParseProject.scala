@@ -13,6 +13,8 @@ object ParseProject {
         MakeDeps(gen)
       case Right(gen: Command.FormatDeps) =>
         FormatDeps(gen.depsFile, gen.overwrite)
+      case Right(Command.MergeDeps(ms, out)) =>
+        MergeDeps(ms, out)
     }
   }
 }
