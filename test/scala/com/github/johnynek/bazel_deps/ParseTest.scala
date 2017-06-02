@@ -23,7 +23,7 @@ class ParseTest extends FunSuite {
           MavenGroup("com.twitter") ->
             Map(ArtifactOrProject("scalding") ->
               ProjectRecord(
-                Language.Scala(Version("2.11.8"), true),
+                Language.Scala.default,
                 Some(Version("0.16.0")),
                 Some(Set("core", "args", "date").map(Subproject(_))),
                 None,
