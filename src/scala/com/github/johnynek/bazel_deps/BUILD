@@ -93,7 +93,6 @@ scala_binary(name = "parseproject",
              deps = [
                  ":makedeps",
                  ":commands",
-                 "//3rdparty/jvm/org/rogach:scallop",
                  ],
              main_class = "com.github.johnynek.bazel_deps.ParseProject",
              visibility = ["//visibility:public"])

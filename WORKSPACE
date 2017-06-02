@@ -29,5 +29,5 @@ new_git_repository(
     commit = "b3dd1442923949f1fd2822b266f2e3626919f2c6",
     # inconsistency in how we refer to build paths in new_native/new git
     build_file = "3rdparty/manual/BUILD.decline",
-    # use target: "@org_typelevel_paiges//:paiges"
+    # use target: "@org_typelevel_paiges//:decline"
 )
