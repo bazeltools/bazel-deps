@@ -14,10 +14,10 @@ load("//3rdparty:load.bzl", "declare_maven")
 maven_dependencies(declare_maven)
 
 new_git_repository(
-    name = "com_github_johnynek_paiges",
-    remote = "git://github.com/johnynek/paiges",
-    commit = "8b3927f5c9c2a86011fd70217ee97d708268afe4",
+    name = "org_typelevel_paiges",
+    remote = "git://github.com/typelevel/paiges",
+    commit = "5c39b9e17238d7fa04013e10bf732a3ac58a496d",
     # inconsistency in how we refer to build paths in new_native/new git
     build_file = "3rdparty/manual/BUILD.paiges",
-    # use target: "@com_github_johnynek_paiges//:paiges"
+    # use target: "@org_typelevel_paiges//:paiges"
 )

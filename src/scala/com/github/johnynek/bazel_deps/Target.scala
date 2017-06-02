@@ -1,13 +1,13 @@
 package com.github.johnynek.bazel_deps
 
-import com.github.johnynek.paiges.Doc
+import org.typelevel.paiges.Doc
 
 object Target {
   def renderList[T](front: Doc, l: List[T], back: Doc)(show: T => Doc): Doc =
     if (l.isEmpty) Doc.empty
     else {
       val spreadParts = Doc.intercalate(Doc.comma + Doc.line, l.map(show))
-      front + (Doc.line + spreadParts).nest(4) + Doc.line + back
+      front + (Doc.line + spreadParts).nested(4) + Doc.line + back
     }
 
   def quote(s: String): Doc =
@@ -79,6 +79,7 @@ case class Target(
     def sortKeys(items: List[(String, Doc)]): Doc = {
       // everything has a name
       val nm = ("name", quote(name.name))
+      implicit val ordDoc: Ordering[Doc] = Ordering.by { d: Doc => d.renderWideStream.mkString }
       val sorted = items.collect { case (s, d) if !(d.isEmpty) => (s, d) }.sorted
 
       renderList(targetType + Doc.text("("), nm :: sorted, Doc.text(")")) { case (k, v) =>

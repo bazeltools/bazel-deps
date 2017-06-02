@@ -12,7 +12,7 @@ scala_test(name = "graphtest",
 scala_library(name = "modelgen",
            srcs = ["ModelGenerators.scala"],
            deps = ["//src/scala/com/github/johnynek/bazel_deps:depsmodel",
-                   "@com_github_johnynek_paiges//:paiges",
+                   "@org_typelevel_paiges//:paiges",
                    "//3rdparty/jvm/org/scalacheck"])
 
 scala_test(name = "parsetest",

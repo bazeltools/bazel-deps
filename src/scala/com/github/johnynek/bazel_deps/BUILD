@@ -5,12 +5,12 @@ scala_library(name = "commands",
 scala_library(name = "depsmodel",
               srcs = ["DepsModel.scala"],
               deps = [
-                  "@com_github_johnynek_paiges//:paiges",
+                  "@org_typelevel_paiges//:paiges",
                   "//3rdparty/jvm/org/typelevel:cats_core",
                   "//3rdparty/jvm/org/typelevel:cats_kernel",
               ],
               exports = [
-                  "@com_github_johnynek_paiges//:paiges",
+                  "@org_typelevel_paiges//:paiges",
                   "//3rdparty/jvm/org/typelevel:cats_core",
               ],
               visibility = ["//visibility:public"])
@@ -62,7 +62,7 @@ scala_library(name = "writer",
                       ":io",
                       "//3rdparty/jvm/org/typelevel:cats_core",
                       "//3rdparty/jvm/org/typelevel:cats_free",
-                      "@com_github_johnynek_paiges//:paiges",
+                      "@org_typelevel_paiges//:paiges",
                       ],
               visibility = ["//visibility:public"])
 
