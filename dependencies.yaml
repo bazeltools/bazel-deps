@@ -50,11 +50,6 @@ dependencies:
       modules: [ "api", "connector-basic", "impl", "transport-file", "transport-http" ]
       version: "1.0.2.v20150114"
   
-  org.rogach:
-    scallop:
-      lang: scala
-      version: "2.1.1"
-  
   org.scala-lang.modules:
     scala-xml:
       lang: scala
@@ -65,6 +60,11 @@ dependencies:
       lang: scala
       version: "1.12.6"
   
+  org.spire-math:
+    kind-projector:
+      lang: scala
+      version: "0.9.4"
+
   org.typelevel:
     cats:
       lang: scala

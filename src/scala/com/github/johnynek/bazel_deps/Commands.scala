@@ -1,94 +1,63 @@
 package com.github.johnynek.bazel_deps
 
-import org.rogach.scallop._
-import org.rogach.scallop.exceptions.ScallopException
+import cats.data.NonEmptyList
+import cats.implicits._
+import com.monovore.decline.{ Command => DCommand, _ }
 import java.io.File
+import java.nio.file.Path
 
-sealed abstract class Command {
-  def validate: Either[String, Command]
-}
+sealed abstract class Command
 
 object Command {
-  case class Generate(repoRoot: File, depsFile: String, shaFilePath: List[String]) extends Command {
+  case class Generate(repoRoot: Path, depsFile: String, shaFile: String) extends Command {
+    def absDepsFile: File =
+      new File(repoRoot.toFile, depsFile)
 
-    def absDepsFile: File = new File(repoRoot, depsFile)
+    def shaFilePath: String =
+      new File(repoRoot.toFile, shaFile).toString
+  }
+  val generate = DCommand("generate", "generate transitive bazel targets") {
+    val repoRoot = Opts.option[Path](
+      "repo-root",
+      short = "r",
+      metavar = "reporoot",
+      help = "the ABSOLUTE path to the root of the bazel repo")
 
-    def validate = {
-      def test(b: Boolean, msg: => String): Option[String] = if (!b) Some(msg) else None
+    val depsFile = Opts.option[String](
+      "deps",
+      short = "d",
+      metavar = "deps",
+      help = "relative path to the dependencies yaml file")
 
-      val slash = "/"
-      test(repoRoot.isAbsolute, s"Absolute path required, found: $repoRoot")
-        .orElse(test(repoRoot.isDirectory, s"$repoRoot is not a directory"))
-        .orElse(test(repoRoot.exists, s"$repoRoot does not exist"))
-        .orElse(test(shaFilePath.headOption.exists(_.nonEmpty),
-          s"Expected relative path for sha-file, found ${shaFilePath.mkString(slash)}")) match {
-            case None => Right(this)
-            case Some(err) => Left(err)
-          }
-    }
+    val shaFile = Opts.option[String](
+      "sha-file",
+      short = "s",
+      metavar = "sha-file",
+      help = "relative path to the sha lock file (usually called workspace.bzl).")
+
+    (repoRoot |@| depsFile |@| shaFile).map(Generate(_, _, _))
   }
 
-  case class FormatDeps(depsFile: File, overwrite: Boolean) extends Command {
-    def validate =
-      if (!depsFile.exists) Left(s"$depsFile does not exist")
-      else if (!depsFile.isFile) Left(s"$depsFile is not a file")
-      else Right(this)
+  case class FormatDeps(deps: Path, overwrite: Boolean) extends Command
+  val format = DCommand("format-deps", "format the dependencies yaml file") {
+    val depsFile = Opts.option[Path]("deps", short = "d", help = "the ABSOLUTE path to your dependencies yaml file")
+    val overwrite = Opts.flag("overwrite", short = "o", help = "if set, we overwrite the file after we read it").orFalse
+
+    (depsFile |@| overwrite).map(FormatDeps(_, _))
   }
 
-  case class MergeDeps(deps: List[File], output: Option[File]) extends Command {
-    def validate =
-      deps match {
-        case Nil => Left("Require at least one deps file to merge")
-        case _ => Right(this)
-      }
-  }
-}
+  case class MergeDeps(deps: NonEmptyList[Path], output: Option[Path]) extends Command
+  val mergeDeps = DCommand("merge-deps", "merge a series of dependencies yaml file") {
+    val deps = Opts.options[Path]("deps", short = "d", help = "list of ABSOLUTE paths of files to merge")
+    val out = Opts.option[Path]("output", short = "o", help = "merged output file").orNone
 
-class CommandParser(args: Seq[String]) extends ScallopConf(args) {
-  banner("bazel-deps: java/scala dependency lockfile generator for bazel")
-  footer("see github: https://github.com/johnynek/bazel-deps")
-
-  object Gen3rdParty extends Subcommand("generate") {
-    val repoRoot = opt[File](name = "repo-root", required = true, descr = "the ABSOLUTE path to the root of the bazel repo")
-    val depsFile = opt[String](name = "deps", required = true, descr = "relative path to the dependencies yaml file")
-    val shaFile = opt[String](name = "sha-file", required = true, descr = "relative path to the sha lock file (usually called workspace.bzl).")
-  }
-  addSubcommand(Gen3rdParty)
-
-  object FmtDeps extends Subcommand("format-deps") {
-    val depsFile = opt[File](name = "deps", required = true, descr = "the ABSOLUTE path to your dependencies yaml file")
-    val overwrite = opt[Boolean](name = "overwrite", descr = "if set, we overwrite the file after we read it")
-  }
-  addSubcommand(FmtDeps)
-
-  object MDeps extends Subcommand("merge-deps") {
-    val depsFiles = opt[List[String]](name = "deps", required = true, descr = "list of ABSOLUTE paths of files to merge")
-    val out = opt[File](name = "output", descr = "merged output file")
-  }
-  addSubcommand(MDeps)
-
-  verify()
-  override def onError(t: Throwable): Unit = t match {
-    case ScallopException(message) =>
-      errorMessageHandler(s"$message\ntry running --help")
-    case other => super.onError(other)
+    (deps |@| out).map(MergeDeps(_, _))
   }
 
-  def getCommand: Either[String, Command] =
-    subcommand match {
-      case Some(gen@Gen3rdParty) =>
-        val str = gen.shaFile()
-        val wpList = str.split('/').toList
-        val c = Command.Generate(gen.repoRoot(), gen.depsFile(), wpList)
-        c.validate
-      case Some(gen@FmtDeps) =>
-        val c = Command.FormatDeps(gen.depsFile(), gen.overwrite())
-        c.validate
-      case Some(d@MDeps) =>
-        Command.MergeDeps(d.depsFiles().map(new File(_)), d.out.toOption).validate
-      case None =>
-        Left("expected subcommand, found None")
-      case other =>
-        Left("unexpected subcommand, found $other")
+
+  val command: DCommand[Command] =
+    DCommand(name = "bazel-deps", header = "a tool to manage transitive external Maven dependencies for bazel") {
+      (Opts.help :: (List(generate, format, mergeDeps).map(Opts.subcommand(_))))
+        .reduce(_.orElse(_))
     }
 }

@@ -1,6 +1,8 @@
 scala_library(name = "commands",
               srcs = ["Commands.scala"],
-              deps = ["//3rdparty/jvm/org/rogach:scallop"])
+              deps = ["@com_monovore_decline//:decline"],
+              exports = ["@com_monovore_decline//:decline"],
+              )
 
 scala_library(name = "depsmodel",
               srcs = ["DepsModel.scala"],
