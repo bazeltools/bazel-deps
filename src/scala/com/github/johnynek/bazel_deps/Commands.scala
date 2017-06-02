@@ -1,6 +1,6 @@
 package com.github.johnynek.bazel_deps
 
-import cats.data.NonEmptyList
+import cats.data.{ NonEmptyList, Validated }
 import cats.implicits._
 import com.monovore.decline.{ Command => DCommand, _ }
 import java.io.File
@@ -54,10 +54,32 @@ object Command {
     (deps |@| out).map(MergeDeps(_, _))
   }
 
+  implicit val langArg: Argument[Language] = new Argument[Language] {
+    def defaultMetavar: String = "lang"
+    def read(s: String) = s match {
+      case "java" => Validated.valid(Language.Java)
+      case "scala" => Validated.valid(Language.Scala.default)
+      case other => Validated.invalidNel(s"unknown language: $other")
+    }
+  }
+
+  implicit val mvnArg: Argument[MavenCoordinate] = new Argument[MavenCoordinate] {
+    def defaultMetavar: String = "maven-coord"
+    def read(s: String) = MavenCoordinate.parse(s)
+  }
+
+  case class AddDep(deps: Path, lang: Language, coords: NonEmptyList[MavenCoordinate]) extends Command
+  val addDep = DCommand("add-dep", "add dependencies (of a single language) to the yaml file") {
+    val p = Opts.option[Path]("deps", short = "d", help = "the YAML dependency file to add to")
+    val lang = Opts.option[Language]("lang", short = "l", help = "the language of the given maven coordinate")
+    val mcs = Opts.arguments[MavenCoordinate]("mvn-coord")
+
+    (p |@| lang |@| mcs).map(AddDep(_, _, _))
+  }
 
   val command: DCommand[Command] =
     DCommand(name = "bazel-deps", header = "a tool to manage transitive external Maven dependencies for bazel") {
-      (Opts.help :: (List(generate, format, mergeDeps).map(Opts.subcommand(_))))
+      (Opts.help :: (List(generate, format, mergeDeps, addDep).map(Opts.subcommand(_))))
         .reduce(_.orElse(_))
     }
 }

@@ -13,6 +13,8 @@ object ParseProject {
         FormatDeps(gen.deps.toFile, gen.overwrite)
       case Right(Command.MergeDeps(ms, out)) =>
         MergeDeps(ms, out)
+      case Right(Command.AddDep(yaml, lang, coords)) =>
+        MergeDeps.addDep(yaml, lang, coords)
     }
   }
 }
