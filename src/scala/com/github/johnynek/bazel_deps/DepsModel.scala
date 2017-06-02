@@ -4,7 +4,7 @@ import java.io.{ File, BufferedReader, FileReader }
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-import com.github.johnynek.paiges.Doc
+import org.typelevel.paiges.Doc
 import cats.kernel.{ CommutativeMonoid, Monoid, Semigroup }
 import cats.implicits._
 import cats.data.{ Validated, ValidatedNel, Ior, NonEmptyList }
@@ -15,10 +15,10 @@ import cats.{ Applicative, Functor, Foldable, Traverse }
  */
 object DocUtil {
   def packedKV(k: String, v: Doc): Doc =
-    Doc.text(k) + Doc.text(":") + Doc.spaceOrLine.nest(2) + v
+    Doc.text(k) + Doc.text(":") + Doc.lineOrSpace.nested(2) + v
 
   def kv(k: String, v: Doc, tight: Boolean = false): Doc =
-    Doc.text(k) + Doc.text(":") + ((Doc.line + v).nest(2))
+    Doc.text(k) + Doc.text(":") + ((Doc.line + v).nested(2))
   def quote(s: String): String = {
     val escape = s.flatMap {
       case '\\' => "\\\\"
@@ -31,12 +31,12 @@ object DocUtil {
 
   def list[T](i: Iterable[T])(show: T => Doc): Doc = {
     val parts = Doc.intercalate(Doc.comma, i.map { j => (Doc.line + show(j)).grouped })
-    "[" +: (parts :+ " ]").nest(2)
+    "[" +: (parts :+ " ]").nested(2)
   }
   // Here is a vertical list of docs
   def vlist(ds: Iterable[Doc]): Doc = {
     val dash = Doc.text("- ")
-    Doc.intercalate(Doc.line, ds.map { d => dash + d.nest(2) })
+    Doc.intercalate(Doc.line, ds.map { d => dash + d.nested(2) })
   }
 
   def yamlMap(kvs: List[(String, Doc)], lines: Int = 1): Doc = {
@@ -416,7 +416,7 @@ case class ProjectRecord(
 
     def exportsDoc(e: Set[(MavenGroup, ArtifactOrProject)]): Doc =
       if (e.isEmpty) Doc.text("[]")
-      else (Doc.line + vlist(toList(e).map { case (a, b) => colonPair(a, b) })).nest(2)
+      else (Doc.line + vlist(toList(e).map { case (a, b) => colonPair(a, b) })).nested(2)
 
     def quoteEmpty(s: String): Doc =
       if (s.isEmpty) quoteDoc("") else Doc.text(s)
@@ -438,6 +438,7 @@ case class ProjectRecord(
 case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]]) {
 
   def toDoc: Doc = {
+    implicit val ordDoc: Ordering[Doc] = Ordering.by { d: Doc => d.renderWideStream.mkString }
     val allDepDoc = toMap.toList
       .map { case (g, map) =>
         val parts: List[(ArtifactOrProject, ProjectRecord)] = map.toList
@@ -674,6 +675,7 @@ case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, Replacemen
     unversionedToReplacementRecord.get(uv)
 
   def toDoc: Doc = {
+    implicit val ordDoc: Ordering[Doc] = Ordering.by { d: Doc => d.renderWideStream.mkString }
     val allDepDoc = toMap.toList
       .map { case (g, map) =>
         val parts: List[(ArtifactOrProject, ReplacementRecord)] =
@@ -852,7 +854,7 @@ case class Options(
       ("resolvers",
         resolvers.map {
           case Nil => Doc.text("[]")
-          case ms => (Doc.line + vlist(ms.map(_.toDoc))).nest(2)
+          case ms => (Doc.line + vlist(ms.map(_.toDoc))).nested(2)
         }),
       ("languages",
         languages.map { ls => list(ls.map(_.asOptionsString).toList.sorted)(quoteDoc) }),
