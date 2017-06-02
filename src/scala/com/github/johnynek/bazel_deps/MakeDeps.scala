@@ -82,14 +82,14 @@ object MakeDeps {
         // nothing was written
         val io = for {
           _ <- IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts))
-          wsp = IO.Path(workspacePath)
+          wsp = IO.path(workspacePath)
           _ <- IO.mkdirs(wsp.parent)
           _ <- IO.writeUtf8(wsp, ws)
           builds <- Writer.createBuildFiles(model.getOptions.getBuildHeader, targets)
         } yield builds
 
         // Here we actually run the whole thing
-        io.foldMap(IO.fileSystemExec(projectRoot)) match {
+        io.foldMap(IO.fileSystemExec(projectRoot.toFile)) match {
           case Failure(err) =>
             System.err.println(err)
             System.exit(-1)
