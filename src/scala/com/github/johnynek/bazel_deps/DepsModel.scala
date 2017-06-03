@@ -247,15 +247,27 @@ object MavenArtifactId {
 case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, version: Version) {
   def unversioned: UnversionedCoordinate = UnversionedCoordinate(group, artifact)
   def asString: String = s"${group.asString}:${artifact.asString}:${version.asString}"
+
+  def toDependencies(l: Language): Dependencies =
+    Dependencies(Map(group ->
+      Map(ArtifactOrProject(artifact.asString) ->
+        ProjectRecord(l, Some(version), None, None, None))))
 }
 
 object MavenCoordinate {
-  def apply(s: String): MavenCoordinate = {
-    s.split(":") match {
-      case Array(g, a, v) => MavenCoordinate(MavenGroup(g), MavenArtifactId(a), Version(v))
-      case other => sys.error(s"expected exactly three :, got $s")
+  def apply(s: String): MavenCoordinate =
+    parse(s) match {
+      case Validated.Valid(m) => m
+      case Validated.Invalid(NonEmptyList(msg, Nil)) => sys.error(msg)
+      case _ => sys.error("unreachable (we have only a single error)")
     }
-  }
+
+  def parse(s: String): ValidatedNel[String, MavenCoordinate] =
+    s.split(":") match {
+      case Array(g, a, v) => Validated.valid(MavenCoordinate(MavenGroup(g), MavenArtifactId(a), Version(v)))
+      case other => Validated.invalidNel(s"expected exactly three :, got $s")
+    }
+
   def apply(u: UnversionedCoordinate, v: Version): MavenCoordinate =
     MavenCoordinate(u.group, u.artifact, v)
 
@@ -271,6 +283,8 @@ sealed abstract class Language {
   def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate
   def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate
   def unversioned(g: MavenGroup, a: ArtifactOrProject, sp: Subproject): UnversionedCoordinate
+
+  def unmangle(m: MavenCoordinate): MavenCoordinate
 }
 
 object Language {
@@ -288,6 +302,8 @@ object Language {
 
     def unversioned(g: MavenGroup, a: ArtifactOrProject, sp: Subproject): UnversionedCoordinate =
       UnversionedCoordinate(g, MavenArtifactId(a, sp))
+
+    def unmangle(m: MavenCoordinate) = m
   }
 
   case class Scala(v: Version, mangle: Boolean) extends Language {
@@ -322,6 +338,18 @@ object Language {
 
     def endsWithScalaVersion(uv: UnversionedCoordinate): Boolean =
       uv.asString.endsWith(suffix)
+
+    def unmangle(m: MavenCoordinate) = {
+      val MavenCoordinate(g, a, v) = m
+      removeSuffix(a.asString) match {
+        case None => m
+        case Some(a) => MavenCoordinate(g, MavenArtifactId(a), v)
+      }
+    }
+  }
+
+  object Scala {
+    val default: Scala = Scala(Version("2.11.11"), true)
   }
 }
 
@@ -829,8 +857,15 @@ case class Options(
   def getVersionConflictPolicy: VersionConflictPolicy =
     versionConflictPolicy.getOrElse(VersionConflictPolicy.default)
 
+  def replaceLang(l: Language): Language = l match {
+    case Language.Java => Language.Java
+    case s@Language.Scala(_, _) =>
+      getLanguages.collectFirst { case scala: Language.Scala => scala }
+        .getOrElse(s)
+  }
+
   def getLanguages: List[Language] = languages match {
-    case None => List(Language.Java, Language.Scala(Version("2.11.8"), true))
+    case None => List(Language.Java, Language.Scala.default)
     case Some(langs) => langs.toList.sortBy(_.asString)
   }
   def getResolvers: List[MavenServer] =

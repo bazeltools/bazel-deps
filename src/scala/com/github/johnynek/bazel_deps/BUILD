@@ -1,9 +1,3 @@
-scala_library(name = "commands",
-              srcs = ["Commands.scala"],
-              deps = ["@com_monovore_decline//:decline"],
-              exports = ["@com_monovore_decline//:decline"],
-              )
-
 scala_library(name = "depsmodel",
               srcs = ["DepsModel.scala"],
               deps = [
@@ -16,6 +10,12 @@ scala_library(name = "depsmodel",
                   "//3rdparty/jvm/org/typelevel:cats_core",
               ],
               visibility = ["//visibility:public"])
+
+scala_library(name = "commands",
+              srcs = ["Commands.scala"],
+              deps = ["@com_monovore_decline//:decline", ":depsmodel"],
+              exports = ["@com_monovore_decline//:decline", ":depsmodel"],
+              )
 
 scala_library(name = "graph",
               srcs = ["Graph.scala"],
