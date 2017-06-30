@@ -14,7 +14,7 @@ object Command {
       new File(repoRoot.toFile, depsFile)
 
     def shaFilePath: String =
-      new File(repoRoot.toFile, shaFile).toString
+      new File(shaFile).toString
   }
   val generate = DCommand("generate", "generate transitive bazel targets") {
     val repoRoot = Opts.option[Path](
