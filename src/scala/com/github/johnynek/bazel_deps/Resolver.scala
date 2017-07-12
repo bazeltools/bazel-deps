@@ -63,7 +63,7 @@ class Resolver(servers: List[MavenServer]) {
     system.collectDependencies(session, collectRequest);
   }
 
-  def getShas(m: Iterable[MavenCoordinate]): Map[MavenCoordinate, Try[Sha1Value]] = {
+  def getShas(m: Iterable[MavenCoordinate]): Map[MavenCoordinate, Try[ResolvedSha1Value]] = {
     /**
      * We try to request the jar.sha1 file, if that fails, we request the jar
      * and do the sha1.
@@ -80,7 +80,7 @@ class Resolver(servers: List[MavenServer]) {
       tmap: Try[Map[K, Try[V]]]): Map[K, Try[V]] =
       ms.map { coord => coord -> tmap.flatMap(_(coord)) }.toMap
 
-    def getExt(ms: Seq[MavenCoordinate], ext: String)(toSha: File => Try[Sha1Value]): Map[MavenCoordinate, Try[Sha1Value]] =
+    def getExt(ms: Seq[MavenCoordinate], ext: String)(toSha: File => Try[Sha1Value]): Map[MavenCoordinate, Try[ResolvedSha1Value]] =
       liftKeys(ms, Try {
         val resp =
           system.resolveArtifacts(session,
@@ -89,7 +89,7 @@ class Resolver(servers: List[MavenServer]) {
             .iterator
 
         ms.iterator.zip(resp).map { case (coord, r) =>
-          coord -> getFile(coord, ext, r).flatMap(toSha)
+          coord -> getFile(coord, ext, r).flatMap(f => toSha(f).map(sha1Value => ResolvedSha1Value(sha1Value, r.getRepository.getId)))
         }.toMap
       })
 

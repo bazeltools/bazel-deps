@@ -151,6 +151,7 @@ case class MavenServer(id: String, contentType: String, url: String) {
     packedYamlMap(
       List(("id", quoteDoc(id)), ("type", quoteDoc(contentType)), ("url", Doc.text(url))))
 }
+case class ResolvedSha1Value(sha1Value: Sha1Value, serverId: String)
 
 object Version {
   private def isNum(c: Char): Boolean =

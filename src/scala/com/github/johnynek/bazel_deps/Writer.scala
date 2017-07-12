@@ -32,24 +32,28 @@ object Writer {
 
   def workspace(g: Graph[MavenCoordinate, Unit],
     duplicates: Map[UnversionedCoordinate, Set[Version]],
-    shas: Map[MavenCoordinate, Try[Sha1Value]],
+    shas: Map[MavenCoordinate, Try[ResolvedSha1Value]],
     model: Model): String = {
     val nodes = g.nodes
 
     def replaced(m: MavenCoordinate): Boolean = model.getReplacements.get(m.unversioned).isDefined
 
+    val servers = model.getOptions.getResolvers.map(s => (s.id, s.url)).toMap
     val lang = language(g, model)
     val lines = nodes.filterNot(replaced)
       .toList
       .sortBy(_.asString)
       .map { case coord@MavenCoordinate(g, a, v) =>
         val isRoot = model.dependencies.roots(coord)
-        val shaStr = shas.get(coord) match {
-          case Some(Success(sha)) => s""", "sha1": "${sha.toHex}""""
+        val (shaStr, serverStr) = shas.get(coord) match {
+          case Some(Success(sha)) =>
+            val hex = sha.sha1Value.toHex
+            val serverUrl = servers.getOrElse(sha.serverId, "")
+            (s""", "sha1": "${hex}"""", s""", "repository": "${serverUrl}"""")
           case Some(Failure(err)) =>
             System.err.println(s"failed to find sha of ${coord.asString}: $err")
             throw err
-          case None => ""
+          case None => ("", "")
         }
         val comment = duplicates.get(coord.unversioned) match {
           case Some(vs) =>
@@ -67,7 +71,7 @@ object Writer {
         def kv(key: String, value: String): String =
           s""""$key": "$value""""
         List(s"""$comment    callback({${kv("artifact", coord.asString)}""",
-             s"""${kv("lang", l.asString)}$shaStr""",
+             s"""${kv("lang", l.asString)}$shaStr$serverStr""",
              s"""${kv("name", coord.unversioned.toBazelRepoName)}""",
              s"""${kv("actual", actual.asStringFrom(Path(Nil)))}""",
              s"""${kv("bind", coord.unversioned.toBindingName)}})""").mkString(", ")
