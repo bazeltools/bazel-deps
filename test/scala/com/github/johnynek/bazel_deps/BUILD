@@ -9,6 +9,15 @@ scala_test(name = "graphtest",
            deps = ["//src/scala/com/github/johnynek/bazel_deps:graph",
                    "//3rdparty/jvm/org/scalacheck"])
 
+scala_test(name = "normalizertest",
+           srcs = ["NormalizerTest.scala"],
+           size = "small",
+           deps = [
+               "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+               "//src/scala/com/github/johnynek/bazel_deps:graph",
+               "//src/scala/com/github/johnynek/bazel_deps:normalizer",
+               "//3rdparty/jvm/org/scalacheck"])
+
 scala_library(name = "modelgen",
            srcs = ["ModelGenerators.scala"],
            deps = ["//src/scala/com/github/johnynek/bazel_deps:depsmodel",
