@@ -26,7 +26,7 @@ object Normalizer {
    * and updates the dependency graph.
    */
   def apply(graph: Graph[MavenCoordinate, Unit],
-    roots: List[MavenCoordinate],
+    roots: Set[MavenCoordinate],
     vcf: VersionConflictPolicy): Option[Graph[MavenCoordinate, Unit]] = {
 
     @annotation.tailrec
