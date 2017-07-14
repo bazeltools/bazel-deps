@@ -1,8 +1,25 @@
 package com.github.johnynek.bazel_deps
 
+import org.typelevel.paiges.Doc
+
 case class Edge[N, E](source: N, destination: N, label: E)
 
 case class Graph[N, E](nodes: Set[N], edges: Map[N, Set[Edge[N, E]]]) {
+  def toDoc(showN: N => String, showE: E => String): Doc = {
+    val tab = nodes
+      .toList
+      .sortBy(showN)
+      .map { n =>
+        val strN = showN(n)
+        val es = hasSource(n)
+        val edoc = Doc.intercalate(Doc.line, es.map { case Edge(_, d, e) =>
+          Doc.text(s"-(${showE(e)})->") + Doc.space + Doc.text(showN(d))
+        })
+        (strN, edoc)
+      }
+    Doc.tabulate(' ', ":", tab)
+  }
+
   def edgeIterator: Iterator[Edge[N, E]] =
     edges.iterator.flatMap { case (n, es) =>
       // each edge appears twice, only return the ones where

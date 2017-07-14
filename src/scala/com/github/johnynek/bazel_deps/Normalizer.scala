@@ -1,19 +1,33 @@
 package com.github.johnynek.bazel_deps
 
 import cats.data.{ Validated, ValidatedNel }
+import org.typelevel.paiges.Doc
 
 object Normalizer {
   type Candidate = Either[Set[Version], Version]
+  type Node = UnversionedCoordinate
   type Table = Map[Node, List[(Option[MavenCoordinate], Candidate)]]
 
-  type Node = UnversionedCoordinate
+  def tableToDoc(t: Table): Doc = {
+    val pairs = t.map { case (n, versions) =>
+      val versionDocs = versions.map { case (opt, c) =>
+        val mvn = opt.fold("None")(_.asString)
+        val cand = Doc.str(c) // could be prettier
+        (mvn, cand)
+      }
+      val tabbed = Doc.tabulate(' ', " => ", versionDocs)
+      (n.asString, tabbed)
+    }
+    Doc.tabulate(' ', " -> ", pairs)
+  }
+
   /**
    * assumes every depth less than d has no duplication. Looks at d and greater
    * and updates the dependency graph.
    */
   def apply(graph: Graph[MavenCoordinate, Unit],
-    declared: Dependencies,
-    opts: Options): Option[Graph[MavenCoordinate, Unit]] = {
+    roots: Set[MavenCoordinate],
+    vcf: VersionConflictPolicy): Option[Graph[MavenCoordinate, Unit]] = {
 
     @annotation.tailrec
     def fixTable(table: Table): Table = {
@@ -56,9 +70,9 @@ object Normalizer {
         val versions = items.map(_._2).toSet
         val dups = versions.collect { case Right(v) => v }
         val rootVersion = dups.iterator.find { v =>
-          declared.roots.contains(MavenCoordinate(node, v))
+          roots.contains(MavenCoordinate(node, v))
         }
-        pickCanonical(node, rootVersion, dups, opts) match {
+        pickCanonical(node, rootVersion, dups, vcf) match {
           case Validated.Valid(m) =>
             val newItems = items.map { case (p, _) => (p, Right(m.version)) }
             table.updated(node, newItems)
@@ -99,13 +113,7 @@ object Normalizer {
         }
 
     val newTable = fixTable(table)
-    rewrite(graph, newTable).map { rewrittenGraph =>
-      // We now filter only those nodes that are in the
-      // reflexive transitive closure of the declared nodes
-      val reachable = rewrittenGraph.reflexiveTransitiveClosure(declared.roots.toList)
-      // remove all nodes not in this set
-      (rewrittenGraph.nodes -- reachable).foldLeft(rewrittenGraph)(_.removeNode(_))
-    }
+    rewrite(graph, roots.toList, newTable)
   }
 
   private def compact(t: Table): Map[UnversionedCoordinate, Version] =
@@ -117,7 +125,7 @@ object Normalizer {
       }
     }.toMap
 
-  def isKeeper(m: MavenCoordinate, t: Table): Boolean =
+  private def isKeeper(m: MavenCoordinate, t: Table): Boolean =
     t.get(m.unversioned) match {
       case None => false
       case Some(vs) => vs.forall {
@@ -126,28 +134,34 @@ object Normalizer {
       }
     }
 
-  private def rewrite(g: Graph[MavenCoordinate, Unit], t: Table) = {
+  private def rewrite(g: Graph[MavenCoordinate, Unit], roots: List[MavenCoordinate], t: Table): Option[Graph[MavenCoordinate, Unit]] = {
     if (t.forall { case (_, vs) => vs.forall(_._2.isRight) }) {
-      val versions = g.nodes.groupBy(_.unversioned).mapValues(_.map(_.version))
       val canonicals = compact(t)
 
-      def retarget(g0: Graph[MavenCoordinate, Unit], n0: MavenCoordinate): Graph[MavenCoordinate, Unit] =
-        if (isKeeper(n0, t)) {
-          val dependencies = g0.hasSource(n0).map(_.destination)
-          dependencies.foldLeft(g0)(retarget)
-        }
-        else {
-          // rewrite all the edges that terminate at us
-          // things that depend on us need to start depending on someone else
-          val u = n0.unversioned
-          val version = canonicals(u)
-          val newTarget = MavenCoordinate(u, version)
-          g0.hasDestination(n0).foldLeft(g0) { (g, edge) =>
-            g.removeEdge(edge).addEdge(Edge(edge.source, newTarget, ()))
-          }
+      @annotation.tailrec
+      def addReachable(acc: Graph[MavenCoordinate, Unit], toProcess: List[UnversionedCoordinate], processed: Set[UnversionedCoordinate]): Graph[MavenCoordinate, Unit] =
+        toProcess match {
+          case Nil => acc
+          case h :: tail if processed(h) => addReachable(acc, tail, processed)
+          case h :: tail =>
+            val versionedH = MavenCoordinate(h, canonicals(h))
+            // we want to add this, and all the nodes this versionedH pointed to in original graph
+            val dependenciesUv: Set[UnversionedCoordinate] =
+              g.hasSource(versionedH).map(_.destination.unversioned)
+
+            val dependencies = dependenciesUv.map { uv =>
+              MavenCoordinate(uv, canonicals(uv))
+            }
+            // add the edges from versionedH -> deps
+            val newGraph = dependencies.foldLeft(acc) { (g, dep) =>
+              g.addEdge(Edge(versionedH, dep, ()))
+            }
+            // now process all dependencies:
+            addReachable(newGraph, (dependenciesUv.filterNot(processed)).toList ::: toProcess, processed + h)
         }
 
-      Some(g.roots.foldLeft(g)(retarget))
+      val queue = roots.map(_.unversioned)
+      Some(addReachable(Graph.empty, queue, Set.empty))
     }
     else None
   }
@@ -156,8 +170,8 @@ object Normalizer {
     unversioned: UnversionedCoordinate,
     rootVersion: Option[Version],
     duplicates: Set[Version],
-    opts: Options): ValidatedNel[String, MavenCoordinate] =
-      opts.getVersionConflictPolicy
+    vcf: VersionConflictPolicy): ValidatedNel[String, MavenCoordinate] =
+      vcf
         .resolve(rootVersion, duplicates)
         .map { v => MavenCoordinate(unversioned, v) }
 }

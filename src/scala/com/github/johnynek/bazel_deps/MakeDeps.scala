@@ -32,7 +32,7 @@ object MakeDeps {
     // This is a defensive check that can be removed as we add more tests
     deps.roots.foreach { m => require(graph.nodes(m), s"$m") }
 
-    Normalizer(graph, deps, model.getOptions) match {
+    Normalizer(graph, deps.roots, model.getOptions.getVersionConflictPolicy) match {
       case None =>
         println("[ERROR] could not normalize versions:")
         println(graph.nodes.groupBy(_.unversioned)

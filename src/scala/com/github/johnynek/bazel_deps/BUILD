@@ -19,6 +19,8 @@ scala_library(name = "commands",
 
 scala_library(name = "graph",
               srcs = ["Graph.scala"],
+              deps = ["@org_typelevel_paiges//:paiges"],
+              exports = ["@org_typelevel_paiges//:paiges"],
               visibility = ["//visibility:public"])
 
 scala_repl(name = "repl",
@@ -54,6 +56,7 @@ scala_library(name = "normalizer",
               srcs = ["Normalizer.scala"],
               deps = [":depsmodel",
                       ":graph",
+                      "@org_typelevel_paiges//:paiges",
                       ],
               visibility = ["//visibility:public"])
 
