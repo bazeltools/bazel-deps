@@ -15,6 +15,12 @@ object Decoders {
       case "runtime_deps" => Right(Transitivity.RuntimeDeps)
       case other => Left(s"unrecogized transitivity: $other")
     }
+  implicit val resolverCacheDecoder: Decoder[ResolverCache] =
+    Decoder.decodeString.emap {
+      case "local" => Right(ResolverCache.Local)
+      case "bazel_output_base" => Right(ResolverCache.BazelOutputBase)
+      case other => Left(s"unrecogized resolverCache: $other")
+    }
   implicit val groupArtDecoder: Decoder[(MavenGroup, ArtifactOrProject)] =
     Decoder.decodeString.emap { s =>
       s.split(':') match {
