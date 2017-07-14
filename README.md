@@ -101,9 +101,16 @@ In the options we set:
 * versionConflictPolicy: `fixed`, `fail` or `highest`
 * transitivity: `runtime_deps` or `exports`
 * resolvers: the maven servers to use.
+* resolverCache: where bazel-deps should cache resolved packages.  `local` (`target/local-repo` in the repository root)
+  or `bazel_output_base` (`bazel-deps/local-repo` inside the repository's Bazel output base -- from `bazel info
+  output_base`)
 
-In the default case, with no options given, we use the `highest` versionConflictPolicy,
-exports transitivity, allow java and scala `2.11`, and use maven central as the resolver.
+In the default case, with no options given, we use:
+- `highest` versionConflictPolicy
+- `exports` transitivity
+- allow java and scala `2.11`
+- use maven central as the resolver
+- `local` resolverCache
 
 ### <a name="replacements">Replacements</a>
 Some maven jars should not be used and instead are replaced by internal targets. Here are

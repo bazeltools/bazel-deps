@@ -836,13 +836,27 @@ object Transitivity {
     }
 }
 
+sealed abstract class ResolverCache(val asString: String)
+object ResolverCache {
+  case object Local extends ResolverCache("local")
+  case object BazelOutputBase extends ResolverCache("bazel_output_base")
+
+  /** Take the right-most (most recent)
+   */
+  implicit val resolverCacheSemigroup: Semigroup[ResolverCache] = new Semigroup[ResolverCache] {
+    def combine(a: ResolverCache, b: ResolverCache) = b
+  }
+}
+
 case class Options(
   versionConflictPolicy: Option[VersionConflictPolicy],
   thirdPartyDirectory: Option[DirectoryName],
   languages: Option[Set[Language]],
   resolvers: Option[List[MavenServer]],
   transitivity: Option[Transitivity],
-  buildHeader: Option[List[String]]) {
+  buildHeader: Option[List[String]],
+  resolverCache: Option[ResolverCache]
+  ) {
 
   def isDefault: Boolean =
     versionConflictPolicy.isEmpty &&
@@ -850,7 +864,8 @@ case class Options(
     languages.isEmpty &&
     resolvers.isEmpty &&
     transitivity.isEmpty &&
-    buildHeader.isEmpty
+    buildHeader.isEmpty &&
+    resolverCache.isEmpty
 
   def getThirdPartyDirectory: DirectoryName =
     thirdPartyDirectory.getOrElse(DirectoryName.default)
@@ -881,6 +896,9 @@ case class Options(
     case None => ""
   }
 
+  def getResolverCache: ResolverCache =
+    resolverCache.getOrElse(ResolverCache.Local)
+
   def toDoc: Doc = {
     val items = List(
       ("versionConflictPolicy",
@@ -896,9 +914,10 @@ case class Options(
         languages.map { ls => list(ls.map(_.asOptionsString).toList.sorted)(quoteDoc) }),
       ("buildHeader",
         buildHeader.map(list(_) { s => quoteDoc(s) })),
-      ("transitivity", transitivity.map { t => Doc.text(t.asString) }))
-        .sortBy(_._1)
-        .collect { case (k, Some(v)) => (k, v) }
+      ("transitivity", transitivity.map { t => Doc.text(t.asString) }),
+      ("resolverCache", resolverCache.map { rc => Doc.text(rc.asString) })
+    ).sortBy(_._1)
+     .collect { case (k, Some(v)) => (k, v) }
 
     // we can't pack resolvers (yet)
     packedYamlMap(items)
@@ -912,7 +931,7 @@ object Options {
    * A monoid on options that is just the point-wise monoid
    */
   implicit val optionsMonoid: Monoid[Options] = new Monoid[Options] {
-    val empty = Options(None, None, None, None, None, None)
+    val empty = Options(None, None, None, None, None, None, None)
 
     def combine(a: Options, b: Options): Options = {
       val vcp = Monoid[Option[VersionConflictPolicy]].combine(a.versionConflictPolicy, b.versionConflictPolicy)
@@ -921,8 +940,9 @@ object Options {
       val resolvers = Monoid[Option[List[MavenServer]]].combine(a.resolvers, b.resolvers).map(_.distinct)
       val trans = Monoid[Option[Transitivity]].combine(a.transitivity, b.transitivity)
       val headers = Monoid[Option[List[String]]].combine(a.buildHeader, b.buildHeader).map(_.distinct)
+      val resolverCache = Monoid[Option[ResolverCache]].combine(a.resolverCache, b.resolverCache)
 
-      Options(vcp, tpd, langs, resolvers, trans, headers)
+      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache)
     }
   }
 }

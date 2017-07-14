@@ -2,6 +2,7 @@ package com.github.johnynek.bazel_deps
 
 import java.security.MessageDigest
 import java.io.{ File, FileInputStream }
+import java.nio.file.Path
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
 import org.eclipse.aether.RepositorySystem
 import org.eclipse.aether.artifact.DefaultArtifact
@@ -24,7 +25,7 @@ case class ResolveFailure(message: String,
   extension: String,
   failures: List[Exception]) extends Exception(message)
 
-class Resolver(servers: List[MavenServer]) {
+class Resolver(servers: List[MavenServer], resolverCachePath: Path) {
 
   private val system = {
     val locator = MavenRepositorySystemUtils.newServiceLocator
@@ -43,7 +44,7 @@ class Resolver(servers: List[MavenServer]) {
 
   private val session = {
     val s = MavenRepositorySystemUtils.newSession()
-    val localRepo = new LocalRepository("target/local-repo")
+    val localRepo = new LocalRepository(resolverCachePath.toString)
     s.setLocalRepositoryManager(system.newLocalRepositoryManager(s, localRepo))
     s
   }

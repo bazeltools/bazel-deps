@@ -55,7 +55,8 @@ object ModelGenerators {
     res <- Gen.option(Gen.listOf(mavenServerGen))
     trans <- Gen.option(Gen.oneOf(Transitivity.RuntimeDeps, Transitivity.Exports))
     heads <- Gen.option(Gen.listOf(Gen.identifier))
-  } yield Options(vcp, dir, langs, res, trans, heads)
+    cache <- Gen.option(Gen.oneOf(ResolverCache.Local, ResolverCache.BazelOutputBase))
+  } yield Options(vcp, dir, langs, res, trans, heads, cache)
 
   val modelGen: Gen[Model] = for {
     o <- Gen.option(optionGen)

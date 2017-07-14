@@ -1,11 +1,14 @@
 package com.github.johnynek.bazel_deps
 
 import java.io.File
+import java.nio.file.Paths
 import io.circe.jawn.JawnParser
-import scala.util.{ Failure, Success }
+import scala.sys.process.Process
+import scala.util.{ Failure, Success, Try }
 import cats.instances.try_._
 
 object MakeDeps {
+
   def apply(g: Command.Generate): Unit = {
 
     val content: String = Model.readFile(g.absDepsFile) match {
@@ -26,8 +29,19 @@ object MakeDeps {
     }
     val workspacePath = g.shaFilePath
     val projectRoot = g.repoRoot
+    val resolverCachePath = model.getOptions.getResolverCache match {
+      case ResolverCache.Local => Paths.get("target/local-repo")
+      case ResolverCache.BazelOutputBase =>
+        Try(Process(List("bazel", "info", "output_base"), projectRoot.toFile) !!) match {
+          case Success(path) => Paths.get(path.trim, "bazel-deps/local-repo")
+          case Failure(err) =>
+            System.err.println(s"[ERROR]: Could not find resolver cache path -- `bazel info output_base` failed.\n$err")
+            System.exit(1)
+            sys.error("unreachable")
+        }
+    }
     val deps = model.dependencies
-    val resolver = new Resolver(model.getOptions.getResolvers)
+    val resolver = new Resolver(model.getOptions.getResolvers, resolverCachePath.toAbsolutePath)
     val graph = resolver.addAll(Graph.empty, deps.roots, model)
     // This is a defensive check that can be removed as we add more tests
     deps.roots.foreach { m => require(graph.nodes(m), s"$m") }
