@@ -152,10 +152,10 @@ object Normalizer {
             val dependencies = dependenciesUv.map { uv =>
               MavenCoordinate(uv, canonicals(uv))
             }
-            // add the edges from versionedH -> deps
+            // add the edges from versionedH -> deps, and versionedH itself (as it may have no deps)
             val newGraph = dependencies.foldLeft(acc) { (g, dep) =>
               g.addEdge(Edge(versionedH, dep, ()))
-            }
+            }.addNode(versionedH)
             // now process all dependencies:
             addReachable(newGraph, (dependenciesUv.filterNot(processed)).toList ::: toProcess, processed + h)
         }
