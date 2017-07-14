@@ -37,7 +37,7 @@ class NormalizerTest extends FunSuite  {
       .add(bird1, "a:worm:1.0")
       .add(bird2, seed1)
 
-    Normalizer(finalG, List(cat1, snake1).map(MavenCoordinate(_)), VersionConflictPolicy.default) match {
+    Normalizer(finalG, Set(cat1, snake1).map(MavenCoordinate(_)), VersionConflictPolicy.default) match {
       case Some(normalG) =>
         val expected = g
           .add(cat1, bird2)
