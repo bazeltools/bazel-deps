@@ -45,4 +45,28 @@ class ModelTest extends FunSuite {
       case None => fail("couldn't merge")
     }
   }
+
+  test("empty subproject is merged correctly with new submodule") {
+    val lang = Language.Scala.default
+    val deps = Dependencies(Map(
+      MavenGroup("com.twitter") -> Map(
+        ArtifactOrProject("finagle") -> ProjectRecord(lang, Some(Version("0.1")), Some(Set(Subproject(""), Subproject("core"))), None, None)
+      )
+    ))
+
+    Dependencies.combine(
+      VersionConflictPolicy.Highest,
+      MavenCoordinate("com.twitter:finagle-stats:0.1").toDependencies(lang),
+      deps
+    ) match {
+      case Validated.Invalid(str) => fail(s"couldn't combine added dep: $str")
+      case Validated.Valid(combined) =>
+        val str = """com.twitter:
+                    |  finagle:
+                    |    lang: scala
+                    |    modules: [ "", "core", "stats" ]
+                    |    version: "0.1"""".stripMargin('|')
+        assert(combined.toDoc.render(100) == str)
+    }
+  }
 }

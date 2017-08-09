@@ -140,8 +140,13 @@ case class ArtifactOrProject(asString: String) {
     }
     else Nil
 
-  def toArtifact(sp: Subproject): ArtifactOrProject =
-    ArtifactOrProject(s"$asString-${sp.asString}")
+  def toArtifact(sp: Subproject): ArtifactOrProject = {
+    val str = sp.asString
+    str match {
+      case "" => this
+      case _ => ArtifactOrProject(s"$asString-$str")
+    }
+  }
 }
 case class Subproject(asString: String)
 case class Version(asString: String)
