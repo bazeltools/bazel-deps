@@ -98,6 +98,7 @@ In the options we set:
     - load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 ```
 * languages: java and scala
+* thirdPartyDirectory: path to where we write the BUILD files for thirdparty. The default is `3rdparty/jvm`.
 * versionConflictPolicy: `fixed`, `fail` or `highest`
 * transitivity: `runtime_deps` or `exports`
 * resolvers: the maven servers to use.
