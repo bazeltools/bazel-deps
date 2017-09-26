@@ -64,7 +64,7 @@ Dependencies are a map from maven group id to artifact id, with some metadata, s
 dependencies:
   com.google.guava:
     guava:
-      version: 18.0
+      version: "18.0"
       lang: java
 ```
 Language is always required and may be one of `java, scala, scala/unmangled`. To control the scala
