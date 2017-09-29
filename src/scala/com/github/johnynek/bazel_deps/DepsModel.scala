@@ -511,7 +511,7 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
         type AP= (ArtifactOrProject, ProjectRecord)
 
         @annotation.tailrec
-        def combine(candidates: List[AP], acc: List[AP]): List[AP] =
+        def combine(candidates: List[AP], acc: List[AP], projs: Set[ArtifactOrProject]): List[AP] =
           if (candidates.isEmpty) acc.sorted
           else {
 
@@ -533,15 +533,12 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
             // find the biggest clique using sorting to break a tie
             val optCluster = es.groupBy { case Edge(_, _, e) => e }
               .toList
-              .filterNot { case ((a, p), _) =>
-                // Make sure we don't reuse an a value
-                acc.exists { case (a1, _) => a == a1 }
-              }
+              .filterNot { case ((a, p), _) => projs(a) }
 
             optCluster match {
               case Nil =>
                 // there is no pair that can merge
-                combine(Nil, candidates ::: acc)
+                combine(Nil, candidates ::: acc, projs)
               case nonEmpty =>
                 val ((key, _), bigCliqueItems) = nonEmpty.minBy { case (e, items) => (-items.size, e) } // get the biggest first
                 val bigClique = bigCliqueItems
@@ -560,13 +557,13 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
                     }
 
                     val cliqueSet = bigClique.toSet
-                    combine(candidates.filterNot(cliqueSet), merged :: acc)
+                    combine(candidates.filterNot(cliqueSet), merged :: acc, projs + key)
                 }
             }
           }
 
         val allProj = map.toList.flatMap { case (a, p) => p.flatten(a) }
-        val parts: List[AP] = combine(allProj, Nil)
+        val parts: List[AP] = combine(allProj, Nil, Set.empty)
 
         // This is invariant should be true at the end
         assert(parts.flatMap { case (a, p) => p.flatten(a) }.sorted == allProj.sorted)

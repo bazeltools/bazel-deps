@@ -147,7 +147,7 @@ class ParseTest extends FunSuite {
   test("parse randomly generated Model.toDoc") {
     // this test is slow and takes a lot of memory sadly
     implicit val generatorDrivenConfig =
-      PropertyCheckConfig(minSuccessful = 20)
+      PropertyCheckConfig(minSuccessful = 200)
 
     forAll(ModelGenerators.modelGen)(law _)
   }
