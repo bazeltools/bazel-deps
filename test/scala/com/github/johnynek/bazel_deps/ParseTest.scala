@@ -135,11 +135,11 @@ class ParseTest extends FunSuite {
   def law(model: Model) = {
     val str = model.toDoc.render(70)
     val decoded = decode(str)
-    if (decoded != model) {
-      println(str)
-      println("------")
-      println(decoded.toDoc.render(70))
-    }
+    // if (decoded != model) {
+    //   println(str)
+    //   println("------")
+    //   println(decoded.toDoc.render(70))
+    // }
     assert(decoded == model || decoded.flatten === model.flatten)
     assert(decoded.toDoc.render(70) === str)
   }
