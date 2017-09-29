@@ -125,38 +125,107 @@ class ParseTest extends FunSuite {
 
     assert(Decoders.decodeModel(Yaml, str).isLeft)
   }
-    */
+*/
+
+  def decode(str: String): Model = {
+    val Right(mod) = Decoders.decodeModel(Yaml, str)
+    mod
+  }
+
+  def law(model: Model) = {
+    val str = model.toDoc.render(70)
+    val decoded = decode(str)
+    if (decoded != model) {
+      println(str)
+      println("------")
+      println(decoded.toDoc.render(70))
+    }
+    assert(decoded == model || decoded.flatten === model.flatten)
+    assert(decoded.toDoc.render(70) === str)
+  }
 
   test("parse randomly generated Model.toDoc") {
     // this test is slow and takes a lot of memory sadly
     implicit val generatorDrivenConfig =
       PropertyCheckConfig(minSuccessful = 20)
 
-    forAll(ModelGenerators.modelGen) { model =>
-      val str = model.toDoc.render(70)
-      val good = Decoders.decodeModel(Yaml, str) == Right(model)
-      if (!good) {
-        println(model)
-        println(str)
-      }
-      assert(Decoders.decodeModel(Yaml, str) == Right(model))
-    }
+    forAll(ModelGenerators.modelGen)(law _)
   }
+
+  test("test a regression") {
+    import Language.{Java, Scala}
+
+    // This has a single sub-project, which we don't minimize into this form
+    val model = Model(Dependencies(
+      Map(
+        MavenGroup("n2rr") ->
+          Map(
+            ArtifactOrProject("zmup") -> ProjectRecord(Java,Some(Version("019")),Some(Set(Subproject("wcv"))),Some(Set((MavenGroup("j9szw4"),ArtifactOrProject("i")))),None)
+          )
+        )),Some(Replacements(Map())),None)
+
+    law(model)
+  }
+
+  def roundTripsTo(input: String, output: String) = {
+    val mod = decode(input)
+    val modStr = mod.toDoc.render(70)
+    //assert(decode(modStr) === mod)
+    assert(modStr === output)
+  }
+
   test("don't combine incorrectly") {
     val str = """dependencies:
                 |  com.twitter:
                 |    scalding:
                 |      lang: scala
-                |      version: 0.16.0
-                |      modules: ["", core, args, date]
-                |    scalding-foo:
-                |      lang: java
+                |      modules: [ "", "args", "core", "date" ]
+                |      version: "0.16.0"
                 |    scalding-bar:
                 |      lang: java
-                |
+                |    scalding-foo:
+                |      lang: java
                 |""".stripMargin('|')
 
-    val Right(mod) = Decoders.decodeModel(Yaml, str)
-    assert(Decoders.decodeModel(Yaml, mod.toDoc.render(70)) == Right(mod))
+    roundTripsTo(str, str)
+  }
+
+  test("example regression: util") {
+    val input = """
+dependencies:
+  com.twitter:
+    util:
+      lang: scala
+      modules: [ "codec", "core", "stats" ]
+      version: "6.26.0"
+    util-cache:
+      lang: scala
+      version: "6.29.0"
+    util-collection:
+      lang: scala
+      version: "6.29.0"
+    util-events:
+      lang: scala
+      version: "6.29.0"
+"""
+    // we have two clusters of equal size
+    // merge the one with the lowest version
+    val output = """dependencies:
+  com.twitter:
+    util:
+      lang: scala
+      modules: [ "codec", "core", "stats" ]
+      version: "6.26.0"
+    util-cache:
+      lang: scala
+      version: "6.29.0"
+    util-collection:
+      lang: scala
+      version: "6.29.0"
+    util-events:
+      lang: scala
+      version: "6.29.0"
+"""
+    roundTripsTo(input, output)
   }
 }
