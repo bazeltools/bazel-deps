@@ -141,6 +141,15 @@ case class ArtifactOrProject(asString: String) {
     }
     else Nil
 
+  def split(a: ArtifactOrProject): Option[Subproject] =
+    if (this == a) Some(Subproject(""))
+    else if (asString.startsWith(a.asString) && asString.charAt(a.asString.length) == '-')
+      Some {
+        val sp = asString.substring(a.asString.length + 1) // skip the '-'
+        Subproject(sp)
+      }
+    else None
+
   def toArtifact(sp: Subproject): ArtifactOrProject = {
     val str = sp.asString
     str match {
@@ -418,7 +427,8 @@ case class ProjectRecord(
       copy(modules = Some(Set(m)))
     case Some(subs) =>
       // we need to put "m-" on the front of everything
-      val newMod = Some(subs.map { sp => Subproject(s"${m.asString}-${sp.asString}") })
+      val prefix = if (m.asString.isEmpty) "" else s"${m.asString}-"
+      val newMod = Some(subs.map { sp => Subproject(s"$prefix${sp.asString}") })
       copy(modules = newMod)
   }
 
@@ -527,33 +537,33 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
               prKey = src._2.copy(modules = None)
               dst <- candMap(prKey) // everything that could match
               (a, p) <- Dependencies.mergeList(src, dst)
-            } yield Edge(src, dst, (a, prKey))
+              if (!projs(a)) // don't reuse previous projects
+            } yield (src, dst, a, prKey)
 
             // groupBy the ProjectRecord with modules removed
             // find the biggest clique using sorting to break a tie
-            val optCluster = es.groupBy { case Edge(_, _, e) => e }
-              .toList
-              .filterNot { case ((a, p), _) => projs(a) }
+            val optCluster = es.groupBy { case (_, _, a, pr) => (a, pr) }.toList
 
             optCluster match {
               case Nil =>
                 // there is no pair that can merge
                 combine(Nil, candidates ::: acc, projs)
               case nonEmpty =>
-                val ((key, _), bigCliqueItems) = nonEmpty.minBy { case (e, items) => (-items.size, e) } // get the biggest first
+                val ((key, _), bigCliqueItems) = nonEmpty.minBy { case ((ArtifactOrProject(p), pr), items) => (-items.size, -(p.length), pr) } // get the biggest first
                 val bigClique = bigCliqueItems
-                  .map(_.source)
+                  .map(_._1)
                   .distinct
                   .sorted
 
                 bigClique match {
                   case Nil => sys.error("unreachable, the list isn't empty")
                   case topNode :: toCombine =>
-                    val merged = toCombine.foldLeft(topNode) { (a, b) =>
+                    val merged = toCombine.foldLeft(topNode) { case ((aa, ap), (ba, bp)) =>
                       // This should never fail since we know this whole set should unify
-                      Dependencies.mergeList(a, b)
-                        .filter { case (k, _) => k == key }
-                        .head
+                      val Some(asp) = aa.split(key)
+                      val Some(bsp) = ba.split(key)
+                      val mergedProject = ap.withModule(asp).combineModules(bp.withModule(bsp)).get
+                      (key, mergedProject)
                     }
 
                     val cliqueSet = bigClique.toSet
@@ -566,7 +576,7 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
         val parts: List[AP] = combine(allProj, Nil, Set.empty)
 
         // This is invariant should be true at the end
-        assert(parts.flatMap { case (a, p) => p.flatten(a) }.sorted == allProj.sorted)
+        //assert(parts.flatMap { case (a, p) => p.flatten(a) }.sorted == allProj.sorted)
 
         val groupMap = yamlMap(parts.map { case (a, p) => (a.asString, p.toDoc) })
 
