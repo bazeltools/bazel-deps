@@ -228,4 +228,23 @@ dependencies:
 """
     roundTripsTo(input, output)
   }
+
+  test("maximize the project name") {
+    val input = """
+dependencies:
+   com.amazonaws:
+     aws:
+       lang: java
+       modules: [ "java-sdk-core", "java-sdk-ec2", "java-sdk-s3" ]
+       version: "1.11.5"
+"""
+    val output = """dependencies:
+  com.amazonaws:
+    aws-java-sdk:
+      lang: java
+      modules: [ "core", "ec2", "s3" ]
+      version: "1.11.5"
+"""
+    roundTripsTo(input, output)
+  }
 }
