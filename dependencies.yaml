@@ -80,14 +80,20 @@ dependencies:
 
 replacements:
   org.scala-lang:
+    scala-compiler:
+      lang: scala/unmangled
+      target: "@scala//:scala-compiler"
     scala-library:
       lang: scala/unmangled
-      target: "//3rdparty/manual:scala_library_file"
+      target: "@scala//:scala-library"
     scala-reflect:
       lang: scala/unmangled
-      target: "//3rdparty/manual:scala_reflect_file"
+      target: "@scala//:scala-reflect"
   
   org.scala-lang.modules:
     scala-parser-combinators:
       lang: scala
-      target: "//3rdparty/manual:scala_parser_combinators_file"
+      target: "@scala//:scala-parser-combinators"
+    scala-xml:
+      lang: scala
+      target: "@scala//:scala-xml"
