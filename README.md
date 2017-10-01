@@ -21,26 +21,10 @@ for any exceptions that you manage along with [Replacements](#replacements).
 Then you should add
 ```
 load("//3rdparty:workspace.bzl", "maven_dependencies")
-load("//3rdparty:load.bzl", "declare_maven")
 
-maven_dependencies(declare_maven)
+maven_dependencies()
 ```
-
-To your workspace to load the maven dependencies. Note you will need to implement load.bzl `declare_maven`. A standard implementation
-might be:
-```python
-def declare_maven(hash):
-    native.maven_jar(
-        name = hash["name"],
-        artifact = hash["artifact"],
-        sha1 = hash["sha1"],
-        repository = hash["repository"]
-    )
-    native.bind(
-        name = hash["bind"],
-        actual = hash["actual"]
-    )
-```
+to your workspace to load the maven dependencies.
 
 ## Assumptions and usage
 This tool will generate one canonical version for every jar in the transitive dependencies of
