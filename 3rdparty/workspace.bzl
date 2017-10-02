@@ -1,4 +1,16 @@
-def maven_dependencies(callback):
+def declare_maven(hash):
+    native.maven_jar(
+        name = hash["name"],
+        artifact = hash["artifact"],
+        sha1 = hash["sha1"],
+        repository = hash["repository"]
+    )
+    native.bind(
+        name = hash["bind"],
+        actual = hash["actual"]
+    )
+
+def maven_dependencies(callback = declare_maven):
     callback({"artifact": "asm:asm:3.3.1", "lang": "java", "sha1": "1d5f20b4ea675e6fab6ab79f1cd60ec268ddc015", "repository": "https://repo.maven.apache.org/maven2/", "name": "asm_asm", "actual": "@asm_asm//jar", "bind": "jar/asm/asm"})
     callback({"artifact": "com.chuusai:shapeless_2.11:2.3.2", "lang": "scala", "sha1": "f40ed6e303d550293f5f8f3743681d98e31f2360", "repository": "https://repo.maven.apache.org/maven2/", "name": "com_chuusai_shapeless_2_11", "actual": "@com_chuusai_shapeless_2_11//jar:file", "bind": "jar/com/chuusai/shapeless_2_11"})
     callback({"artifact": "com.fasterxml.jackson.core:jackson-annotations:2.5.0", "lang": "java", "sha1": "a2a55a3375bc1cef830ca426d68d2ea22961190e", "repository": "https://repo.maven.apache.org/maven2/", "name": "com_fasterxml_jackson_core_jackson_annotations", "actual": "@com_fasterxml_jackson_core_jackson_annotations//jar", "bind": "jar/com/fasterxml/jackson/core/jackson_annotations"})

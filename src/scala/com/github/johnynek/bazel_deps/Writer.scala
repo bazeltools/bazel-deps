@@ -77,7 +77,21 @@ object Writer {
              s"""${kv("bind", coord.unversioned.toBindingName)}})""").mkString(", ")
       }
       .mkString("\n")
-    s"""def maven_dependencies(callback):\n$lines\n"""
+    s"""def declare_maven(hash):
+        |    native.maven_jar(
+        |        name = hash["name"],
+        |        artifact = hash["artifact"],
+        |        sha1 = hash["sha1"],
+        |        repository = hash["repository"]
+        |    )
+        |    native.bind(
+        |        name = hash["bind"],
+        |        actual = hash["actual"]
+        |    )
+        |
+        |def maven_dependencies(callback = declare_maven):
+        |$lines
+        |""".stripMargin
   }
 
   def language(g: Graph[MavenCoordinate, Unit],
