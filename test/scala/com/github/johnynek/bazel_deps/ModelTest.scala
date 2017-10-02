@@ -69,4 +69,16 @@ class ModelTest extends FunSuite {
         assert(combined.toDoc.render(100) == str)
     }
   }
+
+  test("coordinate naming") {
+    val uc = UnversionedCoordinate(MavenGroup("com.twitter"), MavenArtifactId("finagle-core"))
+    assert(uc.asString == "com.twitter:finagle-core")
+    assert(uc.toBazelRepoName(NamePrefix("")) == "com_twitter_finagle_core")
+    assert(uc.toBindingName(NamePrefix("")) == "jar/com/twitter/finagle_core")
+    assert(uc.bindTarget(NamePrefix("")) == "//external:jar/com/twitter/finagle_core")
+    val np = NamePrefix("unique_")
+    assert(uc.toBazelRepoName(np) == "unique_com_twitter_finagle_core")
+    assert(uc.toBindingName(np) == "jar/unique_com/twitter/finagle_core")
+    assert(uc.bindTarget(np) == "//external:jar/unique_com/twitter/finagle_core")
+  }
 }

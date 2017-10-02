@@ -25,10 +25,10 @@ object Label {
     val target = pathAndTarg.drop(1 + pathStr.length)
     Label(ws, Path(pathStr.split('/').toList), target)
   }
-  def externalJar(lang: Language, u: UnversionedCoordinate): Label = lang match {
-    case Language.Java => Label(Some(u.toBazelRepoName), Path(List("jar")), "")
+  def externalJar(lang: Language, u: UnversionedCoordinate, np: NamePrefix): Label = lang match {
+    case Language.Java => Label(Some(u.toBazelRepoName(np)), Path(List("jar")), "")
     // If we know we have a scala jar, just use ":file" to be sure we can deal with macros
-    case Language.Scala(_, _) => Label(Some(u.toBazelRepoName), Path(List("jar")), "file")
+    case Language.Scala(_, _) => Label(Some(u.toBazelRepoName(np)), Path(List("jar")), "file")
   }
 
   def replaced(u: UnversionedCoordinate, r: Replacements): Option[(Label, Language)] =

@@ -40,6 +40,7 @@ object Writer {
 
     val servers = model.getOptions.getResolvers.map(s => (s.id, s.url)).toMap
     val lang = language(g, model)
+    val prefix = model.getOptions.getNamePrefix
     val lines = nodes.filterNot(replaced)
       .toList
       .sortBy(_.asString)
@@ -67,14 +68,14 @@ object Writer {
             ""
         }
         val l = lang(coord.unversioned)
-        val actual = Label.externalJar(l, coord.unversioned)
+        val actual = Label.externalJar(l, coord.unversioned, prefix)
         def kv(key: String, value: String): String =
           s""""$key": "$value""""
         List(s"""$comment    callback({${kv("artifact", coord.asString)}""",
              s"""${kv("lang", l.asString)}$shaStr$serverStr""",
-             s"""${kv("name", coord.unversioned.toBazelRepoName)}""",
+             s"""${kv("name", coord.unversioned.toBazelRepoName(prefix))}""",
              s"""${kv("actual", actual.asStringFrom(Path(Nil)))}""",
-             s"""${kv("bind", coord.unversioned.toBindingName)}})""").mkString(", ")
+             s"""${kv("bind", coord.unversioned.toBindingName(prefix))}})""").mkString(", ")
       }
       .mkString("\n")
     s"""def declare_maven(hash):
@@ -176,7 +177,7 @@ object Writer {
         val (lab, lang) =
           Label.replaced(u, model.getReplacements)
             .getOrElse {
-              (Label.parse(u.bindTarget), langFn(u))
+              (Label.parse(u.bindTarget(model.getOptions.getNamePrefix)), langFn(u))
             }
         // Build explicit exports, no need to add these to runtime deps
         val uvexports = model.dependencies

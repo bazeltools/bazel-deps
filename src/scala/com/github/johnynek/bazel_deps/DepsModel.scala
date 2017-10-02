@@ -380,8 +380,8 @@ case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
   /**
    * This is a bazel-safe name to use as a remote repo name
    */
-  def toBazelRepoName: String =
-    asString.map {
+  def toBazelRepoName(namePrefix: NamePrefix): String =
+    s"${namePrefix.asString}$asString".map {
       case '.' => "_"  // todo, we should have something such that if a != b this can't be equal, but this can
       case '-' => "_"
       case ':' => "_"
@@ -389,17 +389,17 @@ case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
     }
     .mkString
 
-  def toBindingName: String = {
+  def toBindingName(namePrefix: NamePrefix): String = {
     val g = group.asString.map {
       case '.' => '/'
       case o => o
     }
-    s"jar/$g/${artifact.asString}".map {
+    s"jar/${namePrefix.asString}$g/${artifact.asString}".map {
       case '.' | '-' => '_'
       case o => o
     }
   }
-  def bindTarget: String = s"//external:$toBindingName"
+  def bindTarget(namePrefix: NamePrefix): String = s"//external:${toBindingName(namePrefix)}"
 }
 
 case class ProjectRecord(
@@ -951,6 +951,20 @@ object ResolverCache {
   }
 }
 
+case class NamePrefix(val asString: String)
+
+object NamePrefix {
+
+  def default: NamePrefix = NamePrefix("")
+
+  /** Take the right-most (most recent)
+   */
+  implicit val namePrefixSemigroup: Semigroup[NamePrefix] = new Semigroup[NamePrefix] {
+    def combine(a: NamePrefix, b: NamePrefix) = b
+  }
+}
+
+
 case class Options(
   versionConflictPolicy: Option[VersionConflictPolicy],
   thirdPartyDirectory: Option[DirectoryName],
@@ -958,7 +972,8 @@ case class Options(
   resolvers: Option[List[MavenServer]],
   transitivity: Option[Transitivity],
   buildHeader: Option[List[String]],
-  resolverCache: Option[ResolverCache]
+  resolverCache: Option[ResolverCache],
+  namePrefix: Option[NamePrefix]
   ) {
 
   def isDefault: Boolean =
@@ -968,7 +983,8 @@ case class Options(
     resolvers.isEmpty &&
     transitivity.isEmpty &&
     buildHeader.isEmpty &&
-    resolverCache.isEmpty
+    resolverCache.isEmpty &&
+    namePrefix.isEmpty
 
   def getThirdPartyDirectory: DirectoryName =
     thirdPartyDirectory.getOrElse(DirectoryName.default)
@@ -1002,6 +1018,9 @@ case class Options(
   def getResolverCache: ResolverCache =
     resolverCache.getOrElse(ResolverCache.Local)
 
+  def getNamePrefix: NamePrefix =
+    namePrefix.getOrElse(NamePrefix.default)
+
   def toDoc: Doc = {
     val items = List(
       ("versionConflictPolicy",
@@ -1018,7 +1037,8 @@ case class Options(
       ("buildHeader",
         buildHeader.map(list(_) { s => quoteDoc(s) })),
       ("transitivity", transitivity.map { t => Doc.text(t.asString) }),
-      ("resolverCache", resolverCache.map { rc => Doc.text(rc.asString) })
+      ("resolverCache", resolverCache.map { rc => Doc.text(rc.asString) }),
+      ("namePrefix", namePrefix.map { p => Doc.text(p.asString) })
     ).sortBy(_._1)
      .collect { case (k, Some(v)) => (k, v) }
 
@@ -1034,7 +1054,7 @@ object Options {
    * A monoid on options that is just the point-wise monoid
    */
   implicit val optionsMonoid: Monoid[Options] = new Monoid[Options] {
-    val empty = Options(None, None, None, None, None, None, None)
+    val empty = Options(None, None, None, None, None, None, None, None)
 
     def combine(a: Options, b: Options): Options = {
       val vcp = Monoid[Option[VersionConflictPolicy]].combine(a.versionConflictPolicy, b.versionConflictPolicy)
@@ -1044,8 +1064,9 @@ object Options {
       val trans = Monoid[Option[Transitivity]].combine(a.transitivity, b.transitivity)
       val headers = Monoid[Option[List[String]]].combine(a.buildHeader, b.buildHeader).map(_.distinct)
       val resolverCache = Monoid[Option[ResolverCache]].combine(a.resolverCache, b.resolverCache)
+      val namePrefix = Monoid[Option[NamePrefix]].combine(a.namePrefix, b.namePrefix)
 
-      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache)
+      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix)
     }
   }
 }

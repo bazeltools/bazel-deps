@@ -89,6 +89,8 @@ In the options we set:
 * resolverCache: where bazel-deps should cache resolved packages.  `local` (`target/local-repo` in the repository root)
   or `bazel_output_base` (`bazel-deps/local-repo` inside the repository's Bazel output base -- from `bazel info
   output_base`)
+* namePrefix: a string added to the generated workspace names, to avoid conflicts.  The external repository names and
+  binding targets of each dependency are prefixed.
 
 In the default case, with no options given, we use:
 - `highest` versionConflictPolicy
@@ -96,6 +98,7 @@ In the default case, with no options given, we use:
 - allow java and scala `2.11`
 - use maven central as the resolver
 - `local` resolverCache
+- empty namePrefix (`""`)
 
 ### <a name="replacements">Replacements</a>
 Some maven jars should not be used and instead are replaced by internal targets. Here are
