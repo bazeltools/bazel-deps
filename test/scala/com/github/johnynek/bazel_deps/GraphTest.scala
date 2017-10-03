@@ -17,11 +17,15 @@ class GraphTest extends FunSuite  {
       }
   }
 
-  def edgeFrom[N, E](g: Graph[N, E]): Gen[Edge[N, E]] =
-    Gen.oneOf(g.edgeIterator.toVector)
+  def edgeFrom[N, E](g: Graph[N, E]): Gen[Option[Edge[N, E]]] = {
+    val es = g.edgeIterator.toVector
+    if (es.isEmpty) Gen.const(None)
+    else Gen.oneOf(es).map(Some(_))
+  }
 
-  def nodeFrom[N, E](g: Graph[N, E]): Gen[N] =
-    Gen.oneOf(g.nodes.toVector)
+  def nodeFrom[N, E](g: Graph[N, E]): Gen[Option[N]] =
+    if (g.nodes.isEmpty) Gen.const(None)
+    else Gen.oneOf(g.nodes.toVector).map(Some(_))
 
   def randomWalkDest[N, E](g: Graph[N, E]): Option[Gen[(N, N)]] =
     if (g.nodes.isEmpty) None
@@ -87,16 +91,20 @@ class GraphTest extends FunSuite  {
         newG.edgeIterator.toSet(newEdge)
     })
     // Check some removals:
-    check(forAll(graphGen(genIntNode).flatMap { g => edgeFrom(g).map((g, _)) }) { case (g, e) =>
-      val newG = g.removeEdge(e)
-      !(newG.edgeIterator.exists(_ == e))
+    check(forAll(graphGen(genIntNode).flatMap { g => edgeFrom(g).map((g, _)) }) {
+      case (g, Some(e)) =>
+        val newG = g.removeEdge(e)
+        !(newG.edgeIterator.exists(_ == e))
+      case (g, None) => true
     })
     // Check some removals:
-    check(forAll(graphGen(genIntNode).flatMap { g => nodeFrom(g).map((g, _)) }) { case (g, n) =>
-      val newG = g.removeNode(n)
-      newG.hasDestination(n).isEmpty &&
-        newG.hasSource(n).isEmpty &&
-        (!newG.nodes(n))
+    check(forAll(graphGen(genIntNode).flatMap { g => nodeFrom(g).map((g, _)) }) {
+      case (g, Some(n)) =>
+        val newG = g.removeNode(n)
+        newG.hasDestination(n).isEmpty &&
+          newG.hasSource(n).isEmpty &&
+          (!newG.nodes(n))
+      case (g, None) => true
     })
 
     // Check randomwalk is in reflexiveTransitiveClosure

@@ -154,7 +154,7 @@ class ParseTest extends FunSuite {
     forAll(ModelGenerators.modelGen)(law _)
   }
 
-  test("test a regression") {
+  test("test regressions") {
     import Language.{Java, Scala}
 
     // This has a single sub-project, which we don't minimize into this form
@@ -167,6 +167,11 @@ class ParseTest extends FunSuite {
         )),Some(Replacements(Map())),None)
 
     law(model)
+
+    val model1 = Model(Dependencies.empty,Some(Replacements.empty),Some(Options(None,None,None,None,None,Some(List()),
+      Some(ResolverCache.Local),Some(NamePrefix("y")))))
+    println(model1.toDoc.render(70))
+    law(model1)
   }
 
   def roundTripsTo(input: String, output: String) = {
