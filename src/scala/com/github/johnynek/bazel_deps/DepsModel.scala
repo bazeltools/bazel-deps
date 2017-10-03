@@ -666,6 +666,8 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
 }
 
 object Dependencies {
+  def empty: Dependencies = Dependencies(Map.empty[MavenGroup, Map[ArtifactOrProject, ProjectRecord]])
+
   private[bazel_deps] def joinWith[F[_]: Applicative, K, A, B, C](m1: Map[K, A], m2: Map[K, B])(fn: Ior[A, B] => F[C]): F[Map[K, C]] = {
     val allKeys = (m1.keySet | m2.keySet).toList
     def travFn(k: K): F[(K, C)] = {
@@ -1038,7 +1040,7 @@ case class Options(
         buildHeader.map(list(_) { s => quoteDoc(s) })),
       ("transitivity", transitivity.map { t => Doc.text(t.asString) }),
       ("resolverCache", resolverCache.map { rc => Doc.text(rc.asString) }),
-      ("namePrefix", namePrefix.map { p => Doc.text(p.asString) })
+      ("namePrefix", namePrefix.map { p => quoteDoc(p.asString) })
     ).sortBy(_._1)
      .collect { case (k, Some(v)) => (k, v) }
 

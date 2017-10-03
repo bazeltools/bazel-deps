@@ -58,7 +58,19 @@ dependencies:
   org.scalacheck:
     scalacheck:
       lang: scala
-      version: "1.12.6"
+      version: "1.13.5"
+
+  org.scalactic:
+    scalactic:
+      lang: scala
+      version: "3.0.1"
+  
+  org.scalatest:
+    scalatest:
+      exports: 
+        - "org.scalactic:scalactic"
+      lang: scala
+      version: "3.0.1"
   
   org.spire-math:
     kind-projector:

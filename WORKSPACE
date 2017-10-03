@@ -30,3 +30,5 @@ new_git_repository(
     build_file = "3rdparty/manual/BUILD.decline",
     # use target: "@org_typelevel_paiges//:decline"
 )
+
+bind(name = 'io_bazel_rules_scala/dependency/scalatest/scalatest', actual = '//3rdparty/jvm/org/scalatest')

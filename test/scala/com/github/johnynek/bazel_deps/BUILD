@@ -1,3 +1,10 @@
+scala_library(name = "gencheats",
+              srcs = ["GenCheats.scala"],
+              deps = [
+                  "//3rdparty/jvm/org/scalacheck",
+                  "//3rdparty/jvm/org/typelevel:cats_core",
+                  ])
+
 scala_test(name = "modeltest",
            srcs = ["ModelTest.scala"],
            size = "small",
@@ -13,6 +20,7 @@ scala_test(name = "normalizertest",
            srcs = ["NormalizerTest.scala"],
            size = "small",
            deps = [
+               ":gencheats",
                "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
                "//src/scala/com/github/johnynek/bazel_deps:graph",
                "//src/scala/com/github/johnynek/bazel_deps:normalizer",

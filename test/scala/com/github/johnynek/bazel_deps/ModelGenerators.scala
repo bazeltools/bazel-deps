@@ -13,8 +13,8 @@ object ModelGenerators {
   val mavenGroupGen: Gen[MavenGroup] = mavenPart.map(MavenGroup(_))
   val artifactOrProjGen: Gen[ArtifactOrProject] = mavenPart.map(ArtifactOrProject(_))
 
-  def projectRecordGen(langs: List[Language]): Gen[ProjectRecord] = for {
-    lang <- Gen.oneOf(langs)
+  def projectRecordGen(l1: Language, langs: List[Language]): Gen[ProjectRecord] = for {
+    lang <- Gen.oneOf(l1 :: langs)
     v <- Gen.option(Gen.listOfN(3, Gen.choose('0', '9')).map { l => Version(l.mkString) })
     sub <- Gen.choose(0, 6)
     exp <- Gen.choose(0, 3)
@@ -25,7 +25,11 @@ object ModelGenerators {
   } yield ProjectRecord(lang, v, m, exports, exclude)
 
   def depGen(o: Options): Gen[Dependencies] = {
-    def artMap = Gen.mapOf(join(artifactOrProjGen, projectRecordGen(o.getLanguages))).map(_.take(30))
+    val (l1, ls) = o.getLanguages match {
+      case Nil => (Language.Java, Nil)
+      case h :: tail => (h, tail)
+    }
+    def artMap = Gen.mapOf(join(artifactOrProjGen, projectRecordGen(l1, ls))).map(_.take(30))
     Gen.mapOf(join(mavenGroupGen, artMap)).map { m => Dependencies(m.take(100)) }
   }
 
@@ -54,7 +58,7 @@ object ModelGenerators {
   val optionGen: Gen[Options] = for {
     vcp <- Gen.option(Gen.oneOf(VersionConflictPolicy.Fail, VersionConflictPolicy.Fixed, VersionConflictPolicy.Highest))
     dir <- Gen.option(Gen.identifier.map(DirectoryName(_)))
-    langs <- Gen.option(Gen.listOf(langGen).map(_.toSet))
+    langs <- Gen.option(Gen.choose(1, 10).flatMap(Gen.listOfN(_, langGen).map(_.toSet)))
     res <- Gen.option(Gen.listOf(mavenServerGen))
     trans <- Gen.option(Gen.oneOf(Transitivity.RuntimeDeps, Transitivity.Exports))
     heads <- Gen.option(Gen.listOf(Gen.identifier))
