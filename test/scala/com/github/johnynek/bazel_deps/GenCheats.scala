@@ -4,20 +4,26 @@ import org.scalacheck.rng.Seed
 import cats.Monad
 
 object GenTailRec {
-  @annotation.tailrec
-  def tailRecMR[A, B](a: A)(fn: A => Gen.R[Either[A, B]]): Gen.R[B] = {
-    val re = fn(a)
-    re.retrieve match {
-      case None => Gen.r(None, re.seed).copy(l = re.labels)
-      case Some(Left(a)) => tailRecMR(a)(fn)
-      case Some(Right(b)) => Gen.r(Some(b), re.seed).copy(l = re.labels)
+
+  def tailRecM[A, B](a0: A)(fn: A => Gen[Either[A, B]]): Gen[B] = {
+    @annotation.tailrec
+    def tailRecMR(a: A, seed: Seed, labs: Set[String])(fn: (A, Seed) => Gen.R[Either[A, B]]): Gen.R[B] = {
+      val re = fn(a, seed)
+      val nextLabs = labs | re.labels
+      re.retrieve match {
+        case None => Gen.r(None, re.seed).copy(l = nextLabs)
+        case Some(Right(b)) => Gen.r(Some(b), re.seed).copy(l = nextLabs)
+        case Some(Left(a)) => tailRecMR(a, re.seed, nextLabs)(fn)
+      }
+    }
+
+    // This is the "Gen.Reader-style" appoach to making a stack-safe loop:
+    // we put one outer closure around an explicitly tailrec loop
+    Gen.gen[B] { (p: Gen.Parameters, seed: Seed) =>
+      tailRecMR(a0, seed, Set.empty) { (a, seed) => fn(a).doApply(p, seed) }
     }
   }
 
-  def tailRecM[A, B](a: A)(fn: A => Gen[Either[A, B]]): Gen[B] =
-    Gen.gen[B] { (p: Gen.Parameters, seed: Seed) =>
-      tailRecMR(a) { a => fn(a).doApply(p, seed) }
-    }
 }
 
 object GenMonad extends Monad[Gen] {
