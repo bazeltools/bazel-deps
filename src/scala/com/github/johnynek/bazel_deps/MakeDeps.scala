@@ -99,6 +99,7 @@ object MakeDeps {
           wsp = IO.path(workspacePath)
           _ <- IO.mkdirs(wsp.parent)
           _ <- IO.writeUtf8(wsp, ws)
+          _ <- IO.writeUtf8(wsp.sibling("BUILD"), "")
           builds <- Writer.createBuildFiles(model.getOptions.getBuildHeader, targets)
         } yield builds
 
