@@ -98,4 +98,42 @@ dependencies:
 """
     roundTripsTo(input, output)
   }
+
+   test("Do not collapse when incompatible") {
+    val input = """
+dependencies:
+   com.twitter:
+    chill:
+      lang: scala
+      version: "0.8.4"
+    chill-algebird:
+      lang: scala
+      version: "0.8.4"
+      exports:
+        - "com.twitter:chill"
+    chill-scrooge:
+      lang: scala
+      version: "0.8.4"
+      exports:
+        - "com.twitter:chill"
+"""
+    val output = """dependencies:
+  com.twitter:
+    chill:
+      lang: scala
+      version: "0.8.4"
+    chill-algebird:
+      lang: scala
+      version: "0.8.4"
+      exports:
+        - "com.twitter:chill"
+    chill-scrooge:
+      lang: scala
+      version: "0.8.4"
+      exports:
+        - "com.twitter:chill"
+"""
+
+    roundTripsTo(input, output)
+  }
 }
