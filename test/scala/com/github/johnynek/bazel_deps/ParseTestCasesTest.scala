@@ -104,87 +104,36 @@ dependencies:
 dependencies:
    com.twitter:
     chill:
-      exports:
-        - "com.esotericsoftware:kryo-shaded"
-        - "com.twitter:chill-java"
       lang: scala
       version: "0.8.4"
     chill-algebird:
-      exports:
-        - "com.esotericsoftware:kryo-shaded"
-        - "com.twitter:chill"
-        - "com.twitter:chill-java"
       lang: scala
       version: "0.8.4"
-    chill-bijection:
       exports:
-        - "com.esotericsoftware:kryo-shaded"
-        - "com.twitter:bijection-core"
         - "com.twitter:chill"
-        - "com.twitter:chill-java"
-      lang: scala
-      version: "0.8.4"
-    chill-hadoop:
-      exports:
-        - "com.esotericsoftware:kryo-shaded"
-        - "com.twitter:chill-java"
-      lang: java
-      version: "0.8.4"
-    chill-java:
-      exports:
-        - "com.esotericsoftware:kryo-shaded"
-      lang: java
-      version: "0.8.4"
     chill-scrooge:
-      exports:
-        - "com.esotericsoftware:kryo-shaded"
-        - "com.twitter:chill"
-        - "com.twitter:chill-java"
       lang: scala
       version: "0.8.4"
+      exports:
+        - "com.twitter:chill"
 """
     val output = """dependencies:
   com.twitter:
     chill:
-      exports:
-        - "com.esotericsoftware:kryo-shaded"
-        - "com.twitter:chill-java"
       lang: scala
       version: "0.8.4"
     chill-algebird:
-      exports:
-        - "com.esotericsoftware:kryo-shaded"
-        - "com.twitter:chill"
-        - "com.twitter:chill-java"
       lang: scala
       version: "0.8.4"
-    chill-bijection:
       exports:
-        - "com.esotericsoftware:kryo-shaded"
-        - "com.twitter:bijection-core"
         - "com.twitter:chill"
-        - "com.twitter:chill-java"
-      lang: scala
-      version: "0.8.4"
-    chill-hadoop:
-      exports:
-        - "com.esotericsoftware:kryo-shaded"
-        - "com.twitter:chill-java"
-      lang: java
-      version: "0.8.4"
-    chill-java:
-      exports:
-        - "com.esotericsoftware:kryo-shaded"
-      lang: java
-      version: "0.8.4"
     chill-scrooge:
-      exports:
-        - "com.esotericsoftware:kryo-shaded"
-        - "com.twitter:chill"
-        - "com.twitter:chill-java"
       lang: scala
       version: "0.8.4"
+      exports:
+        - "com.twitter:chill"
 """
+
     roundTripsTo(input, output)
   }
 }
