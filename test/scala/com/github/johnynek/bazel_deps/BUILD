@@ -32,11 +32,52 @@ scala_library(name = "modelgen",
                    "@org_typelevel_paiges//:paiges",
                    "//3rdparty/jvm/org/scalacheck"])
 
+
+scala_library(name = "parsetestutil",
+           srcs = ["ParseTestUtil.scala"],
+           deps = [
+               ":modelgen",
+               "//3rdparty/jvm/org/scalatest",
+               "//3rdparty/jvm/org/scalacheck",
+               "//3rdparty/jvm/org/typelevel:cats_core",
+               "//3rdparty/jvm/io/circe:circe_core",
+               "//src/scala/com/github/johnynek/bazel_deps:circeyaml",
+               "//src/scala/com/github/johnynek/bazel_deps:decoders",
+               "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+               ])
+
 scala_test(name = "parsetest",
            srcs = ["ParseTest.scala"],
+           deps = [
+               ":modelgen",
+               ":parsetestutil",
+               "//3rdparty/jvm/org/scalacheck",
+               "//3rdparty/jvm/org/typelevel:cats_core",
+               "//3rdparty/jvm/io/circe:circe_core",
+               "//src/scala/com/github/johnynek/bazel_deps:circeyaml",
+               "//src/scala/com/github/johnynek/bazel_deps:decoders",
+               "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+               ])
+
+scala_test(name = "parsegenerateddoctest",
+           srcs = ["ParseGeneratedDocTest.scala"],
            jvm_flags = ["-Xmx1000M", "-Xms1000M"],
            deps = [
                ":modelgen",
+               ":parsetestutil",
+               "//3rdparty/jvm/org/scalacheck",
+               "//3rdparty/jvm/org/typelevel:cats_core",
+               "//3rdparty/jvm/io/circe:circe_core",
+               "//src/scala/com/github/johnynek/bazel_deps:circeyaml",
+               "//src/scala/com/github/johnynek/bazel_deps:decoders",
+               "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+               ])
+
+scala_test(name = "parsetestcases",
+           srcs = ["ParseTestCasesTest.scala"],
+           deps = [
+               ":modelgen",
+               ":parsetestutil",
                "//3rdparty/jvm/org/scalacheck",
                "//3rdparty/jvm/org/typelevel:cats_core",
                "//3rdparty/jvm/io/circe:circe_core",
