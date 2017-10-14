@@ -25,6 +25,9 @@ object ParseTestUtil extends FunSuite {
     val mod = decode(input)
     val modStr = mod.toDoc.render(70)
     //assert(decode(modStr) === mod)
+    // println(input)
+    // println("------")
+    // println(modStr)
     assert(modStr === output)
   }
 

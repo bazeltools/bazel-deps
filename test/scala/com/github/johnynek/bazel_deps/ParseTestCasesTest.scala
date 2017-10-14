@@ -21,7 +21,7 @@ class ParseTestCasesTest extends FunSuite {
 
     val model1 = Model(Dependencies.empty,Some(Replacements.empty),Some(Options(None,None,None,None,None,Some(List()),
       Some(ResolverCache.Local),Some(NamePrefix("y")))))
-    println(model1.toDoc.render(70))
+    //println(model1.toDoc.render(70))
     law(model1)
   }
 
@@ -65,17 +65,17 @@ dependencies:
   com.twitter:
     util:
       lang: scala
-      modules: [ "codec", "core", "stats" ]
+      modules: [ "cache", "collection", "events" ]
+      version: "6.29.0"
+    util-codec:
+      lang: scala
       version: "6.26.0"
-    util-cache:
+    util-core:
       lang: scala
-      version: "6.29.0"
-    util-collection:
+      version: "6.26.0"
+    util-stats:
       lang: scala
-      version: "6.29.0"
-    util-events:
-      lang: scala
-      version: "6.29.0"
+      version: "6.26.0"
 """
     roundTripsTo(input, output)
   }
@@ -123,15 +123,15 @@ dependencies:
       lang: scala
       version: "0.8.4"
     chill-algebird:
+      exports:\u0020
+        - "com.twitter:chill"
       lang: scala
       version: "0.8.4"
-      exports:
-        - "com.twitter:chill"
     chill-scrooge:
+      exports:\u0020
+        - "com.twitter:chill"
       lang: scala
       version: "0.8.4"
-      exports:
-        - "com.twitter:chill"
 """
 
     roundTripsTo(input, output)

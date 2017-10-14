@@ -141,6 +141,11 @@ case class ArtifactOrProject(asString: String) {
     }
     else Nil
 
+  // This is the same as splitSubprojects but also
+  // includes the null split:
+  def splitSubprojects1: NonEmptyList[(ArtifactOrProject, Subproject)] =
+    NonEmptyList((this, Subproject("")), splitSubprojects)
+
   def split(a: ArtifactOrProject): Option[Subproject] =
     if (this == a) Some(Subproject(""))
     else if (asString.startsWith(a.asString) && asString.charAt(a.asString.length) == '-')
@@ -416,20 +421,24 @@ case class ProjectRecord(
 
   def flatten(ap: ArtifactOrProject): List[(ArtifactOrProject, ProjectRecord)] =
     getModules match {
-      case Nil => List((ap, this))
+      case Nil => List((ap, copy(modules = None)))
       case mods => mods.map { sp =>
         (ap.toArtifact(sp), copy(modules = None))
       }
+    }
+
+  def normalizeEmptyModule: ProjectRecord =
+    getModules match {
+      case Subproject("") :: Nil => copy(modules = None)
+      case _ => this
     }
 
   def withModule(m: Subproject): ProjectRecord = modules match {
     case None =>
       copy(modules = Some(Set(m)))
     case Some(subs) =>
-      // we need to put "m-" on the front of everything
-      val prefix = if (m.asString.isEmpty) "" else s"${m.asString}-"
-      val newMod = Some(subs.map { sp => Subproject(s"$prefix${sp.asString}") })
-      copy(modules = newMod)
+      // otherwise add this subproject
+      copy(modules = Some(subs + m))
   }
 
   def combineModules(that: ProjectRecord): Option[ProjectRecord] =
@@ -438,7 +447,7 @@ case class ProjectRecord(
         (exports == that.exports) &&
         (exclude == that.exclude)) {
       val mods = (modules, that.modules) match {
-        case (Some(a), Some(b)) => Some(a ++ b)
+        case (Some(a), Some(b)) => Some(a | b)
         case (None, s) => s.map(_ + Subproject(""))
         case (s, None) => s.map(_ + Subproject(""))
       }
@@ -499,9 +508,9 @@ object ProjectRecord {
     Ordering.by { pr =>
       (pr.lang,
         pr.version,
-        pr.modules.map(_.map(_.asString).toList.sorted),
-        pr.exports.map(_.map { case (m, a) => (m.asString, a.asString) }.toList.sorted),
-        pr.exclude.map(_.map { case (m, a) => (m.asString, a.asString) }.toList.sorted))
+        (pr.modules.fold(0)(_.size), pr.modules.map(_.map(_.asString).toList.sorted)),
+        (pr.exports.fold(0)(_.size), pr.exports.map(_.map { case (m, a) => (m.asString, a.asString) }.toList.sorted)),
+        (pr.exclude.fold(0)(_.size), pr.exclude.map(_.map { case (m, a) => (m.asString, a.asString) }.toList.sorted)))
     }
   }
 }
@@ -517,63 +526,7 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
     implicit val ordDoc: Ordering[Doc] = Ordering.by { d: Doc => d.renderWideStream.mkString }
     val allDepDoc = toMap.toList
       .map { case (g, map) =>
-
-        type AP= (ArtifactOrProject, ProjectRecord)
-
-        @annotation.tailrec
-        def combine(candidates: List[AP], acc: List[AP], projs: Set[ArtifactOrProject]): List[AP] =
-          if (candidates.isEmpty) acc.sorted
-          else {
-
-            /*
-             * Make an edge between two nodes if they can
-             * be merged. Label the edge with everything
-             * other than the modules
-             */
-            val candMap = candidates.groupBy { case (a, p) => p.copy(modules = None) }
-
-            val es = for {
-              src <- candidates
-              prKey = src._2.copy(modules = None)
-              dst <- candMap(prKey) // everything that could match
-              (a, p) <- Dependencies.mergeList(src, dst)
-              if (!projs(a)) // don't reuse previous projects
-            } yield (src, dst, a, prKey)
-
-            // groupBy the ProjectRecord with modules removed
-            // find the biggest clique using sorting to break a tie
-            val optCluster = es.groupBy { case (_, _, a, pr) => (a, pr) }.toList
-
-            optCluster match {
-              case Nil =>
-                // there is no pair that can merge
-                combine(Nil, candidates ::: acc, projs)
-              case nonEmpty =>
-                val ((key, _), bigCliqueItems) = nonEmpty.minBy { case ((ArtifactOrProject(p), pr), items) => (-items.size, -(p.length), pr) } // get the biggest first
-                val bigClique = bigCliqueItems
-                  .map(_._1)
-                  .distinct
-                  .sorted
-
-                bigClique match {
-                  case Nil => sys.error("unreachable, the list isn't empty")
-                  case topNode :: toCombine =>
-                    val merged = toCombine.foldLeft(topNode) { case ((aa, ap), (ba, bp)) =>
-                      // This should never fail since we know this whole set should unify
-                      val Some(asp) = aa.split(key)
-                      val Some(bsp) = ba.split(key)
-                      val mergedProject = ap.withModule(asp).combineModules(bp.withModule(bsp)).get
-                      (key, mergedProject)
-                    }
-
-                    val cliqueSet = bigClique.toSet
-                    combine(candidates.filterNot(cliqueSet), merged :: acc, projs + key)
-                }
-            }
-          }
-
-        val allProj = map.toList.flatMap { case (a, p) => p.flatten(a) }
-        val parts: List[AP] = combine(allProj, Nil, Set.empty)
+        val parts = Dependencies.normalize(map.toList).sorted
 
         // This is invariant should be true at the end
         //assert(parts.flatMap { case (a, p) => p.flatten(a) }.sorted == allProj.sorted)
@@ -668,6 +621,136 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
 object Dependencies {
   def empty: Dependencies = Dependencies(Map.empty[MavenGroup, Map[ArtifactOrProject, ProjectRecord]])
 
+  /**
+   * Combine as many ProjectRecords as possible into a result
+   */
+  def normalize(candidates0: List[(ArtifactOrProject, ProjectRecord)]): List[(ArtifactOrProject, ProjectRecord)] = {
+    type AP= (ArtifactOrProject, ProjectRecord)
+
+    def group[A, B](abs: List[(A, B)]): List[(A, List[B])] =
+      abs.groupBy(_._1).map { case (k, vs) => k -> vs.map(_._2) }.toList
+
+    def flatten(lp: List[AP]): List[AP] = lp.flatMap { case (a, p) => p.flatten(a) }
+
+    type CandidateGraph = List[(ArtifactOrProject, List[(ProjectRecord, List[(Subproject, AP)])])]
+
+    def apsIn(cs: CandidateGraph): Set[AP] =
+      (for {
+        (a, ps) <- cs
+        (p, saps) <- ps
+        (s, ap) <- saps
+      } yield ap).toSet
+
+    // each Artifact-project record pair is either in the final result, or it isn't. We
+    // just build all the cases now:
+    def manyWorlds(candidates: CandidateGraph, acc: List[AP]): List[List[AP]] = {
+      candidates match {
+        case Nil => List(acc)
+        case (art, Nil) :: tail => manyWorlds(tail, acc)
+        case (art, (_, Nil) :: rest) :: tail => manyWorlds((art, rest) :: tail, acc)
+        case (art, (pr, subs) :: rest) :: tail =>
+          // we consider taking (art, pr) and putting it in the result:
+          val newPR = subs.foldLeft(pr) { case (pr, (sub, _)) => pr.withModule(sub) }.normalizeEmptyModule
+
+          val finished = subs.map(_._2).toSet
+          // this ArtifactOrProject has been used, so nothing in rest is legitimate
+          // but we also need to filter to not consider items we have already added
+          val newCand =
+            tail
+              .map { case (a, ps) =>
+                val newPS =
+                  ps.map { case (pr, subs) =>
+                    (pr, subs.filterNot { case (_, ap) => finished(ap) })
+                  }
+                (a, newPS)
+              }
+
+          // this AP can't appear in others:
+          val case1 = manyWorlds(newCand, (art, newPR) :: acc)
+
+          // or we could have not used this (art, pr) pair at all if there is
+          // something else to use it in rest:
+          val case2 = rest match {
+            case Nil => Nil
+            case notEmpty =>
+              // if any APs in subs don't appear in the rest this can't be successful
+              // check that before we recurse
+              val aps = subs.iterator.map(_._2)
+              val next = (art, rest) :: tail
+              val stillPaths = aps.filterNot(apsIn(next)).isEmpty
+              if (stillPaths) manyWorlds(next, acc)
+              else Nil
+          }
+          // or we could have just skipped using this art entirely
+          // so that we don't exclude APs associated with it from
+          // better matches
+          val case3 = tail match {
+            case Nil => Nil
+            case notEmpty =>
+              // if any APs in subs don't appear in the rest this can't be successful
+              // check that before we recurse
+              val aps = subs.iterator.map(_._2)
+              val stillPaths = aps.filterNot(apsIn(notEmpty)).isEmpty
+              if (stillPaths) manyWorlds(notEmpty, acc)
+              else Nil
+          }
+
+          case1 reverse_::: case2 reverse_::: case3
+      }
+    }
+
+    def select(cs: CandidateGraph, inputs: Set[AP]): List[AP] = {
+      def hasAllInputs(lp: List[AP]): Boolean =
+        inputs == flatten(lp).toSet
+
+      // We want the result that has all inputs and is smallest
+      manyWorlds(cs, Nil) match {
+        case Nil => Nil
+        case nonEmpty =>
+          val minimal = nonEmpty
+            .filter(hasAllInputs _)
+            .groupBy(_.size) // there can be several variants with the same count
+            .toList
+            .minBy(_._1)
+            ._2
+          // after first taking the minimal number, we want
+          // the lowest versions first, then we want the longest
+          // prefixes
+          implicit def ordList[T: Ordering]: Ordering[List[T]] =
+            Ordering.Iterable[T].on[List[T]] { l => l }
+
+          implicit val orderingArtP: Ordering[ArtifactOrProject] =
+            Ordering.by { a: ArtifactOrProject =>
+              val str = a.asString
+              (-str.size, str)
+            }
+          // max of the sorted list gets us the longest strings, from last to front.
+          minimal.map(_.sortBy(_.swap)).min
+      }
+    }
+    // Each artifact or project has a minimal prefix
+    // they can't conflict if that minimal prefix does not conflict
+    val candidates = flatten(candidates0)
+    val splitToOrig: List[(String, CandidateGraph)] = {
+      val g0 = candidates.flatMap { case ap@(a, p) =>
+        require(p.modules == None) // this is an invariant true of candidates
+        val subs = a.splitSubprojects1.toList
+        val prefix = subs.map { case (ArtifactOrProject(pre), _) => pre }.min
+        subs.map { case (a, sp) =>
+          (prefix, (a, (p, (sp, ap))))
+        }
+      }
+      group(g0).map { case (p, as) =>
+        p -> (group(as).map { case (a, prsub) => a -> group(prsub) })
+      }
+    }
+
+    // For each prefix apply the expensive exponential algo
+    splitToOrig.flatMap { case (_, cg) =>
+      select(cg, apsIn(cg))
+    }
+  }
+
   private[bazel_deps] def joinWith[F[_]: Applicative, K, A, B, C](m1: Map[K, A], m2: Map[K, B])(fn: Ior[A, B] => F[C]): F[Map[K, C]] = {
     val allKeys = (m1.keySet | m2.keySet).toList
     def travFn(k: K): F[(K, C)] = {
@@ -744,39 +827,6 @@ object Dependencies {
         (g, finalMap)
       }
       .toMap)
-
-  type Pair = (ArtifactOrProject, ProjectRecord)
-  def mergeList(a: Pair, b: Pair): List[Pair] = {
-
-    // This gets all the splits and returns a thunk
-    // for computing each next project.
-    // usually we don't match in the a, so we don't want to compute
-    // the withModule unless we have to
-    def subs(p: Pair): List[(ArtifactOrProject, () => ProjectRecord)] =
-      p._1.splitSubprojects match {
-        case Nil => List((p._1, () => p._2))
-        case sub => sub.map { case (a, s) => (a, () => p._2.withModule(s)) }
-      }
-
-    if (a == b) List(a)
-    else {
-      for {
-        (aa, pra) <- subs(a)
-        (ab, prb) <- subs(b)
-        if (aa == ab)
-        merged <- pra().combineModules(prb()).toList.map((aa, _))
-      } yield merged
-    }
-  }
-
-  def merge(a: Pair, b: Pair): Option[Pair] =
-    mergeList(a, b) match {
-      case Nil =>
-        None
-      case nonE =>
-        Some(nonE.maxBy(_._1.asString.length)) // if more than 1 pick the one with the longest string
-    }
-
 }
 
 case class BazelTarget(asString: String)

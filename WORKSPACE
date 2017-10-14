@@ -15,7 +15,7 @@ maven_dependencies()
 new_git_repository(
     name = "org_typelevel_paiges",
     remote = "git://github.com/typelevel/paiges",
-    commit = "5c39b9e17238d7fa04013e10bf732a3ac58a496d",
+    commit = "0cdb92ac7f40cb251a76077cb0ac92b68a620c57",
     # inconsistency in how we refer to build paths in new_native/new git
     build_file = "3rdparty/manual/BUILD.paiges",
     # use target: "@org_typelevel_paiges//:paiges"
