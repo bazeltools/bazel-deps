@@ -20,7 +20,7 @@ class ParseGeneratedDocTest extends FunSuite {
 
     forAll(genList) { lp =>
       val output = Dependencies.normalize(lp)
-      assert(lp.size <= output.size)
+      assert(lp.size >= output.size)
       val flat1 = lp.flatMap { case (a, p) => p.flatten(a) }
       val flat2 = output.flatMap { case (a, p) => p.flatten(a) }
       assert(flat1.toSet == flat2.toSet)
