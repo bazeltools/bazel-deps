@@ -668,32 +668,27 @@ object Dependencies {
           // this AP can't appear in others:
           val case1 = manyWorlds(newCand, (art, newPR) :: acc)
 
+          // If we can still skip this (pr, subs) item and still
+          // find homes for all the AP pairs in subs, then try
+          def maybeRecurse(g: CandidateGraph): List[List[AP]] = {
+            val aps = subs.iterator.map(_._2)
+            val stillPaths = aps.filterNot(apsIn(g)).isEmpty
+            if (stillPaths) manyWorlds(g, acc)
+            else Nil
+          }
+
           // or we could have not used this (art, pr) pair at all if there is
           // something else to use it in rest:
-          val case2 = rest match {
-            case Nil => Nil
-            case notEmpty =>
-              // if any APs in subs don't appear in the rest this can't be successful
-              // check that before we recurse
-              val aps = subs.iterator.map(_._2)
-              val next = (art, rest) :: tail
-              val stillPaths = aps.filterNot(apsIn(next)).isEmpty
-              if (stillPaths) manyWorlds(next, acc)
-              else Nil
-          }
+          // if any APs in subs don't appear in the rest this can't be successful
+          // check that before we recurse
+          val case2 = maybeRecurse((art, rest) :: tail)
+
           // or we could have just skipped using this art entirely
           // so that we don't exclude APs associated with it from
           // better matches
-          val case3 = tail match {
-            case Nil => Nil
-            case notEmpty =>
-              // if any APs in subs don't appear in the rest this can't be successful
-              // check that before we recurse
-              val aps = subs.iterator.map(_._2)
-              val stillPaths = aps.filterNot(apsIn(notEmpty)).isEmpty
-              if (stillPaths) manyWorlds(notEmpty, acc)
-              else Nil
-          }
+          // if any APs in subs don't appear in the rest this can't be successful
+          // check that before we recurse
+          val case3 = maybeRecurse(tail)
 
           case1 reverse_::: case2 reverse_::: case3
       }
