@@ -625,7 +625,7 @@ object Dependencies {
    * Combine as many ProjectRecords as possible into a result
    */
   def normalize(candidates0: List[(ArtifactOrProject, ProjectRecord)]): List[(ArtifactOrProject, ProjectRecord)] = {
-    type AP= (ArtifactOrProject, ProjectRecord)
+    type AP = (ArtifactOrProject, ProjectRecord)
 
     def group[A, B](abs: List[(A, B)]): List[(A, List[B])] =
       abs.groupBy(_._1).map { case (k, vs) => k -> vs.map(_._2) }.toList
