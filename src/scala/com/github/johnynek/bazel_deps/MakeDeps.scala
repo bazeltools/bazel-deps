@@ -3,7 +3,7 @@ package com.github.johnynek.bazel_deps
 import java.io.File
 import java.nio.file.Paths
 import io.circe.jawn.JawnParser
-import scala.sys.process.Process
+import scala.sys.process.{ BasicIO, Process, ProcessIO }
 import scala.util.{ Failure, Success, Try }
 import cats.instances.try_._
 
@@ -93,20 +93,47 @@ object MakeDeps {
             sys.error("exited already")
         }
 
+        val formatter: Writer.BuildFileFormatter = g.buildifier match {
+          // If buildifier is provided, run it with the unformatted contents on its stdin; it will print the formatted
+          // result on stdout.
+          case Some(buildifierPath) => (p, s) => {
+            val output = new java.lang.StringBuilder()
+            val error = new java.lang.StringBuilder()
+            val processIO = new ProcessIO(
+              os => {
+                os.write(s.getBytes(IO.charset))
+                os.close()
+              },
+              BasicIO.processFully(output),
+              BasicIO.processFully(error)
+            )
+            val exit = Process(List(buildifierPath, "-path", p.asString, "-"), projectRoot).run(processIO).exitValue
+            // Blocks until the process exits.
+            if (exit != 0) {
+              System.err.println(s"buildifier $buildifierPath failed (code $exit) for ${p.asString}:\n$error")
+              System.exit(-1)
+              sys.error("unreachable")
+            }
+            output.toString
+          }
+          // If no buildifier is provided, pass the contents through directly.
+          case None => (_, s) => s
+        }
+
         if (g.checkOnly) {
-          executeCheckOnly(model, projectRoot, IO.path(workspacePath), ws, targets)
+          executeCheckOnly(model, projectRoot, IO.path(workspacePath), ws, targets, formatter)
         } else {
-          executeGenerate(model, projectRoot, IO.path(workspacePath), ws, targets)
+          executeGenerate(model, projectRoot, IO.path(workspacePath), ws, targets, formatter)
         }
     }
   }
 
-  private def executeCheckOnly(model: Model, projectRoot: File, workspacePath: IO.Path, workspaceContents: String, targets: List[Target]): Unit = {
+  private def executeCheckOnly(model: Model, projectRoot: File, workspacePath: IO.Path, workspaceContents: String, targets: List[Target], formatter: Writer.BuildFileFormatter): Unit = {
     // Build up the IO operations that need to run.
     val io = for {
       wsOK <- IO.compare(workspacePath, workspaceContents)
       wsbOK <- IO.compare(workspacePath.sibling("BUILD"), "")
-      buildsOK <- Writer.compareBuildFiles(model.getOptions.getBuildHeader, targets)
+      buildsOK <- Writer.compareBuildFiles(model.getOptions.getBuildHeader, targets, formatter)
     } yield wsOK :: wsbOK :: buildsOK
 
     // Here we actually run the whole thing
@@ -125,7 +152,7 @@ object MakeDeps {
     }
   }
 
-  private def executeGenerate(model: Model, projectRoot: File, workspacePath: IO.Path, workspaceContents: String, targets: List[Target]): Unit = {
+  private def executeGenerate(model: Model, projectRoot: File, workspacePath: IO.Path, workspaceContents: String, targets: List[Target], formatter: Writer.BuildFileFormatter): Unit = {
     // Build up the IO operations that need to run. Till now,
     // nothing was written
     val io = for {
@@ -133,7 +160,7 @@ object MakeDeps {
       _ <- IO.mkdirs(workspacePath.parent)
       _ <- IO.writeUtf8(workspacePath, workspaceContents)
       _ <- IO.writeUtf8(workspacePath.sibling("BUILD"), "")
-      builds <- Writer.createBuildFiles(model.getOptions.getBuildHeader, targets)
+      builds <- Writer.createBuildFiles(model.getOptions.getBuildHeader, targets, formatter)
     } yield builds
 
     // Here we actually run the whole thing
