@@ -28,11 +28,11 @@ object MakeDeps {
         sys.error("unreachable")
     }
     val workspacePath = g.shaFilePath
-    val projectRoot = g.repoRoot
+    val projectRoot = g.repoRoot.toFile
     val resolverCachePath = model.getOptions.getResolverCache match {
       case ResolverCache.Local => Paths.get("target/local-repo")
       case ResolverCache.BazelOutputBase =>
-        Try(Process(List("bazel", "info", "output_base"), projectRoot.toFile) !!) match {
+        Try(Process(List("bazel", "info", "output_base"), projectRoot) !!) match {
           case Success(path) => Paths.get(path.trim, "bazel-deps/local-repo")
           case Failure(err) =>
             System.err.println(s"[ERROR]: Could not find resolver cache path -- `bazel info output_base` failed.\n$err")
@@ -92,25 +92,57 @@ object MakeDeps {
             System.exit(-1)
             sys.error("exited already")
         }
-        // Build up the IO operations that need to run. Till now,
-        // nothing was written
-        val io = for {
-          _ <- IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts))
-          wsp = IO.path(workspacePath)
-          _ <- IO.mkdirs(wsp.parent)
-          _ <- IO.writeUtf8(wsp, ws)
-          _ <- IO.writeUtf8(wsp.sibling("BUILD"), "")
-          builds <- Writer.createBuildFiles(model.getOptions.getBuildHeader, targets)
-        } yield builds
 
-        // Here we actually run the whole thing
-        io.foldMap(IO.fileSystemExec(projectRoot.toFile)) match {
-          case Failure(err) =>
-            System.err.println(err)
-            System.exit(-1)
-          case Success(builds) =>
-            println(s"wrote ${targets.size} targets in $builds BUILD files")
+        if (g.checkOnly) {
+          executeCheckOnly(model, projectRoot, IO.path(workspacePath), ws, targets)
+        } else {
+          executeGenerate(model, projectRoot, IO.path(workspacePath), ws, targets)
         }
+    }
+  }
+
+  private def executeCheckOnly(model: Model, projectRoot: File, workspacePath: IO.Path, workspaceContents: String, targets: List[Target]): Unit = {
+    // Build up the IO operations that need to run.
+    val io = for {
+      wsOK <- IO.compare(workspacePath, workspaceContents)
+      wsbOK <- IO.compare(workspacePath.sibling("BUILD"), "")
+      buildsOK <- Writer.compareBuildFiles(model.getOptions.getBuildHeader, targets)
+    } yield wsOK :: wsbOK :: buildsOK
+
+    // Here we actually run the whole thing
+    io.foldMap(IO.fileSystemExec(projectRoot)) match {
+      case Failure(err) =>
+        System.err.println(err)
+        System.exit(-1)
+      case Success(comparisons) =>
+        val mismatchedFiles = comparisons.filter(!_.ok)
+        if (mismatchedFiles.isEmpty) {
+          println(s"all ${comparisons.size} generated files are up-to-date")
+        } else {
+          System.err.println(s"some generated files are not up-to-date:\n${mismatchedFiles.map(_.path.asString).sorted.mkString("\n")}")
+          System.exit(2)
+        }
+    }
+  }
+
+  private def executeGenerate(model: Model, projectRoot: File, workspacePath: IO.Path, workspaceContents: String, targets: List[Target]): Unit = {
+    // Build up the IO operations that need to run. Till now,
+    // nothing was written
+    val io = for {
+      _ <- IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts))
+      _ <- IO.mkdirs(workspacePath.parent)
+      _ <- IO.writeUtf8(workspacePath, workspaceContents)
+      _ <- IO.writeUtf8(workspacePath.sibling("BUILD"), "")
+      builds <- Writer.createBuildFiles(model.getOptions.getBuildHeader, targets)
+    } yield builds
+
+    // Here we actually run the whole thing
+    io.foldMap(IO.fileSystemExec(projectRoot)) match {
+      case Failure(err) =>
+        System.err.println(err)
+        System.exit(-1)
+      case Success(builds) =>
+        println(s"wrote ${targets.size} targets in $builds BUILD files")
     }
   }
 }

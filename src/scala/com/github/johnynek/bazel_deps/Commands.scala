@@ -9,7 +9,7 @@ import java.nio.file.Path
 sealed abstract class Command
 
 object Command {
-  case class Generate(repoRoot: Path, depsFile: String, shaFile: String) extends Command {
+  case class Generate(repoRoot: Path, depsFile: String, shaFile: String, checkOnly: Boolean) extends Command {
     def absDepsFile: File =
       new File(repoRoot.toFile, depsFile)
 
@@ -35,7 +35,11 @@ object Command {
       metavar = "sha-file",
       help = "relative path to the sha lock file (usually called workspace.bzl).")
 
-    (repoRoot |@| depsFile |@| shaFile).map(Generate(_, _, _))
+    val checkOnly = Opts.flag(
+      "check-only",
+      help = "if set, the generated files are checked against the existing files but are not written; exits 0 if the files match").orFalse
+
+    (repoRoot |@| depsFile |@| shaFile |@| checkOnly).map(Generate(_, _, _, _))
   }
 
   case class FormatDeps(deps: Path, overwrite: Boolean) extends Command

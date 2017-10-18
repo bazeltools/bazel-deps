@@ -7,27 +7,41 @@ import scala.util.{ Failure, Success, Try }
 
 object Writer {
 
+  private val buildFileName = "BUILD"
+
+  private def buildFileContents(buildHeader: String, ts: List[Target]): String = {
+    def withNewline(s: String): String =
+      if (s.isEmpty) ""
+      else s + "\n"
+
+    ts.sortBy(_.name.name)
+      .map(_.toDoc.render(60))
+      .mkString(withNewline(buildHeader), "\n\n", "\n")
+  }
+
   def createBuildFiles(buildHeader: String, ts: List[Target]): Result[Int] = {
     val pathGroups = ts.groupBy(_.name.path).toList
 
     Traverse[List].traverseU(pathGroups) {
       case (filePath, ts) =>
-
-        def withNewline(s: String): String =
-          if (s.isEmpty) ""
-          else s + "\n"
-
-        def data = ts.sortBy(_.name.name)
-          .map(_.toDoc.render(60))
-          .mkString(withNewline(buildHeader), "\n\n", "\n")
-
-          for {
-            b <- IO.exists(filePath)
-            _ <- if (b) IO.const(false) else IO.mkdirs(filePath)
-            _ <- IO.writeUtf8(filePath.child("BUILD"), data)
-          } yield ()
+        def data = buildFileContents(buildHeader, ts)
+        for {
+          b <- IO.exists(filePath)
+          _ <- if (b) IO.const(false) else IO.mkdirs(filePath)
+          _ <- IO.writeUtf8(filePath.child(buildFileName), data)
+        } yield ()
     }
       .map(_.size)
+  }
+
+  def compareBuildFiles(buildHeader: String, ts: List[Target]): Result[List[IO.FileComparison]] = {
+    val pathGroups = ts.groupBy(_.name.path).toList
+
+    Traverse[List].traverseU(pathGroups) {
+      case (filePath, ts) =>
+        def data = buildFileContents(buildHeader, ts)
+        IO.compare(filePath.child(buildFileName), data)
+    }
   }
 
   def workspace(g: Graph[MavenCoordinate, Unit],

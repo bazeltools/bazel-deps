@@ -547,7 +547,7 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
         case Nil =>
           ap.get(a).map(_.allDependencies(g, a)) match {
             case Some(h :: Nil) => Some(h)
-            case other => println(other); None // 0 or more than one
+            case other => None // 0 or more than one
           }
         case parts =>
           // This can be split, but may not be:
