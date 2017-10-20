@@ -7,40 +7,48 @@ import scala.util.{ Failure, Success, Try }
 
 object Writer {
 
+  /**
+   * Takes a BUILD file path and generated contents, and returns the formatted version of those contents (e.g. with
+   * buildifier).
+   */
+  type BuildFileFormatter = ((IO.Path, String) => String)
+
   private val buildFileName = "BUILD"
 
-  private def buildFileContents(buildHeader: String, ts: List[Target]): String = {
+  private def buildFileContents(buildFilePath: IO.Path, buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): String = {
     def withNewline(s: String): String =
       if (s.isEmpty) ""
       else s + "\n"
 
-    ts.sortBy(_.name.name)
+    formatter(buildFilePath, ts.sortBy(_.name.name)
       .map(_.toDoc.render(60))
-      .mkString(withNewline(buildHeader), "\n\n", "\n")
+      .mkString(withNewline(buildHeader), "\n\n", "\n"))
   }
 
-  def createBuildFiles(buildHeader: String, ts: List[Target]): Result[Int] = {
+  def createBuildFiles(buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): Result[Int] = {
     val pathGroups = ts.groupBy(_.name.path).toList
 
     Traverse[List].traverseU(pathGroups) {
       case (filePath, ts) =>
-        def data = buildFileContents(buildHeader, ts)
+        def data(bf: IO.Path) = buildFileContents(bf, buildHeader, ts, formatter)
         for {
           b <- IO.exists(filePath)
           _ <- if (b) IO.const(false) else IO.mkdirs(filePath)
-          _ <- IO.writeUtf8(filePath.child(buildFileName), data)
+          bf = filePath.child(buildFileName)
+          _ <- IO.writeUtf8(bf, data(bf))
         } yield ()
     }
       .map(_.size)
   }
 
-  def compareBuildFiles(buildHeader: String, ts: List[Target]): Result[List[IO.FileComparison]] = {
+  def compareBuildFiles(buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): Result[List[IO.FileComparison]] = {
     val pathGroups = ts.groupBy(_.name.path).toList
 
     Traverse[List].traverseU(pathGroups) {
       case (filePath, ts) =>
-        def data = buildFileContents(buildHeader, ts)
-        IO.compare(filePath.child(buildFileName), data)
+        def data(bf: IO.Path) = buildFileContents(bf, buildHeader, ts, formatter)
+        val bf = filePath.child(buildFileName)
+        IO.compare(bf, data(bf))
     }
   }
 
