@@ -73,6 +73,42 @@ Each group id can only appear once, so you should collocate dependencies by grou
 we are using does not fail on duplicate keys, it just takes the last one, so watch out. It would be good
 to fix that, but writing a new yaml parser is out of scope.
 
+A target may also optionally add `processorClasses` to a dependency. This is for [annotation processors](https://docs.oracle.com/javase/8/docs/api/javax/annotation/processing/Processor.html).
+`bazel-deps` will generate a `java_library` and a `java_plugin` for each annotation processor defined. For example, we can define Google's auto-value annotation processor via:
+```
+dependencies:
+  com.google.auto.value:
+    auto-value:
+      version: "1.5"
+      lang: java
+      processorClasses: ["com.google.auto.value.processor.AutoValueProcessor"]
+```
+This will yield the following:
+```
+java_library(
+    name = "auto_value",
+    exported_plugins = [
+        ":auto_value_plugin",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+    exports = [
+        "//external:jar/com/google/auto/value/auto_value",
+    ],
+)
+
+java_plugin(
+    name = "auto_value_plugin",
+    processor_class = "com.google.auto.value.processor.AutoValueProcessor",
+    deps = [
+        "//external:jar/com/google/auto/value/auto_value",
+    ],
+)
+``` 
+If there is only a single `processorClasses` defined, the `java_plugin` rule is named `<java_library_name>_plugin`. If there are multiple
+`processorClasses` defined, each one is named `<java_library_name>_plugin_<processor_class_to_snake_case>`.
+
 ### <a name="options">Options</a>
 In the options we set:
 

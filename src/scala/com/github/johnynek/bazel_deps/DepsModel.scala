@@ -176,6 +176,7 @@ case class MavenServer(id: String, contentType: String, url: String) {
       List(("id", quoteDoc(id)), ("type", quoteDoc(contentType)), ("url", Doc.text(url))))
 }
 case class ResolvedSha1Value(sha1Value: Sha1Value, serverId: String)
+case class ProcessorClass(asString: String)
 
 object Version {
   private def isNum(c: Char): Boolean =
@@ -276,7 +277,7 @@ case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, version
   def toDependencies(l: Language): Dependencies =
     Dependencies(Map(group ->
       Map(ArtifactOrProject(artifact.asString) ->
-        ProjectRecord(l, Some(version), None, None, None))))
+        ProjectRecord(l, Some(version), None, None, None, None))))
 }
 
 object MavenCoordinate {
@@ -412,12 +413,13 @@ case class ProjectRecord(
   version: Option[Version],
   modules: Option[Set[Subproject]],
   exports: Option[Set[(MavenGroup, ArtifactOrProject)]],
-  exclude: Option[Set[(MavenGroup, ArtifactOrProject)]]) {
+  exclude: Option[Set[(MavenGroup, ArtifactOrProject)]],
+  processorClasses: Option[Set[ProcessorClass]]) {
 
 
   // Cache this
   override lazy val hashCode: Int =
-    (lang, version, modules, exports, exports).hashCode
+    (lang, version, modules, exports, exclude, processorClasses).hashCode
 
   def flatten(ap: ArtifactOrProject): List[(ArtifactOrProject, ProjectRecord)] =
     getModules match {
@@ -493,7 +495,10 @@ case class ProjectRecord(
       exports.toList.map { ms =>
         ("exports", exportsDoc(ms)) },
       exclude.toList.map { ms =>
-        ("exclude", exportsDoc(ms)) })
+        ("exclude", exportsDoc(ms)) },
+      processorClasses.toList.map { pcs =>
+        ("processorClasses", list(pcs.toList.sortBy(_.asString)) { pc => quoteDoc(pc.asString) }) }
+      )
       .flatten
       .sortBy(_._1)
     packedYamlMap(record)

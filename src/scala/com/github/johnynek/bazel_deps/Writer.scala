@@ -213,10 +213,16 @@ object Writer {
         Target(lang,
           Label.localTarget(pathInRoot, u, lang),
           exports = exports ++ uvexports,
-          runtimeDeps = runtime_deps -- uvexports)
+          runtimeDeps = runtime_deps -- uvexports,
+          processorClasses = getProcessorClasses(u))
       })
       def targetFor(u: UnversionedCoordinate): Target =
         replacedTarget(u).getOrElse(coordToTarget(u))
+      def getProcessorClasses(u: UnversionedCoordinate): Set[ProcessorClass] = {
+        val m: Option[Map[ArtifactOrProject, ProjectRecord]] = model.dependencies.toMap.get(u.group)
+        val projectRecord: Option[ProjectRecord] = m.flatMap(_.get(ArtifactOrProject(u.artifact.asString)))
+        projectRecord.flatMap(_.processorClasses).getOrElse(Set.empty)
+      }
 
       Right(allUnversioned.iterator.map(targetFor).toList)
     }
