@@ -218,11 +218,11 @@ object Writer {
       })
       def targetFor(u: UnversionedCoordinate): Target =
         replacedTarget(u).getOrElse(coordToTarget(u))
-      def getProcessorClasses(u: UnversionedCoordinate): Set[ProcessorClass] = {
-        val m: Option[Map[ArtifactOrProject, ProjectRecord]] = model.dependencies.toMap.get(u.group)
-        val projectRecord: Option[ProjectRecord] = m.flatMap(_.get(ArtifactOrProject(u.artifact.asString)))
-        projectRecord.flatMap(_.processorClasses).getOrElse(Set.empty)
-      }
+      def getProcessorClasses(u: UnversionedCoordinate): Set[ProcessorClass] =
+        (for {
+          m <- model.dependencies.toMap.get(u.group)
+          projectRecord <- m.get(ArtifactOrProject(u.artifact.asString))
+        } yield projectRecord.processorClasses).flatten.getOrElse(Set.empty)
 
       Right(allUnversioned.iterator.map(targetFor).toList)
     }

@@ -13,6 +13,9 @@ object Target {
   def quote(s: String): Doc =
     Doc.text("\"%s\"".format(s))
 
+  def fqnToLabelFragment(fqn: String): String =
+    fqn.toLowerCase.replaceAll("[^a-z0-9]", "_")
+
   sealed abstract class Kind(override val toString: String)
   case object Library extends Kind("library")
   case object Test extends Kind("test")
@@ -91,33 +94,29 @@ case class Target(
     def labelList(ls: Set[Label]): Doc =
       renderList(Doc.text("["), ls.toList.map(_.asStringFrom(name.path)).sorted, Doc.text("]"))(quote)
 
-    def renderExportedPlugins(pcs: Set[ProcessorClass]): Doc = {
+    def renderExportedPlugins(pcs: Set[ProcessorClass]): Doc =
       renderList(Doc.text("["), pcs.toList.map(pc => ":" + getPluginTargetName(pcs, pc)).sorted, Doc.text("]"))(quote)
-    }
-    def getPluginTargetName(pcs: Set[ProcessorClass], processorClass: ProcessorClass) =
+
+    def getPluginTargetName(pcs: Set[ProcessorClass], pc: ProcessorClass) =
       if (pcs.size == 1) s"${name.name}_plugin"
-      else {
-        val fqnToSnakeCase = camel2Underscore(shortName(processorClass.asString))
-        s"${name.name}_plugin_$fqnToSnakeCase"
-      }
-    def camel2Underscore(text: String) = text.drop(1).foldLeft(text.headOption.map(_.toLower + "") getOrElse "") {
-      case (acc, c) if c.isUpper => acc + "_" + c.toLower
-      case (acc, c) if c == '$' => acc
-      case (acc, c) => acc + c
-    }
-    def shortName(fqn: String) = if (fqn.contains(".")) fqn.substring(fqn.lastIndexOf('.') + 1) else fqn
-    def renderPlugins(pcs: Set[ProcessorClass], exports: Set[Label]): Doc = {
+      else s"${name.name}_plugin_${fqnToLabelFragment(pc.asString)}"
+
+    def renderPlugins(pcs: Set[ProcessorClass], exports: Set[Label]): Doc =
       if (pcs.isEmpty) Doc.empty
-      else processorClasses.toList.map(renderPlugin(pcs, _, exports)).reduce((d1, d2) => d1 + d2)
-    }
+      else processorClasses.toList.sortBy(_.asString).map(renderPlugin(pcs, _, exports)).reduce((d1, d2) => d1 + d2)
+
     def renderPlugin(pcs: Set[ProcessorClass], pc: ProcessorClass, exports: Set[Label]): Doc =
       sortKeys(Doc.text("java_plugin"), getPluginTargetName(pcs, pc), List(
         "deps" -> labelList(exports),
-        "processor_class" -> quote(pc.asString)
+        "processor_class" -> quote(pc.asString),
+        visibility(quote)
       )) + Doc.line
 
+    def visibility[T](show: T => Doc): (String, Doc) =
+      "visibility" -> renderList(Doc.text("["), List("//visibility:public"), Doc.text("]"))(quote)
+
     sortKeys(targetType, name.name, List(
-      "visibility" -> renderList(Doc.text("["), List("//visibility:public"), Doc.text("]"))(quote),
+      visibility(quote),
       "deps" -> labelList(deps),
       "srcs" -> sources.render,
       "exports" -> labelList(exports),
