@@ -109,14 +109,14 @@ case class Target(
       sortKeys(Doc.text("java_plugin"), getPluginTargetName(pcs, pc), List(
         "deps" -> labelList(exports),
         "processor_class" -> quote(pc.asString),
-        visibility(quote)
+        visibility()
       )) + Doc.line
 
-    def visibility[T](show: T => Doc): (String, Doc) =
+    def visibility(): (String, Doc) =
       "visibility" -> renderList(Doc.text("["), List("//visibility:public"), Doc.text("]"))(quote)
 
     sortKeys(targetType, name.name, List(
-      visibility(quote),
+      visibility(),
       "deps" -> labelList(deps),
       "srcs" -> sources.render,
       "exports" -> labelList(exports),
