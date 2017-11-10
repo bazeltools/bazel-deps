@@ -19,10 +19,12 @@ object ModelGenerators {
     sub <- Gen.choose(0, 6)
     exp <- Gen.choose(0, 3)
     exc <- Gen.choose(0, 3)
+    pcs <- Gen.choose(0, 2)
     m <- Gen.option(Gen.listOfN(sub, subprojGen).map(_.toSet))
     exports <- Gen.option(Gen.listOfN(exp, join(mavenGroupGen, artifactOrProjGen)).map(_.toSet))
     exclude <- Gen.option(Gen.listOfN(exc, join(mavenGroupGen, artifactOrProjGen)).map(_.toSet))
-  } yield ProjectRecord(lang, v, m, exports, exclude)
+    processorClasses <- Gen.option(Gen.listOfN(pcs, processorClassGen).map(_.toSet))
+  } yield ProjectRecord(lang, v, m, exports, exclude, processorClasses)
 
   def depGen(o: Options): Gen[Dependencies] = {
     val (l1, ls) = o.getLanguages match {
@@ -72,4 +74,11 @@ object ModelGenerators {
     d <- depGen(opts)
     r <- Gen.option(replacementGen(opts.getLanguages.toList))
   } yield Model(d, r, o)
+
+  val processorClassGen: Gen[ProcessorClass] =
+    for {
+      partLen <- Gen.choose(1,10)
+      numParts <- Gen.choose(1,6)
+      s <- Gen.listOfN(numParts, Gen.listOfN(partLen, Gen.alphaChar).map(_.mkString)).map(_.mkString("", ".", ""))
+    } yield ProcessorClass(s)
 }

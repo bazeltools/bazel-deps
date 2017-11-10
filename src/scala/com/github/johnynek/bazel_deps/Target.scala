@@ -13,6 +13,9 @@ object Target {
   def quote(s: String): Doc =
     Doc.text("\"%s\"".format(s))
 
+  def fqnToLabelFragment(fqn: String): String =
+    fqn.toLowerCase.replaceAll("[^a-z0-9]", "_")
+
   sealed abstract class Kind(override val toString: String)
   case object Library extends Kind("library")
   case object Test extends Kind("test")
@@ -54,7 +57,8 @@ case class Target(
   deps: Set[Label] = Set.empty,
   sources: Target.SourceList = Target.SourceList.Empty,
   exports: Set[Label] = Set.empty,
-  runtimeDeps: Set[Label] = Set.empty) {
+  runtimeDeps: Set[Label] = Set.empty,
+  processorClasses: Set[ProcessorClass] = Set.empty) {
 
   def toDoc: Doc = {
     import Target._
@@ -76,25 +80,48 @@ case class Target(
 
     val targetType = Doc.text(s"${langName}_${kind}")
 
-    def sortKeys(items: List[(String, Doc)]): Doc = {
+    def sortKeys(tt: Doc, name: String, items: List[(String, Doc)]): Doc = {
       // everything has a name
-      val nm = ("name", quote(name.name))
+      val nm = ("name", quote(name))
       implicit val ordDoc: Ordering[Doc] = Ordering.by { d: Doc => d.renderWideStream.mkString }
       val sorted = items.collect { case (s, d) if !(d.isEmpty) => (s, d) }.sorted
 
-      renderList(targetType + Doc.text("("), nm :: sorted, Doc.text(")")) { case (k, v) =>
+      renderList(tt + Doc.text("("), nm :: sorted, Doc.text(")")) { case (k, v) =>
         k +: " = " +: v
-      } + Doc.line.repeat(2)
+      } + Doc.line
     }
 
     def labelList(ls: Set[Label]): Doc =
       renderList(Doc.text("["), ls.toList.map(_.asStringFrom(name.path)).sorted, Doc.text("]"))(quote)
 
-    sortKeys(List(
-      "visibility" -> renderList(Doc.text("["), List("//visibility:public"), Doc.text("]"))(quote),
+    def renderExportedPlugins(pcs: Set[ProcessorClass]): Doc =
+      renderList(Doc.text("["), pcs.toList.map(pc => ":" + getPluginTargetName(pcs, pc)).sorted, Doc.text("]"))(quote)
+
+    def getPluginTargetName(pcs: Set[ProcessorClass], pc: ProcessorClass) =
+      if (pcs.size == 1) s"${name.name}_plugin"
+      else s"${name.name}_plugin_${fqnToLabelFragment(pc.asString)}"
+
+    def renderPlugins(pcs: Set[ProcessorClass], exports: Set[Label]): Doc =
+      if (pcs.isEmpty) Doc.empty
+      else processorClasses.toList.sortBy(_.asString).map(renderPlugin(pcs, _, exports)).reduce((d1, d2) => d1 + d2)
+
+    def renderPlugin(pcs: Set[ProcessorClass], pc: ProcessorClass, exports: Set[Label]): Doc =
+      sortKeys(Doc.text("java_plugin"), getPluginTargetName(pcs, pc), List(
+        "deps" -> labelList(exports),
+        "processor_class" -> quote(pc.asString),
+        visibility()
+      )) + Doc.line
+
+    def visibility(): (String, Doc) =
+      "visibility" -> renderList(Doc.text("["), List("//visibility:public"), Doc.text("]"))(quote)
+
+    sortKeys(targetType, name.name, List(
+      visibility(),
       "deps" -> labelList(deps),
       "srcs" -> sources.render,
       "exports" -> labelList(exports),
-      "runtime_deps" -> labelList(runtimeDeps)))
+      "runtime_deps" -> labelList(runtimeDeps),
+      "exported_plugins" -> renderExportedPlugins(processorClasses)
+    )) + renderPlugins(processorClasses, exports) + Doc.line
   }
 }
