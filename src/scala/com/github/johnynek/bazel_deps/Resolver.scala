@@ -3,12 +3,13 @@ package com.github.johnynek.bazel_deps
 import java.security.MessageDigest
 import java.io.{ File, FileInputStream }
 import java.nio.file.Path
+import java.util
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
 import org.eclipse.aether.RepositorySystem
 import org.eclipse.aether.artifact.DefaultArtifact
 import org.eclipse.aether.collection.{ CollectRequest, CollectResult }
 import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory
-import org.eclipse.aether.graph.{ Dependency, DependencyNode, DependencyVisitor }
+import org.eclipse.aether.graph.{ Dependency, DependencyNode, DependencyVisitor, Exclusion }
 import org.eclipse.aether.impl.DefaultServiceLocator
 import org.eclipse.aether.repository.{ LocalRepository, RemoteRepository }
 import org.eclipse.aether.resolution.{ ArtifactResult, ArtifactRequest }
@@ -57,9 +58,15 @@ class Resolver(servers: List[MavenServer], resolverCachePath: Path) {
   /**
    * Here is where the IO happens
    */
-  private def request(m: MavenCoordinate): CollectResult = {
+  private def request(m: MavenCoordinate, ml: Model): CollectResult = {
     val collectRequest = new CollectRequest()
-    collectRequest.setRoot(new Dependency(new DefaultArtifact(m.asString), ""))
+    val ex = ml.dependencies.excludes(m.unversioned)
+    val exclusions = new util.ArrayList[Exclusion]()
+    for (elem <- ex){
+      val exclusion = new Exclusion(elem.group.asString, elem.artifact.asString, "", "jar")
+      exclusions.add(exclusion)
+    }
+    collectRequest.setRoot(new Dependency(new DefaultArtifact(m.asString), "", false, exclusions))
     collectRequest.setRepositories(repositories)
     system.collectDependencies(session, collectRequest);
   }
@@ -152,7 +159,7 @@ class Resolver(servers: List[MavenServer], resolverCachePath: Path) {
 
   def addToGraph(deps: Graph[Node, Unit], dep: MavenCoordinate, m: Model): Graph[Node, Unit] = {
     val visitor = new Visitor(deps, m)
-    val result = request(dep).getRoot.accept(visitor)
+    val result = request(dep, m).getRoot.accept(visitor)
     visitor.currentDeps
   }
 
