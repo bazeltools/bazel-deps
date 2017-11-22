@@ -1,7 +1,7 @@
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
-scala_library(
+scala_import(
     name = "scala_compiler",
-    exports = [
+    jars = [
         "@scala//:scala-compiler"
     ],
     visibility = [
@@ -11,9 +11,9 @@ scala_library(
 
 
 
-scala_library(
+scala_import(
     name = "scala_library",
-    exports = [
+    jars = [
         "@scala//:scala-library"
     ],
     visibility = [
@@ -23,9 +23,9 @@ scala_library(
 
 
 
-scala_library(
+scala_import(
     name = "scala_reflect",
-    exports = [
+    jars = [
         "@scala//:scala-reflect"
     ],
     visibility = [

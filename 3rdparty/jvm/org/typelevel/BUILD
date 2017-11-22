@@ -1,9 +1,11 @@
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
-scala_library(
+scala_import(
     name = "cats_core",
     exports = [
-        "//external:jar/org/typelevel/cats_core_2_11",
         ":cats_kernel"
+    ],
+    jars = [
+        "//external:jar/org/typelevel/cats_core_2_11"
     ],
     runtime_deps = [
         "//3rdparty/jvm/com/github/mpilquist:simulacrum",
@@ -18,9 +20,9 @@ scala_library(
 
 
 
-scala_library(
+scala_import(
     name = "cats_free",
-    exports = [
+    jars = [
         "//external:jar/org/typelevel/cats_free_2_11"
     ],
     runtime_deps = [
@@ -37,9 +39,9 @@ scala_library(
 
 
 
-scala_library(
+scala_import(
     name = "cats_kernel",
-    exports = [
+    jars = [
         "//external:jar/org/typelevel/cats_kernel_2_11"
     ],
     runtime_deps = [
@@ -52,9 +54,9 @@ scala_library(
 
 
 
-scala_library(
+scala_import(
     name = "cats_macros",
-    exports = [
+    jars = [
         "//external:jar/org/typelevel/cats_macros_2_11"
     ],
     runtime_deps = [
@@ -69,9 +71,9 @@ scala_library(
 
 
 
-scala_library(
+scala_import(
     name = "machinist",
-    exports = [
+    jars = [
         "//external:jar/org/typelevel/machinist_2_11"
     ],
     runtime_deps = [
@@ -84,9 +86,9 @@ scala_library(
 
 
 
-scala_library(
+scala_import(
     name = "macro_compat",
-    exports = [
+    jars = [
         "//external:jar/org/typelevel/macro_compat_2_11"
     ],
     visibility = [
