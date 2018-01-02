@@ -186,8 +186,8 @@ object Writer {
       val langFn = language(g, model)
       def replacedTarget(u: UnversionedCoordinate): Option[Target] =
         Label.replaced(u, model.getReplacements).map { case (lab, lang) =>
-          // TODO: converge on using java_import instead of java_library once
-          // TODO: java rules stabilize, https://github.com/bazelbuild/bazel/issues/3769
+          // TODO: converge on using java_import instead of java_library:
+          // https://github.com/johnynek/bazel-deps/issues/102
           lang match {
             case Language.Java =>
               Target(lang,
@@ -227,8 +227,8 @@ object Writer {
           case Transitivity.RuntimeDeps => (Set.empty[Label], depLabels)
         }
 
-        // TODO: converge on using java_import instead of java_library once
-        // TODO: java rules stabilize, https://github.com/bazelbuild/bazel/issues/3769
+        // TODO: converge on using java_import instead of java_library:
+        // https://github.com/johnynek/bazel-deps/issues/102
         lang match {
           case Language.Java =>
             Target(lang,
