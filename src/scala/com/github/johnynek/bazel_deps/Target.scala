@@ -18,6 +18,7 @@ object Target {
 
   sealed abstract class Kind(override val toString: String)
   case object Library extends Kind("library")
+  case object Import extends Kind("import")
   case object Test extends Kind("test")
   case object Binary extends Kind("binary")
 
@@ -55,6 +56,7 @@ case class Target(
   name: Label,
   kind: Target.Kind = Target.Library,
   deps: Set[Label] = Set.empty,
+  jars: Set[Label] = Set.empty,
   sources: Target.SourceList = Target.SourceList.Empty,
   exports: Set[Label] = Set.empty,
   runtimeDeps: Set[Label] = Set.empty,
@@ -107,7 +109,7 @@ case class Target(
 
     def renderPlugin(pcs: Set[ProcessorClass], pc: ProcessorClass, exports: Set[Label]): Doc =
       sortKeys(Doc.text("java_plugin"), getPluginTargetName(pcs, pc), List(
-        "deps" -> labelList(exports),
+        "deps" -> labelList(exports ++ jars),
         "processor_class" -> quote(pc.asString),
         visibility()
       )) + Doc.line
@@ -119,6 +121,7 @@ case class Target(
       visibility(),
       "deps" -> labelList(deps),
       "srcs" -> sources.render,
+      "jars" -> labelList(jars),
       "exports" -> labelList(exports),
       "runtime_deps" -> labelList(runtimeDeps),
       "exported_plugins" -> renderExportedPlugins(processorClasses)

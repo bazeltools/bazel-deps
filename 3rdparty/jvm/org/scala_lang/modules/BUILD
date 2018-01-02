@@ -1,7 +1,7 @@
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
-scala_library(
+load("@io_bazel_rules_scala//scala:scala_import.bzl", "scala_import")
+scala_import(
     name = "scala_parser_combinators",
-    exports = [
+    jars = [
         "@scala//:scala-parser-combinators"
     ],
     visibility = [
@@ -11,9 +11,9 @@ scala_library(
 
 
 
-scala_library(
+scala_import(
     name = "scala_xml",
-    exports = [
+    jars = [
         "@scala//:scala-xml"
     ],
     visibility = [

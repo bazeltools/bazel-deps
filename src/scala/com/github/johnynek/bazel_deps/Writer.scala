@@ -186,7 +186,23 @@ object Writer {
       val langFn = language(g, model)
       def replacedTarget(u: UnversionedCoordinate): Option[Target] =
         Label.replaced(u, model.getReplacements).map { case (lab, lang) =>
-          Target(lang, Label.localTarget(pathInRoot, u, lang), exports = Set(lab))
+          // TODO: converge on using java_import instead of java_library:
+          // https://github.com/johnynek/bazel-deps/issues/102
+          lang match {
+            case Language.Java =>
+              Target(lang,
+                kind = Target.Library,
+                name = Label.localTarget(pathInRoot, u, lang),
+                exports = Set(lab),
+                jars = Set.empty)
+            case _: Language.Scala =>
+              Target(lang,
+                kind = Target.Import,
+                name = Label.localTarget(pathInRoot, u, lang),
+                exports = Set.empty,
+                jars = Set(lab))
+          }
+
         }
       /*
        * We make 1 label for each target, the path
@@ -207,14 +223,32 @@ object Writer {
           .map(targetFor(_).name)
 
         val (exports, runtime_deps) = model.getOptions.getTransitivity match {
-          case Transitivity.Exports => (depLabels + lab, Set.empty[Label])
-          case Transitivity.RuntimeDeps => (Set(lab), depLabels)
+          case Transitivity.Exports => (depLabels, Set.empty[Label])
+          case Transitivity.RuntimeDeps => (Set.empty[Label], depLabels)
         }
-        Target(lang,
-          Label.localTarget(pathInRoot, u, lang),
-          exports = exports ++ uvexports,
-          runtimeDeps = runtime_deps -- uvexports,
-          processorClasses = getProcessorClasses(u))
+
+        // TODO: converge on using java_import instead of java_library:
+        // https://github.com/johnynek/bazel-deps/issues/102
+        lang match {
+          case Language.Java =>
+            Target(lang,
+              kind = Target.Library,
+              name = Label.localTarget(pathInRoot, u, lang),
+              exports = (exports + lab) ++ uvexports,
+              jars = Set.empty,
+              runtimeDeps = runtime_deps -- uvexports,
+              processorClasses = getProcessorClasses(u))
+          case _: Language.Scala =>
+            Target(lang,
+              kind = Target.Import,
+              name = Label.localTarget(pathInRoot, u, lang),
+              exports = exports ++ uvexports,
+              jars = Set(lab),
+              runtimeDeps = runtime_deps -- uvexports,
+              processorClasses = getProcessorClasses(u))
+        }
+
+
       })
       def targetFor(u: UnversionedCoordinate): Target =
         replacedTarget(u).getOrElse(coordToTarget(u))
