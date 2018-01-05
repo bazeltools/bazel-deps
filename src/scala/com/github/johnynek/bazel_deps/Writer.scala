@@ -197,10 +197,10 @@ object Writer {
                 jars = Set.empty)
             case _: Language.Scala =>
               Target(lang,
-                kind = Target.Import,
+                kind = Target.Library,
                 name = Label.localTarget(pathInRoot, u, lang),
-                exports = Set.empty,
-                jars = Set(lab))
+                exports = Set(lab),
+                jars = Set.empty)
           }
 
         }
