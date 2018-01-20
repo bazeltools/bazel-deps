@@ -53,7 +53,7 @@ object Writer {
   }
 
   def workspace(g: Graph[MavenCoordinate, Unit],
-    duplicates: Map[UnversionedCoordinate, Set[Version]],
+    duplicates: Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]],
     shas: Map[MavenCoordinate, Try[ResolvedSha1Value]],
     model: Model): String = {
     val nodes = g.nodes
@@ -82,10 +82,13 @@ object Writer {
           case Some(vs) =>
             val status =
               if (isRoot) s"fixed to ${v.asString}"
-              else if (vs.max == v) s"promoted to ${v.asString}"
+              else if (vs.map(_.destination.version).max == v) s"promoted to ${v.asString}"
               else s"downgraded to ${v.asString}"
 
-            s"""# duplicates in ${coord.unversioned.asString} $status. Versions: ${vs.toList.sorted.map(_.asString).mkString(" ")}\n"""
+            s"""# duplicates in ${coord.unversioned.asString} $status\n""" +
+              vs.filterNot(e => replaced(e.source)).map { e =>
+                s"""# - ${e.source.asString} wanted version ${e.destination.version.asString}\n"""
+              }.mkString("")
           case None =>
             ""
         }

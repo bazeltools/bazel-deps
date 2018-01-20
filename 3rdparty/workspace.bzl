@@ -14,9 +14,13 @@ def maven_dependencies(callback = declare_maven):
     callback({"artifact": "asm:asm:3.3.1", "lang": "java", "sha1": "1d5f20b4ea675e6fab6ab79f1cd60ec268ddc015", "repository": "https://repo.maven.apache.org/maven2/", "name": "asm_asm", "actual": "@asm_asm//jar", "bind": "jar/asm/asm"})
     callback({"artifact": "com.chuusai:shapeless_2.11:2.3.2", "lang": "scala", "sha1": "f40ed6e303d550293f5f8f3743681d98e31f2360", "repository": "https://repo.maven.apache.org/maven2/", "name": "com_chuusai_shapeless_2_11", "actual": "@com_chuusai_shapeless_2_11//jar:file", "bind": "jar/com/chuusai/shapeless_2_11"})
     callback({"artifact": "com.fasterxml.jackson.core:jackson-annotations:2.5.0", "lang": "java", "sha1": "a2a55a3375bc1cef830ca426d68d2ea22961190e", "repository": "https://repo.maven.apache.org/maven2/", "name": "com_fasterxml_jackson_core_jackson_annotations", "actual": "@com_fasterxml_jackson_core_jackson_annotations//jar", "bind": "jar/com/fasterxml/jackson/core/jackson_annotations"})
-# duplicates in com.fasterxml.jackson.core:jackson-core promoted to 2.5.5. Versions: 2.5.3 2.5.5
+# duplicates in com.fasterxml.jackson.core:jackson-core promoted to 2.5.5
+# - com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.5.3 wanted version 2.5.3
+# - io.circe:circe-jackson25_2.11:0.8.0 wanted version 2.5.5
     callback({"artifact": "com.fasterxml.jackson.core:jackson-core:2.5.5", "lang": "java", "sha1": "d0b416837b2b3907f298db2f785e9012b6881515", "repository": "https://repo.maven.apache.org/maven2/", "name": "com_fasterxml_jackson_core_jackson_core", "actual": "@com_fasterxml_jackson_core_jackson_core//jar", "bind": "jar/com/fasterxml/jackson/core/jackson_core"})
-# duplicates in com.fasterxml.jackson.core:jackson-databind promoted to 2.5.5. Versions: 2.5.3 2.5.5
+# duplicates in com.fasterxml.jackson.core:jackson-databind promoted to 2.5.5
+# - io.circe:circe-jackson25_2.11:0.8.0 wanted version 2.5.5
+# - com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.5.3 wanted version 2.5.3
     callback({"artifact": "com.fasterxml.jackson.core:jackson-databind:2.5.5", "lang": "java", "sha1": "b08c3194166a230e60f56ac98bcd5cab5ee39d65", "repository": "https://repo.maven.apache.org/maven2/", "name": "com_fasterxml_jackson_core_jackson_databind", "actual": "@com_fasterxml_jackson_core_jackson_databind//jar", "bind": "jar/com/fasterxml/jackson/core/jackson_databind"})
     callback({"artifact": "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.5.3", "lang": "java", "sha1": "8fc7e5a9911c3ab4b0dd7e74f12621681835e3fc", "repository": "https://repo.maven.apache.org/maven2/", "name": "com_fasterxml_jackson_dataformat_jackson_dataformat_yaml", "actual": "@com_fasterxml_jackson_dataformat_jackson_dataformat_yaml//jar", "bind": "jar/com/fasterxml/jackson/dataformat/jackson_dataformat_yaml"})
     callback({"artifact": "com.github.mpilquist:simulacrum_2.11:0.10.0", "lang": "scala", "sha1": "59bdbd0db647655e3fd9bdbaa2a362d6fe82516a", "repository": "https://repo.maven.apache.org/maven2/", "name": "com_github_mpilquist_simulacrum_2_11", "actual": "@com_github_mpilquist_simulacrum_2_11//jar:file", "bind": "jar/com/github/mpilquist/simulacrum_2_11"})
@@ -41,16 +45,30 @@ def maven_dependencies(callback = declare_maven):
     callback({"artifact": "org.codehaus.plexus:plexus-component-annotations:1.5.5", "lang": "java", "sha1": "c72f2660d0cbed24246ddb55d7fdc4f7374d2078", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_codehaus_plexus_plexus_component_annotations", "actual": "@org_codehaus_plexus_plexus_component_annotations//jar", "bind": "jar/org/codehaus/plexus/plexus_component_annotations"})
     callback({"artifact": "org.codehaus.plexus:plexus-interpolation:1.16", "lang": "java", "sha1": "a868d4a603bd42c9dee67890c4e60e360a11838c", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_codehaus_plexus_plexus_interpolation", "actual": "@org_codehaus_plexus_plexus_interpolation//jar", "bind": "jar/org/codehaus/plexus/plexus_interpolation"})
     callback({"artifact": "org.codehaus.plexus:plexus-utils:3.0.10", "lang": "java", "sha1": "65e6460a49460d2ca038f8644ff9ae6d878733b8", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_codehaus_plexus_plexus_utils", "actual": "@org_codehaus_plexus_plexus_utils//jar", "bind": "jar/org/codehaus/plexus/plexus_utils"})
-# duplicates in org.eclipse.aether:aether-api fixed to 1.0.2.v20150114. Versions: 0.9.0.M2 1.0.2.v20150114
+# duplicates in org.eclipse.aether:aether-api fixed to 1.0.2.v20150114
+# - org.eclipse.aether:aether-connector-basic:1.0.2.v20150114 wanted version 1.0.2.v20150114
+# - org.apache.maven:maven-aether-provider:3.1.0 wanted version 0.9.0.M2
+# - org.eclipse.aether:aether-transport-file:1.0.2.v20150114 wanted version 1.0.2.v20150114
+# - org.eclipse.aether:aether-transport-http:1.0.2.v20150114 wanted version 1.0.2.v20150114
+# - org.eclipse.aether:aether-impl:1.0.2.v20150114 wanted version 1.0.2.v20150114
     callback({"artifact": "org.eclipse.aether:aether-api:1.0.2.v20150114", "lang": "java", "sha1": "839f93a5213fb3e233b09bfd6d6b95669f7043c0", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_eclipse_aether_aether_api", "actual": "@org_eclipse_aether_aether_api//jar", "bind": "jar/org/eclipse/aether/aether_api"})
     callback({"artifact": "org.eclipse.aether:aether-connector-basic:1.0.2.v20150114", "lang": "java", "sha1": "d55c03b16efc16f25e1fd9fe0f37878fddbeed68", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_eclipse_aether_aether_connector_basic", "actual": "@org_eclipse_aether_aether_connector_basic//jar", "bind": "jar/org/eclipse/aether/aether_connector_basic"})
-# duplicates in org.eclipse.aether:aether-impl fixed to 1.0.2.v20150114. Versions: 0.9.0.M2 1.0.2.v20150114
     callback({"artifact": "org.eclipse.aether:aether-impl:1.0.2.v20150114", "lang": "java", "sha1": "f147539e6e60dfbda9ef7f6d750066170f61b7a1", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_eclipse_aether_aether_impl", "actual": "@org_eclipse_aether_aether_impl//jar", "bind": "jar/org/eclipse/aether/aether_impl"})
-# duplicates in org.eclipse.aether:aether-spi promoted to 1.0.2.v20150114. Versions: 0.9.0.M2 1.0.2.v20150114
+# duplicates in org.eclipse.aether:aether-spi promoted to 1.0.2.v20150114
+# - org.eclipse.aether:aether-connector-basic:1.0.2.v20150114 wanted version 1.0.2.v20150114
+# - org.apache.maven:maven-aether-provider:3.1.0 wanted version 0.9.0.M2
+# - org.eclipse.aether:aether-transport-file:1.0.2.v20150114 wanted version 1.0.2.v20150114
+# - org.eclipse.aether:aether-transport-http:1.0.2.v20150114 wanted version 1.0.2.v20150114
+# - org.eclipse.aether:aether-impl:1.0.2.v20150114 wanted version 1.0.2.v20150114
     callback({"artifact": "org.eclipse.aether:aether-spi:1.0.2.v20150114", "lang": "java", "sha1": "8428dfa330107984f3e3ac05cc3ebd50b2676866", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_eclipse_aether_aether_spi", "actual": "@org_eclipse_aether_aether_spi//jar", "bind": "jar/org/eclipse/aether/aether_spi"})
     callback({"artifact": "org.eclipse.aether:aether-transport-file:1.0.2.v20150114", "lang": "java", "sha1": "79ffcce2aa9c525ad5a1d0fc3f9669133c3f9572", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_eclipse_aether_aether_transport_file", "actual": "@org_eclipse_aether_aether_transport_file//jar", "bind": "jar/org/eclipse/aether/aether_transport_file"})
     callback({"artifact": "org.eclipse.aether:aether-transport-http:1.0.2.v20150114", "lang": "java", "sha1": "262b7fb2e9872f470c059bc4053a3f2f7449932d", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_eclipse_aether_aether_transport_http", "actual": "@org_eclipse_aether_aether_transport_http//jar", "bind": "jar/org/eclipse/aether/aether_transport_http"})
-# duplicates in org.eclipse.aether:aether-util promoted to 1.0.2.v20150114. Versions: 0.9.0.M2 1.0.2.v20150114
+# duplicates in org.eclipse.aether:aether-util promoted to 1.0.2.v20150114
+# - org.eclipse.aether:aether-connector-basic:1.0.2.v20150114 wanted version 1.0.2.v20150114
+# - org.apache.maven:maven-aether-provider:3.1.0 wanted version 0.9.0.M2
+# - org.eclipse.aether:aether-transport-file:1.0.2.v20150114 wanted version 1.0.2.v20150114
+# - org.eclipse.aether:aether-transport-http:1.0.2.v20150114 wanted version 1.0.2.v20150114
+# - org.eclipse.aether:aether-impl:1.0.2.v20150114 wanted version 1.0.2.v20150114
     callback({"artifact": "org.eclipse.aether:aether-util:1.0.2.v20150114", "lang": "java", "sha1": "d2d3c74a5210544b5cdce89a2c1d1c62835692d1", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_eclipse_aether_aether_util", "actual": "@org_eclipse_aether_aether_util//jar", "bind": "jar/org/eclipse/aether/aether_util"})
     callback({"artifact": "org.eclipse.sisu:org.eclipse.sisu.inject:0.0.0.M2a", "lang": "java", "sha1": "17941e32c751179a9628b25f54ce5641edafb9be", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_eclipse_sisu_org_eclipse_sisu_inject", "actual": "@org_eclipse_sisu_org_eclipse_sisu_inject//jar", "bind": "jar/org/eclipse/sisu/org_eclipse_sisu_inject"})
     callback({"artifact": "org.eclipse.sisu:org.eclipse.sisu.plexus:0.0.0.M2a", "lang": "java", "sha1": "07510dc8dfe27a0b57c17601bc760b7b0c8f95fa", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_eclipse_sisu_org_eclipse_sisu_plexus", "actual": "@org_eclipse_sisu_org_eclipse_sisu_plexus//jar", "bind": "jar/org/eclipse/sisu/org_eclipse_sisu_plexus"})
