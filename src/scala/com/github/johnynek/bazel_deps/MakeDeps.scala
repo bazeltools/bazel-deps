@@ -61,8 +61,12 @@ object MakeDeps {
          */
         val duplicates = graph.nodes
           .groupBy(_.unversioned)
-          .mapValues(_.map(_.version))
-          .filter { case (_, set) => set.size > 1 }
+          .mapValues { ns =>
+            ns.flatMap { n =>
+              graph.hasDestination(n).filter(e => normalized.nodes(e.source))
+            }
+          }
+          .filter { case (_, set) => set.map(_.destination.version).size > 1 }
 
         /**
          * Make sure all the optional versioned items were found
