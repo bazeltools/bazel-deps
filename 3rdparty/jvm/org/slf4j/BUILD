@@ -8,7 +8,7 @@ java_library(
         ":slf4j_api"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -20,7 +20,7 @@ java_library(
         "//external:jar/org/slf4j/slf4j_api"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

@@ -292,12 +292,13 @@ maven_dependencies(maven_load)
           Target(scalaLang,
             lab,
             deps = labs.toSet,
-            sources = Target.SourceList.Globs(List("src/main/**/*.scala", "src/main/**/*.java")))
+            sources = Target.SourceList.Globs(List("src/main/**/*.scala", "src/main/**/*.java")),
+            isTransitive = false)
         }
 
       val thisBuild = if (proj.packaging == "jar") {
         def contents(t: Target): String =
-          header.fold("\n")(_ + "\n") ++ t.toDoc.render(60)
+          header.fold("\n")(_ + "\n") ++ t.toDoc(IO.path("")).render(60)
 
         for {
           labs <- depLabels

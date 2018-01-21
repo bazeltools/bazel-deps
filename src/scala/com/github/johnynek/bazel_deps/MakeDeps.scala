@@ -2,10 +2,13 @@ package com.github.johnynek.bazel_deps
 
 import java.io.File
 import java.nio.file.Paths
+
 import io.circe.jawn.JawnParser
-import scala.sys.process.{ BasicIO, Process, ProcessIO }
-import scala.util.{ Failure, Success, Try }
+
+import scala.sys.process.{BasicIO, Process, ProcessIO}
+import scala.util.{Failure, Success, Try}
 import cats.instances.try_._
+import com.github.johnynek.bazel_deps.IO.Path
 
 object MakeDeps {
 
@@ -137,7 +140,8 @@ object MakeDeps {
     val io = for {
       wsOK <- IO.compare(workspacePath, workspaceContents)
       wsbOK <- IO.compare(workspacePath.sibling("BUILD"), "")
-      buildsOK <- Writer.compareBuildFiles(model.getOptions.getBuildHeader, targets, formatter)
+      rootPath = Path(model.getOptions.getThirdPartyDirectory.parts)
+      buildsOK <- Writer.compareBuildFiles(rootPath, model.getOptions.getBuildHeader, targets, formatter)
     } yield wsOK :: wsbOK :: buildsOK
 
     // Here we actually run the whole thing
@@ -164,7 +168,8 @@ object MakeDeps {
       _ <- IO.mkdirs(workspacePath.parent)
       _ <- IO.writeUtf8(workspacePath, workspaceContents)
       _ <- IO.writeUtf8(workspacePath.sibling("BUILD"), "")
-      builds <- Writer.createBuildFiles(model.getOptions.getBuildHeader, targets, formatter)
+      rootPath = Path(model.getOptions.getThirdPartyDirectory.parts)
+      builds <- Writer.createBuildFiles(rootPath, model.getOptions.getBuildHeader, targets, formatter)
     } yield builds
 
     // Here we actually run the whole thing

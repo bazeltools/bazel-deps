@@ -5,7 +5,7 @@ java_library(
         "//external:jar/com/fasterxml/jackson/core/jackson_annotations"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -29,7 +29,8 @@ java_library(
         "//external:jar/com/fasterxml/jackson/core/jackson_databind"
     ],
     runtime_deps = [
-        ":jackson_annotations"
+        ":jackson_annotations",
+        ":jackson_core"
     ],
     visibility = [
         "//visibility:public"

@@ -8,7 +8,7 @@ java_library(
         "//3rdparty/jvm/javax/annotation:jsr250_api"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

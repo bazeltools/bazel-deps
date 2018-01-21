@@ -80,7 +80,7 @@ scala_import(
         "//3rdparty/jvm/org/scala_lang:scala_reflect"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -92,7 +92,7 @@ scala_import(
         "//external:jar/org/typelevel/macro_compat_2_11"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

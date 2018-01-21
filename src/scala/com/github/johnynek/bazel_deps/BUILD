@@ -75,7 +75,7 @@ scala_library(name = "makedeps",
              srcs = ["MakeDeps.scala", "FormatDeps.scala", "MergeDeps.scala"],
              deps = [
                  "//3rdparty/jvm/io/circe:circe_core",
-                 "//3rdparty/jvm/io/circe:circe_jawn_2_11",
+                 "//3rdparty/jvm/io/circe:circe_jawn",
                  "//3rdparty/jvm/org/eclipse/aether:aether_api",
                  "//3rdparty/jvm/org/typelevel:cats_core",
                  "//3rdparty/jvm/org/typelevel:cats_free",

@@ -8,7 +8,7 @@ java_library(
         "//3rdparty/jvm/asm:asm"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -26,7 +26,7 @@ java_library(
         ":org_eclipse_sisu_inject"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

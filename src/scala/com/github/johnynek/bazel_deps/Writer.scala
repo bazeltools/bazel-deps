@@ -15,22 +15,22 @@ object Writer {
 
   private val buildFileName = "BUILD"
 
-  private def buildFileContents(buildFilePath: IO.Path, buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): String = {
+  private def buildFileContents(rootPath: Path, buildFilePath: IO.Path, buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): String = {
     def withNewline(s: String): String =
       if (s.isEmpty) ""
       else s + "\n"
 
     formatter(buildFilePath, ts.sortBy(_.name.name)
-      .map(_.toDoc.render(60))
+      .map(_.toDoc(rootPath).render(60))
       .mkString(withNewline(buildHeader), "\n\n", "\n"))
   }
 
-  def createBuildFiles(buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): Result[Int] = {
+  def createBuildFiles(rootPath: Path, buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): Result[Int] = {
     val pathGroups = ts.groupBy(_.name.path).toList
 
     Traverse[List].traverseU(pathGroups) {
       case (filePath, ts) =>
-        def data(bf: IO.Path) = buildFileContents(bf, buildHeader, ts, formatter)
+        def data(bf: IO.Path) = buildFileContents(rootPath, bf, buildHeader, ts, formatter)
         for {
           b <- IO.exists(filePath)
           _ <- if (b) IO.const(false) else IO.mkdirs(filePath)
@@ -41,12 +41,12 @@ object Writer {
       .map(_.size)
   }
 
-  def compareBuildFiles(buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): Result[List[IO.FileComparison]] = {
+  def compareBuildFiles(rootPath: Path, buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): Result[List[IO.FileComparison]] = {
     val pathGroups = ts.groupBy(_.name.path).toList
 
     Traverse[List].traverseU(pathGroups) {
       case (filePath, ts) =>
-        def data(bf: IO.Path) = buildFileContents(bf, buildHeader, ts, formatter)
+        def data(bf: IO.Path) = buildFileContents(rootPath, bf, buildHeader, ts, formatter)
         val bf = filePath.child(buildFileName)
         IO.compare(bf, data(bf))
     }
@@ -197,13 +197,15 @@ object Writer {
                 kind = Target.Library,
                 name = Label.localTarget(pathInRoot, u, lang),
                 exports = Set(lab),
-                jars = Set.empty)
+                jars = Set.empty,
+                isTransitive = false)
             case _: Language.Scala =>
               Target(lang,
                 kind = Target.Library,
                 name = Label.localTarget(pathInRoot, u, lang),
                 exports = Set(lab),
-                jars = Set.empty)
+                jars = Set.empty,
+                isTransitive = false)
           }
 
         }
@@ -230,6 +232,7 @@ object Writer {
           case Transitivity.RuntimeDeps => (Set.empty[Label], depLabels)
         }
 
+        val isRoot = model.dependencies.roots(uvToVerExplicit(u))
         // TODO: converge on using java_import instead of java_library:
         // https://github.com/johnynek/bazel-deps/issues/102
         lang match {
@@ -240,7 +243,8 @@ object Writer {
               exports = (exports + lab) ++ uvexports,
               jars = Set.empty,
               runtimeDeps = runtime_deps -- uvexports,
-              processorClasses = getProcessorClasses(u))
+              processorClasses = getProcessorClasses(u),
+              isTransitive = !isRoot)
           case _: Language.Scala =>
             Target(lang,
               kind = Target.Import,
@@ -248,7 +252,8 @@ object Writer {
               exports = exports ++ uvexports,
               jars = Set(lab),
               runtimeDeps = runtime_deps -- uvexports,
-              processorClasses = getProcessorClasses(u))
+              processorClasses = getProcessorClasses(u),
+              isTransitive = !isRoot)
         }
 
 
