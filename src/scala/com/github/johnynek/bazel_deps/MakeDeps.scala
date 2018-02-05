@@ -87,7 +87,7 @@ object MakeDeps {
 
         val shas = resolver.getShas(normalized.nodes.filterNot(replaced))
         // build the workspace
-        def ws = Writer.workspace(normalized, duplicates, shas, model)
+        def ws = Writer.workspace(g.depsFile, normalized, duplicates, shas, model)
         // build the BUILDs in thirdParty
         val targets = Writer.targets(normalized, model) match {
           case Right(t) => t

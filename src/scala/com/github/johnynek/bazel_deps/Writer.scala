@@ -52,7 +52,7 @@ object Writer {
     }
   }
 
-  def workspace(g: Graph[MavenCoordinate, Unit],
+  def workspace(depsFile: String, g: Graph[MavenCoordinate, Unit],
     duplicates: Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]],
     shas: Map[MavenCoordinate, Try[ResolvedSha1Value]],
     model: Model): String = {
@@ -103,7 +103,9 @@ object Writer {
              s"""${kv("bind", coord.unversioned.toBindingName(prefix))}})""").mkString(", ")
       }
       .mkString("\n")
-    s"""def declare_maven(hash):
+    s"""# Do not edit. bazel-deps autogenerates this file from ${depsFile}.
+        |
+        |def declare_maven(hash):
         |    native.maven_jar(
         |        name = hash["name"],
         |        artifact = hash["artifact"],
