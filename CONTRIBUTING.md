@@ -16,8 +16,7 @@ Make your change. Add tests for your change. Make the tests pass:
 
 If your change affects the generated `workspace.bzl`, regenerate it:
 
-    bazel build src/scala/com/github/johnynek/bazel_deps:parseproject_deploy.jar
-    ./gen_maven_deps.sh generate -r $PWD \
+    bazel run //:parse -- generate -r $PWD \
         -s 3rdparty/workspace.bzl -d dependencies.yaml
 
 
