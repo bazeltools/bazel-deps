@@ -1,3 +1,5 @@
+# Do not edit. bazel-deps autogenerates this file from dependencies.yaml.
+
 def declare_maven(hash):
     native.maven_jar(
         name = hash["name"],
