@@ -115,7 +115,7 @@ In the options we set:
 * buildHeader: usually you will want to configure your scala support here:
 ```
   buildHeader:
-    - load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
+    - load("@io_bazel_rules_scala//scala:scala_import.bzl", "scala_import")
 ```
 * languages: java and scala
 * thirdPartyDirectory: path to where we write the BUILD files for thirdparty. The default is `3rdparty/jvm`.
