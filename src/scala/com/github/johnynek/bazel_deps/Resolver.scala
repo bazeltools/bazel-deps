@@ -126,10 +126,11 @@ class Resolver(servers: List[MavenServer], resolverCachePath: Path) {
           .head
           .trim
           .toLowerCase
-      val asInt = scala.math.BigInt(hexString, 16)
-      if (asInt.toByteArray.size == 20) Success(Sha1Value(hexString))
-      else Failure(
-        new Exception(s"string: $hexString, not a valid SHA1 (bitsize ${asInt.toByteArray.size * 8} != 160"))
+      if (hexString.length == 40 && hexString.matches("[0-9A-Fa-f]*")) {
+        Success(Sha1Value(hexString))
+      } else {
+        Failure(new Exception(s"string: $hexString, not a valid SHA1"))
+      }
     }
 
   private def computeShaOf(f: File): Try[Sha1Value] = Try {
