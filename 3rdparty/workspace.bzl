@@ -16,11 +16,12 @@ def maven_dependencies(callback = declare_maven):
     callback({"artifact": "asm:asm:3.3.1", "lang": "java", "sha1": "1d5f20b4ea675e6fab6ab79f1cd60ec268ddc015", "repository": "https://repo.maven.apache.org/maven2/", "name": "asm_asm", "actual": "@asm_asm//jar", "bind": "jar/asm/asm"})
     callback({"artifact": "com.chuusai:shapeless_2.11:2.3.2", "lang": "scala", "sha1": "f40ed6e303d550293f5f8f3743681d98e31f2360", "repository": "https://repo.maven.apache.org/maven2/", "name": "com_chuusai_shapeless_2_11", "actual": "@com_chuusai_shapeless_2_11//jar:file", "bind": "jar/com/chuusai/shapeless_2_11"})
     callback({"artifact": "com.fasterxml.jackson.core:jackson-annotations:2.5.0", "lang": "java", "sha1": "a2a55a3375bc1cef830ca426d68d2ea22961190e", "repository": "https://repo.maven.apache.org/maven2/", "name": "com_fasterxml_jackson_core_jackson_annotations", "actual": "@com_fasterxml_jackson_core_jackson_annotations//jar", "bind": "jar/com/fasterxml/jackson/core/jackson_annotations"})
-# duplicates in com.fasterxml.jackson.core:jackson-core promoted to 2.5.5
+# duplicates in com.fasterxml.jackson.core:jackson-core fixed to 2.5.5
 # - com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.5.3 wanted version 2.5.3
+# - com.fasterxml.jackson.core:jackson-databind:2.5.5 wanted version 2.5.5
 # - io.circe:circe-jackson25_2.11:0.8.0 wanted version 2.5.5
     callback({"artifact": "com.fasterxml.jackson.core:jackson-core:2.5.5", "lang": "java", "sha1": "d0b416837b2b3907f298db2f785e9012b6881515", "repository": "https://repo.maven.apache.org/maven2/", "name": "com_fasterxml_jackson_core_jackson_core", "actual": "@com_fasterxml_jackson_core_jackson_core//jar", "bind": "jar/com/fasterxml/jackson/core/jackson_core"})
-# duplicates in com.fasterxml.jackson.core:jackson-databind promoted to 2.5.5
+# duplicates in com.fasterxml.jackson.core:jackson-databind fixed to 2.5.5
 # - io.circe:circe-jackson25_2.11:0.8.0 wanted version 2.5.5
 # - com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.5.3 wanted version 2.5.3
     callback({"artifact": "com.fasterxml.jackson.core:jackson-databind:2.5.5", "lang": "java", "sha1": "b08c3194166a230e60f56ac98bcd5cab5ee39d65", "repository": "https://repo.maven.apache.org/maven2/", "name": "com_fasterxml_jackson_core_jackson_databind", "actual": "@com_fasterxml_jackson_core_jackson_databind//jar", "bind": "jar/com/fasterxml/jackson/core/jackson_databind"})
@@ -32,7 +33,7 @@ def maven_dependencies(callback = declare_maven):
     callback({"artifact": "io.circe:circe-core_2.11:0.8.0", "lang": "scala", "sha1": "78afb48778e2fa0077684486977597781a02cb20", "repository": "https://repo.maven.apache.org/maven2/", "name": "io_circe_circe_core_2_11", "actual": "@io_circe_circe_core_2_11//jar:file", "bind": "jar/io/circe/circe_core_2_11"})
     callback({"artifact": "io.circe:circe-generic_2.11:0.8.0", "lang": "scala", "sha1": "92298be2beea245b1d6f8b6a26e696c1eee842e2", "repository": "https://repo.maven.apache.org/maven2/", "name": "io_circe_circe_generic_2_11", "actual": "@io_circe_circe_generic_2_11//jar:file", "bind": "jar/io/circe/circe_generic_2_11"})
     callback({"artifact": "io.circe:circe-jackson25_2.11:0.8.0", "lang": "scala", "sha1": "68c7425e6380021a2517a58c91e617effa868c8b", "repository": "https://repo.maven.apache.org/maven2/", "name": "io_circe_circe_jackson25_2_11", "actual": "@io_circe_circe_jackson25_2_11//jar:file", "bind": "jar/io/circe/circe_jackson25_2_11"})
-    callback({"artifact": "io.circe:circe-jawn_2.11:0.8.0", "lang": "java", "sha1": "19f9f0bc116b8fe60f5d58baa8375c58125b5b10", "repository": "https://repo.maven.apache.org/maven2/", "name": "io_circe_circe_jawn_2_11", "actual": "@io_circe_circe_jawn_2_11//jar", "bind": "jar/io/circe/circe_jawn_2_11"})
+    callback({"artifact": "io.circe:circe-jawn_2.11:0.8.0", "lang": "scala", "sha1": "19f9f0bc116b8fe60f5d58baa8375c58125b5b10", "repository": "https://repo.maven.apache.org/maven2/", "name": "io_circe_circe_jawn_2_11", "actual": "@io_circe_circe_jawn_2_11//jar:file", "bind": "jar/io/circe/circe_jawn_2_11"})
     callback({"artifact": "io.circe:circe-numbers_2.11:0.8.0", "lang": "java", "sha1": "d3e1f867a349359e4d7aa54c4d0d480dbfee05ab", "repository": "https://repo.maven.apache.org/maven2/", "name": "io_circe_circe_numbers_2_11", "actual": "@io_circe_circe_numbers_2_11//jar", "bind": "jar/io/circe/circe_numbers_2_11"})
     callback({"artifact": "io.circe:circe-parser_2.11:0.8.0", "lang": "scala", "sha1": "26126c466e0253cd5df41d7fdedb7d8c42182084", "repository": "https://repo.maven.apache.org/maven2/", "name": "io_circe_circe_parser_2_11", "actual": "@io_circe_circe_parser_2_11//jar:file", "bind": "jar/io/circe/circe_parser_2_11"})
     callback({"artifact": "javax.annotation:jsr250-api:1.0", "lang": "java", "sha1": "5025422767732a1ab45d93abfea846513d742dcf", "repository": "https://repo.maven.apache.org/maven2/", "name": "javax_annotation_jsr250_api", "actual": "@javax_annotation_jsr250_api//jar", "bind": "jar/javax/annotation/jsr250_api"})
@@ -50,13 +51,14 @@ def maven_dependencies(callback = declare_maven):
 # duplicates in org.eclipse.aether:aether-api fixed to 1.0.2.v20150114
 # - org.eclipse.aether:aether-connector-basic:1.0.2.v20150114 wanted version 1.0.2.v20150114
 # - org.apache.maven:maven-aether-provider:3.1.0 wanted version 0.9.0.M2
+# - org.eclipse.aether:aether-spi:1.0.2.v20150114 wanted version 1.0.2.v20150114
 # - org.eclipse.aether:aether-transport-file:1.0.2.v20150114 wanted version 1.0.2.v20150114
 # - org.eclipse.aether:aether-transport-http:1.0.2.v20150114 wanted version 1.0.2.v20150114
 # - org.eclipse.aether:aether-impl:1.0.2.v20150114 wanted version 1.0.2.v20150114
     callback({"artifact": "org.eclipse.aether:aether-api:1.0.2.v20150114", "lang": "java", "sha1": "839f93a5213fb3e233b09bfd6d6b95669f7043c0", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_eclipse_aether_aether_api", "actual": "@org_eclipse_aether_aether_api//jar", "bind": "jar/org/eclipse/aether/aether_api"})
     callback({"artifact": "org.eclipse.aether:aether-connector-basic:1.0.2.v20150114", "lang": "java", "sha1": "d55c03b16efc16f25e1fd9fe0f37878fddbeed68", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_eclipse_aether_aether_connector_basic", "actual": "@org_eclipse_aether_aether_connector_basic//jar", "bind": "jar/org/eclipse/aether/aether_connector_basic"})
     callback({"artifact": "org.eclipse.aether:aether-impl:1.0.2.v20150114", "lang": "java", "sha1": "f147539e6e60dfbda9ef7f6d750066170f61b7a1", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_eclipse_aether_aether_impl", "actual": "@org_eclipse_aether_aether_impl//jar", "bind": "jar/org/eclipse/aether/aether_impl"})
-# duplicates in org.eclipse.aether:aether-spi promoted to 1.0.2.v20150114
+# duplicates in org.eclipse.aether:aether-spi fixed to 1.0.2.v20150114
 # - org.eclipse.aether:aether-connector-basic:1.0.2.v20150114 wanted version 1.0.2.v20150114
 # - org.apache.maven:maven-aether-provider:3.1.0 wanted version 0.9.0.M2
 # - org.eclipse.aether:aether-transport-file:1.0.2.v20150114 wanted version 1.0.2.v20150114

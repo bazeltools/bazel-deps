@@ -29,7 +29,7 @@ java_library(
         "//external:jar/org/apache/maven/maven_model"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -44,7 +44,7 @@ java_library(
         "//3rdparty/jvm/org/codehaus/plexus:plexus_interpolation"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -56,7 +56,7 @@ java_library(
         "//external:jar/org/apache/maven/maven_repository_metadata"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

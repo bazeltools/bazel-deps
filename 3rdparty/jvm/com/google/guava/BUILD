@@ -8,7 +8,7 @@ java_library(
         "//3rdparty/jvm/com/google/code/findbugs:jsr305"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

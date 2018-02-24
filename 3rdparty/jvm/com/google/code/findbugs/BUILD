@@ -5,7 +5,7 @@ java_library(
         "//external:jar/com/google/code/findbugs/jsr305"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

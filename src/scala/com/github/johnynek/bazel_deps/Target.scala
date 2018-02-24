@@ -1,5 +1,6 @@
 package com.github.johnynek.bazel_deps
 
+import com.github.johnynek.bazel_deps.IO.Path
 import org.typelevel.paiges.Doc
 
 object Target {
@@ -60,9 +61,10 @@ case class Target(
   sources: Target.SourceList = Target.SourceList.Empty,
   exports: Set[Label] = Set.empty,
   runtimeDeps: Set[Label] = Set.empty,
-  processorClasses: Set[ProcessorClass] = Set.empty) {
+  processorClasses: Set[ProcessorClass] = Set.empty,
+  isTransitive: Boolean) {
 
-  def toDoc: Doc = {
+  def toDoc(rootPath: Path): Doc = {
     import Target._
     /**
      * e.g.
@@ -114,8 +116,12 @@ case class Target(
         visibility()
       )) + Doc.line
 
-    def visibility(): (String, Doc) =
-      "visibility" -> renderList(Doc.text("["), List("//visibility:public"), Doc.text("]"))(quote)
+    def visibility(): (String, Doc) = {
+      val v =
+        if (isTransitive) Label(None, rootPath, "__subpackages__").asStringFrom(IO.path(""))
+        else "//visibility:public"
+      "visibility" -> renderList(Doc.text("["), List(v), Doc.text("]"))(quote)
+    }
 
     sortKeys(targetType, name.name, List(
       visibility(),

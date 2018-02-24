@@ -13,7 +13,13 @@ dependencies:
   com.chuusai:
     shapeless:
       lang: scala
-  
+
+  com.fasterxml.jackson.core:
+    jackson:
+      lang: java
+      version: "2.5.5"
+      modules: [ "core", "databind" ]
+
   com.fasterxml.jackson.dataformat:
     jackson-dataformat-yaml:
       lang: java
@@ -28,7 +34,7 @@ dependencies:
   io.circe:
     circe:
       lang: scala
-      modules: [ "core", "jackson25", "parser" ]
+      modules: [ "core", "jackson25", "parser", "jawn" ]
       version: "0.8.0"
     circe-generic:
       exports: 
@@ -47,7 +53,7 @@ dependencies:
   org.eclipse.aether:
     aether:
       lang: java
-      modules: [ "api", "connector-basic", "impl", "transport-file", "transport-http" ]
+      modules: [ "api", "connector-basic", "impl", "transport-file", "transport-http", "spi" ]
       version: "1.0.2.v20150114"
   
   org.scala-lang.modules:

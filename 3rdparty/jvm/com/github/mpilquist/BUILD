@@ -8,7 +8,7 @@ scala_import(
         "//external:jar/com/github/mpilquist/simulacrum_2_11"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

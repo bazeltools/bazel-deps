@@ -56,13 +56,15 @@ scala_import(
 
 
 
-java_library(
-    name = "circe_jawn_2_11",
-    exports = [
+scala_import(
+    name = "circe_jawn",
+    jars = [
         "//external:jar/io/circe/circe_jawn_2_11"
     ],
     runtime_deps = [
-        "//3rdparty/jvm/org/spire_math:jawn_parser_2_11"
+        "//3rdparty/jvm/org/scala_lang:scala_library",
+        "//3rdparty/jvm/org/spire_math:jawn_parser_2_11",
+        ":circe_core"
     ],
     visibility = [
         "//visibility:public"
@@ -77,7 +79,7 @@ java_library(
         "//external:jar/io/circe/circe_numbers_2_11"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -91,7 +93,7 @@ scala_import(
     runtime_deps = [
         "//3rdparty/jvm/org/scala_lang:scala_library",
         ":circe_core",
-        ":circe_jawn_2_11"
+        ":circe_jawn"
     ],
     visibility = [
         "//visibility:public"
