@@ -32,3 +32,22 @@ new_git_repository(
 )
 
 bind(name = 'io_bazel_rules_scala/dependency/scalatest/scalatest', actual = '//3rdparty/jvm/org/scalatest')
+
+git_repository(
+    name = "io_bazel_rules_docker",
+    remote = "https://github.com/bazelbuild/rules_docker.git",
+    tag = "v0.4.0",
+)
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_pull",
+    container_repositories = "repositories",
+)
+
+load(
+    "@io_bazel_rules_docker//scala:image.bzl",
+    _scala_image_repos = "repositories",
+)
+
+_scala_image_repos()

@@ -100,6 +100,29 @@ scala_binary(name = "parseproject",
              main_class = "com.github.johnynek.bazel_deps.ParseProject",
              visibility = ["//visibility:public"])
 
+load("@io_bazel_rules_docker//scala:image.bzl", "scala_image")
+
+scala_image(name = "bazel-deps",
+             srcs = ["ParseProject.scala"],
+             deps = [
+                 ":makedeps",
+                 ":commands",
+                 ],
+             main_class = "com.github.johnynek.bazel_deps.ParseProject",
+             visibility = ["//visibility:public"])
+
+load("@io_bazel_rules_docker//container:push.bzl", "container_push")
+container_push(
+    name = "docker_namtzigla",
+    registry = "index.docker.io",
+    image = ":bazel-deps",
+    format = "Docker",
+    repository = "namtzigla/bazel-deps",
+    tag = "latest",
+
+)
+
+
 scala_library(name = "circeyaml",
               srcs = ["CirceYaml.scala"],
               deps = [
