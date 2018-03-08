@@ -66,7 +66,7 @@ object ModelGenerators {
     heads <- Gen.option(Gen.listOf(Gen.identifier))
     cache <- Gen.option(Gen.oneOf(ResolverCache.Local, ResolverCache.BazelOutputBase))
     prefix <- Gen.option(Gen.identifier.map(NamePrefix(_)))
-  } yield Options(vcp, dir, langs, res, trans, heads, cache, prefix)
+  } yield Options(vcp, dir, langs, res, trans, heads, cache, prefix, None)
 
   val modelGen: Gen[Model] = for {
     o <- Gen.option(optionGen)

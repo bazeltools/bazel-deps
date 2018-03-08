@@ -69,6 +69,7 @@ class ParseTest extends FunSuite {
               None,
               None,
               Some(ResolverCache.BazelOutputBase),
+              None,
               None)))))
   }
   test("parse empty subproject version") {
@@ -102,6 +103,7 @@ class ParseTest extends FunSuite {
               None,
               Some(DirectoryName("3rdparty/jvm")),
               Some(Set(Language.Scala(Version("2.11.7"), true), Language.Java)),
+              None,
               None,
               None,
               None,
