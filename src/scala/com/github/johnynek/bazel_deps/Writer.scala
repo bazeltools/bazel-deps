@@ -186,6 +186,7 @@ object Writer {
     if (badExports.nonEmpty) Left(badExports.toList.map(_.unversioned))
     else {
       val rootName = model.getOptions.getThirdPartyDirectory
+      val licenses = model.getOptions.getLicenses
       val pathInRoot = rootName.parts
 
       val langFn = language(g, model)
@@ -242,7 +243,8 @@ object Writer {
               exports = (exports + lab) ++ uvexports,
               jars = Set.empty,
               runtimeDeps = runtime_deps -- uvexports,
-              processorClasses = getProcessorClasses(u))
+              processorClasses = getProcessorClasses(u),
+              licenses = licenses)
           case _: Language.Scala =>
             Target(lang,
               kind = Target.Import,
@@ -250,7 +252,8 @@ object Writer {
               exports = exports ++ uvexports,
               jars = Set(lab),
               runtimeDeps = runtime_deps -- uvexports,
-              processorClasses = getProcessorClasses(u))
+              processorClasses = getProcessorClasses(u),
+              licenses = licenses)
         }
 
 

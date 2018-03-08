@@ -1025,7 +1025,8 @@ case class Options(
   transitivity: Option[Transitivity],
   buildHeader: Option[List[String]],
   resolverCache: Option[ResolverCache],
-  namePrefix: Option[NamePrefix]
+  namePrefix: Option[NamePrefix],
+  licenses: Option[Set[String]]
   ) {
 
   def isDefault: Boolean =
@@ -1036,7 +1037,11 @@ case class Options(
     transitivity.isEmpty &&
     buildHeader.isEmpty &&
     resolverCache.isEmpty &&
-    namePrefix.isEmpty
+    namePrefix.isEmpty &&
+    licenses.isEmpty
+
+  def getLicenses: Set[String] =
+    licenses.getOrElse(Set.empty)
 
   def getThirdPartyDirectory: DirectoryName =
     thirdPartyDirectory.getOrElse(DirectoryName.default)
@@ -1090,7 +1095,9 @@ case class Options(
         buildHeader.map(list(_) { s => quoteDoc(s) })),
       ("transitivity", transitivity.map { t => Doc.text(t.asString) }),
       ("resolverCache", resolverCache.map { rc => Doc.text(rc.asString) }),
-      ("namePrefix", namePrefix.map { p => quoteDoc(p.asString) })
+      ("namePrefix", namePrefix.map { p => quoteDoc(p.asString) }),
+      ("licenses",
+        licenses.map { l => list(l.toList.sorted)(quoteDoc) })
     ).sortBy(_._1)
      .collect { case (k, Some(v)) => (k, v) }
 
@@ -1106,7 +1113,7 @@ object Options {
    * A monoid on options that is just the point-wise monoid
    */
   implicit val optionsMonoid: Monoid[Options] = new Monoid[Options] {
-    val empty = Options(None, None, None, None, None, None, None, None)
+    val empty = Options(None, None, None, None, None, None, None, None, None)
 
     def combine(a: Options, b: Options): Options = {
       val vcp = Monoid[Option[VersionConflictPolicy]].combine(a.versionConflictPolicy, b.versionConflictPolicy)
@@ -1117,8 +1124,9 @@ object Options {
       val headers = Monoid[Option[List[String]]].combine(a.buildHeader, b.buildHeader).map(_.distinct)
       val resolverCache = Monoid[Option[ResolverCache]].combine(a.resolverCache, b.resolverCache)
       val namePrefix = Monoid[Option[NamePrefix]].combine(a.namePrefix, b.namePrefix)
+      val licenses = Monoid[Option[Set[String]]].combine(a.licenses, b.licenses)
 
-      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix)
+      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix, licenses)
     }
   }
 }
