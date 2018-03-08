@@ -45,6 +45,7 @@ class ParseTest extends FunSuite {
                 |  languages: ["scala:2.11.7", java]
                 |  thirdPartyDirectory: 3rdparty/jvm
                 |  resolverCache: bazel_output_base
+                |  licenses: ["unencumbered", "permissive"]
                 |""".stripMargin('|')
 
     assert(Decoders.decodeModel(Yaml, str) ==
@@ -69,7 +70,8 @@ class ParseTest extends FunSuite {
               None,
               None,
               Some(ResolverCache.BazelOutputBase),
-              None)))))
+              None,
+              Some(Set("unencumbered", "permissive")))))))
   }
   test("parse empty subproject version") {
     val str = """dependencies:
@@ -102,6 +104,7 @@ class ParseTest extends FunSuite {
               None,
               Some(DirectoryName("3rdparty/jvm")),
               Some(Set(Language.Scala(Version("2.11.7"), true), Language.Java)),
+              None,
               None,
               None,
               None,

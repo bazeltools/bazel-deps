@@ -127,6 +127,8 @@ In the options we set:
   output_base`)
 * namePrefix: a string added to the generated workspace names, to avoid conflicts.  The external repository names and
   binding targets of each dependency are prefixed.
+* licenses: a set of strings added a licenses rule to each generated bazel target.  Required by
+  bazel if your build targets are under third_party/
 
 In the default case, with no options given, we use:
 - `highest` versionConflictPolicy
