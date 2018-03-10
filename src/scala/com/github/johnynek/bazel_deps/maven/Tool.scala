@@ -41,7 +41,7 @@ object Tool {
     modules: Seq[String], //fixme
     dependencies: List[Dep] //fixme
   ) {
-    def toDep: Dep = Dep(groupId, artifactId, version, None)
+    def toDep: Dep = Dep(groupId, artifactId, version, None, None)
 
     def dir: String = directoryFor(path).getOrElse(".")
 
@@ -61,11 +61,12 @@ object Tool {
     groupId: String,
     artifactId: String,
     version: String,
-    scope: Option[String]) {
+    scope: Option[String],
+    classifier: Option[String]) {
 
     def unScalaVersion(s: Language.Scala): Option[Dep] =
       s.removeSuffix(artifactId)
-        .map(Dep(groupId, _, version, scope))
+        .map(Dep(groupId, _, version, scope, classifier))
 
     def hasScalaBinaryVersion: Boolean =
       artifactId.endsWith("${scala.binary.version}")
@@ -82,7 +83,7 @@ object Tool {
         })
       }
 
-      Dep(r(groupId), r(artifactId), r(version), scope)
+      Dep(r(groupId), r(artifactId), r(version), scope, classifier)
     }
   }
 
@@ -90,7 +91,8 @@ object Tool {
     Dep(singleText(e \ "groupId"),
       singleText(e \ "artifactId"),
       singleText(e \ "version"),
-      optionalText(e \ "scope"))
+      optionalText(e \ "scope"),
+      optionalText(e \ "classifier"))
 
   private def directoryFor(path: String): Option[String] = {
     val f = new File(path)
@@ -160,6 +162,7 @@ object Tool {
         (MavenGroup(d.groupId),
           ArtifactOrProject(d.artifactId),
           ProjectRecord(lang,
+            None,
             Some(Version(d.version)),
             None,
             None,
@@ -265,7 +268,7 @@ maven_dependencies(maven_load)
           else Language.Java
 
         (dep, Label.localTarget(List("3rdparty", "jvm"),
-          UnversionedCoordinate(MavenGroup(resolvedDep.groupId), MavenArtifactId(resolvedDep.artifactId)),
+          UnversionedCoordinate(MavenGroup(resolvedDep.groupId), MavenArtifactId(resolvedDep.artifactId), dep.classifier.map(Classifier(_))),
           lang))
       }
       .toMap

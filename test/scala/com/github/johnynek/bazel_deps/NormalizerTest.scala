@@ -93,7 +93,7 @@ class NormalizerTest extends FunSuite  {
         case None => fail(s"couldn't normalize $g")
         case Some(g) =>
           // Each (group, artifact) pair appears only once in the nodes:
-          g.nodes.groupBy { case MavenCoordinate(g, a, _) => (g, a) }
+          g.nodes.groupBy { case MavenCoordinate(g, a, Classifier(""), _) => (g, a) }
             .foreach { case (_, vs) =>
               assert(vs.size == 1)
             }

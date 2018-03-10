@@ -66,7 +66,7 @@ object Writer {
     val lines = nodes.filterNot(replaced)
       .toList
       .sortBy(_.asString)
-      .map { case coord@MavenCoordinate(g, a, v) =>
+      .map { case coord@MavenCoordinate(g, a, c, v) =>
         val isRoot = model.dependencies.roots(coord)
         val (shaStr, serverStr) = shas.get(coord) match {
           case Some(Success(sha)) =>
