@@ -9,6 +9,7 @@ object ModelGenerators {
   val mavenPart: Gen[String] = Gen.identifier
 
   val subprojGen: Gen[Subproject] = mavenPart.map(Subproject(_))
+  val classifierGen: Gen[Classifier] = mavenPart.map(Classifier(_))
   val langGen: Gen[Language] = Gen.oneOf(Language.Java, Language.Scala(Version("2.11.8"), true))
   val mavenGroupGen: Gen[MavenGroup] = mavenPart.map(MavenGroup(_))
   val artifactOrProjGen: Gen[ArtifactOrProject] = mavenPart.map(ArtifactOrProject(_))
@@ -17,14 +18,16 @@ object ModelGenerators {
     lang <- Gen.oneOf(l1 :: langs)
     v <- Gen.option(Gen.listOfN(3, Gen.choose('0', '9')).map { l => Version(l.mkString) })
     sub <- Gen.choose(0, 6)
+    cls <- Gen.choose(0, 2)
     exp <- Gen.choose(0, 3)
     exc <- Gen.choose(0, 3)
     pcs <- Gen.choose(0, 2)
     m <- Gen.option(Gen.listOfN(sub, subprojGen).map(_.toSet))
+    c <- Gen.option(Gen.listOfN(cls, classifierGen).map(_.toSet))
     exports <- Gen.option(Gen.listOfN(exp, join(mavenGroupGen, artifactOrProjGen)).map(_.toSet))
     exclude <- Gen.option(Gen.listOfN(exc, join(mavenGroupGen, artifactOrProjGen)).map(_.toSet))
     processorClasses <- Gen.option(Gen.listOfN(pcs, processorClassGen).map(_.toSet))
-  } yield ProjectRecord(lang, v, m, exports, exclude, processorClasses)
+  } yield ProjectRecord(lang, v, m, c, exports, exclude, processorClasses)
 
   def depGen(o: Options): Gen[Dependencies] = {
     val (l1, ls) = o.getLanguages match {

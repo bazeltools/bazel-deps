@@ -8,6 +8,7 @@ object Decoders {
   implicit val versionDecoder: Decoder[Version] = stringWrapper(Version(_))
   implicit val processorClassDecoder: Decoder[ProcessorClass] = stringWrapper(ProcessorClass(_))
   implicit val subprojDecoder: Decoder[Subproject] = stringWrapper(Subproject(_))
+  implicit val classifierDecoder: Decoder[Classifier] = stringWrapper(Classifier(_))
   implicit val dirnameDecoder: Decoder[DirectoryName] = stringWrapper(DirectoryName(_))
   implicit val targetDecoder: Decoder[BazelTarget] = stringWrapper(BazelTarget(_))
   implicit val transitivityDecoder: Decoder[Transitivity] =

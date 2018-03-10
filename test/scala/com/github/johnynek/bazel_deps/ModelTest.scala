@@ -33,7 +33,7 @@ class ModelTest extends FunSuite {
     val lang = Language.Scala.default
     val deps = Dependencies(Map(
       MavenGroup("com.twitter") -> Map(
-        ArtifactOrProject("finagle") -> ProjectRecord(lang, Some(Version("0.1")), Some(Set(Subproject(""), Subproject("core"))), None, None, None)
+        ArtifactOrProject("finagle") -> ProjectRecord(lang, Some(Version("0.1")), Some(Set(Subproject(""), Subproject("core"))), None, None, None, None)
       )
     ))
 

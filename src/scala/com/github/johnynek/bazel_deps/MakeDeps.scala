@@ -44,7 +44,7 @@ object MakeDeps {
     val resolver = new Resolver(model.getOptions.getResolvers, resolverCachePath.toAbsolutePath)
     val graph = resolver.addAll(Graph.empty, deps.roots, model)
     // This is a defensive check that can be removed as we add more tests
-    deps.roots.foreach { m => require(graph.nodes(m), s"$m") }
+    deps.roots.foreach { m => require(graph.nodes(m), s"${m.asString}") }
 
     Normalizer(graph, deps.roots, model.getOptions.getVersionConflictPolicy) match {
       case None =>

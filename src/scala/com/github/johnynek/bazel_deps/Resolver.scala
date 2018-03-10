@@ -77,9 +77,8 @@ class Resolver(servers: List[MavenServer], resolverCachePath: Path) {
      * and do the sha1.
      */
     def toArtifactRequest(m: MavenCoordinate, extension: String): ArtifactRequest = {
-      val classifier = null // We don't use this
       val art = new DefaultArtifact(
-        m.group.asString, m.artifact.asString, classifier, extension, m.version.asString)
+        m.group.asString, m.artifact.getArtifactId, m.artifact.getClassifier, extension, m.version.asString)
       val context = null
       new ArtifactRequest(art, repositories, context)
     }
@@ -172,7 +171,7 @@ class Resolver(servers: List[MavenServer], resolverCachePath: Path) {
     def coord(a: Dependency): MavenCoordinate = {
       val artifact = a.getArtifact
       MavenCoordinate(MavenGroup(artifact.getGroupId),
-        MavenArtifactId(artifact.getArtifactId),
+        MavenArtifactId(ArtifactOrProject(artifact.getArtifactId), Packaging(artifact.getExtension), Classifier(artifact.getClassifier)),
         Version(artifact.getVersion))
     }
 

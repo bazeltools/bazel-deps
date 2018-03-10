@@ -58,6 +58,7 @@ object Label {
     val name = artName.map {
       case '.' => '_'
       case '-' => '_'
+      case ':' => '_'
       case oth => oth
     }.mkString
     Label(None, p, name)

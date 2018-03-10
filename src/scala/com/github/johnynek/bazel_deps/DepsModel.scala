@@ -162,12 +162,22 @@ case class ArtifactOrProject(asString: String) {
       case _ => ArtifactOrProject(s"$asString-$str")
     }
   }
+
+  def addClassifier(c: Classifier): ArtifactOrProject = {
+    val str = c.asString
+    str match {
+      case "" => this
+      case _ => ArtifactOrProject(s"$asString-$str")
+    }
+  }
 }
 object ArtifactOrProject {
   implicit val ordering: Ordering[ArtifactOrProject] = Ordering.by(_.asString)
 }
 
 case class Subproject(asString: String)
+case class Classifier(asString: String)
+case class Packaging(asString: String)
 case class Version(asString: String)
 case class Sha1Value(toHex: String)
 case class MavenServer(id: String, contentType: String, url: String) {
@@ -259,6 +269,14 @@ object Version {
 
 case class MavenArtifactId(asString: String) {
   def addSuffix(s: String): MavenArtifactId = MavenArtifactId(asString + s)
+  def getArtifactId: String = asString.split(":") match {
+    case Array(a, p, c) => a
+    case Array(a) => a
+  }
+  def getClassifier: String = asString.split(":") match {
+    case Array(a, p, c) => c
+    case Array(a) => ""
+  }
 }
 
 object MavenArtifactId {
@@ -267,6 +285,15 @@ object MavenArtifactId {
     val ap = a.asString
     val sp = s.asString
     MavenArtifactId(if (sp.isEmpty) ap else s"$ap-$sp")
+  }
+  def apply(a: ArtifactOrProject, c: Classifier): MavenArtifactId = {
+    MavenArtifactId(a, Packaging("jar"), c)
+  }
+  def apply(a: ArtifactOrProject, p: Packaging, c: Classifier): MavenArtifactId = {
+    val ap = a.asString
+    val classifier = c.asString
+    val packaging = p.asString
+    MavenArtifactId(if (classifier.isEmpty && packaging == "jar") ap else s"$ap:$packaging:$classifier")
   }
 }
 
@@ -277,7 +304,7 @@ case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, version
   def toDependencies(l: Language): Dependencies =
     Dependencies(Map(group ->
       Map(ArtifactOrProject(artifact.asString) ->
-        ProjectRecord(l, Some(version), None, None, None, None))))
+        ProjectRecord(l, Some(version), None, None, None, None, None))))
 }
 
 object MavenCoordinate {
@@ -307,6 +334,7 @@ sealed abstract class Language {
   def asOptionsString: String
   def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate
   def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate
+  def mavenCoord(g: MavenGroup, a: ArtifactOrProject, c: Classifier, v: Version): MavenCoordinate
   def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate
   def unversioned(g: MavenGroup, a: ArtifactOrProject, sp: Subproject): UnversionedCoordinate
 
@@ -322,6 +350,9 @@ object Language {
 
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate =
       MavenCoordinate(g, MavenArtifactId(a, sp), v)
+
+    def mavenCoord(g: MavenGroup, a: ArtifactOrProject, c: Classifier, v: Version): MavenCoordinate =
+      MavenCoordinate(g, MavenArtifactId(a, c), v)
 
     def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate =
       UnversionedCoordinate(g, MavenArtifactId(a))
@@ -357,6 +388,9 @@ object Language {
 
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate =
       MavenCoordinate(g, add(MavenArtifactId(a, sp)), v)
+
+    def mavenCoord(g: MavenGroup, a: ArtifactOrProject, c: Classifier, v: Version): MavenCoordinate =
+      MavenCoordinate(g, add(MavenArtifactId(a, c)), v)
 
     def removeSuffix(s: String): Option[String] =
       if (s.endsWith(suffix)) Some(s.dropRight(suffix.size))
@@ -412,6 +446,7 @@ case class ProjectRecord(
   lang: Language,
   version: Option[Version],
   modules: Option[Set[Subproject]],
+  classifiers: Option[Set[Classifier]],
   exports: Option[Set[(MavenGroup, ArtifactOrProject)]],
   exclude: Option[Set[(MavenGroup, ArtifactOrProject)]],
   processorClasses: Option[Set[ProcessorClass]]) {
@@ -422,12 +457,17 @@ case class ProjectRecord(
     (lang, version, modules, exports, exclude, processorClasses).hashCode
 
   def flatten(ap: ArtifactOrProject): List[(ArtifactOrProject, ProjectRecord)] =
-    getModules match {
+    (getModules match {
       case Nil => List((ap, copy(modules = None)))
       case mods => mods.map { sp =>
         (ap.toArtifact(sp), copy(modules = None))
       }
-    }
+    }) ::: (getClassifiers match {
+      case Nil => List()
+      case cs => cs.map { c =>
+        (ap.addClassifier(c), copy(classifiers = None))
+      }
+    })
 
   def normalizeEmptyModule: ProjectRecord =
     getModules match {
@@ -459,13 +499,18 @@ case class ProjectRecord(
 
   def getModules: List[Subproject] = modules.getOrElse(Set.empty).toList.sortBy(_.asString)
 
+  def getClassifiers: List[Classifier] = classifiers.getOrElse(Set.empty).toList.sortBy(_.asString)
+
   def versionedDependencies(g: MavenGroup,
     ap: ArtifactOrProject): List[MavenCoordinate] =
     version.fold(List.empty[MavenCoordinate]) { v =>
-      getModules match {
+      (getModules match {
         case Nil => List(lang.mavenCoord(g, ap, v))
         case mods => mods.map { m => lang.mavenCoord(g, ap, m, v) }
-      }
+      }) ::: (getClassifiers match {
+        case Nil => List()
+        case cs => cs.map { c => lang.mavenCoord(g, ap, c, v) }
+      })
     }
 
   def allDependencies(g: MavenGroup, ap: ArtifactOrProject): List[UnversionedCoordinate] =
@@ -492,6 +537,8 @@ case class ProjectRecord(
       version.toList.map { v => ("version", quoteDoc(v.asString)) },
       modules.toList.map { ms =>
         ("modules", list(ms.map(_.asString).toList.sorted)(quoteDoc)) },
+      classifiers.toList.map { cs =>
+        ("classifiers", list(cs.map(_.asString).toList.sorted)(quoteDoc)) },
       exports.toList.map { ms =>
         ("exports", exportsDoc(ms)) },
       exclude.toList.map { ms =>
