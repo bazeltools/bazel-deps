@@ -66,12 +66,17 @@ class Resolver(servers: List[MavenServer], resolverCachePath: Path) {
       val exclusion = new Exclusion(elem.group.asString, elem.artifact.asString, "", "jar")
       exclusions.add(exclusion)
     }
-    val classifier = m.classifier match {
-      case Classifier("") => null
-      case Classifier(c) => c
-    }
-    collectRequest.setRoot(new Dependency(new DefaultArtifact(
-      m.group.asString, m.artifact.asString, classifier, null, m.version.asString), "", false, exclusions))
+    collectRequest.setRoot(new Dependency(
+      new DefaultArtifact(
+        m.group.asString,
+        m.artifact.asString,
+        m.classifier.toNonEmptyString.orNull,
+        null /* packaging */,
+        m.version.asString
+      ),
+      null /* scope */,
+      false /* is dependency optional */,
+      exclusions))
     collectRequest.setRepositories(repositories)
     system.collectDependencies(session, collectRequest);
   }
@@ -82,12 +87,8 @@ class Resolver(servers: List[MavenServer], resolverCachePath: Path) {
      * and do the sha1.
      */
     def toArtifactRequest(m: MavenCoordinate, extension: String): ArtifactRequest = {
-      val classifier = m.classifier match {
-        case Classifier("") => null
-        case Classifier(c) => c
-      }
       val art = new DefaultArtifact(
-        m.group.asString, m.artifact.asString, classifier, extension, m.version.asString)
+        m.group.asString, m.artifact.asString, m.classifier.toNonEmptyString.orNull, extension, m.version.asString)
       val context = null
       new ArtifactRequest(art, repositories, context)
     }

@@ -169,7 +169,10 @@ object ArtifactOrProject {
 
 case class Subproject(asString: String)
 case class Version(asString: String)
-case class Classifier(asString: String)
+case class Classifier(asString: String) {
+  def toNonEmptyString: Option[String] =
+    if (asString.isEmpty) None else Some(asString)
+}
 case class Sha1Value(toHex: String)
 case class MavenServer(id: String, contentType: String, url: String) {
   def toDoc: Doc =
@@ -272,7 +275,7 @@ object MavenArtifactId {
 }
 
 case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, classifier: Classifier, version: Version) {
-  def unversioned: UnversionedCoordinate = UnversionedCoordinate(group, artifact, classifierOpt())
+  def unversioned: UnversionedCoordinate = UnversionedCoordinate(group, artifact, classifierOpt)
   def asString: String = classifier match {
     case Classifier("") => s"${group.asString}:${artifact.asString}:${version.asString}"
     case Classifier(c) => s"${group.asString}:${artifact.asString}:jar:${c}:${version.asString}"
@@ -281,9 +284,9 @@ case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, classif
   def toDependencies(l: Language): Dependencies =
     Dependencies(Map(group ->
       Map(ArtifactOrProject(artifact.asString) ->
-        ProjectRecord(l, classifierOpt(), Some(version), None, None, None, None))))
+        ProjectRecord(l, classifierOpt, Some(version), None, None, None, None))))
 
-  private def classifierOpt() = classifier match {
+  private def classifierOpt : Option[Classifier] = classifier match {
     case Classifier("") => None
     case Classifier(_) => Some(classifier)
   }
@@ -299,7 +302,7 @@ object MavenCoordinate {
 
   def parse(s: String): ValidatedNel[String, MavenCoordinate] =
     s.split(":") match {
-      case Array(g, a, _, c, v) => Validated.valid(MavenCoordinate(MavenGroup(g), MavenArtifactId(a), Classifier(c), Version(v)))
+      case Array(g, a, "jar", c, v) => Validated.valid(MavenCoordinate(MavenGroup(g), MavenArtifactId(a), Classifier(c), Version(v)))
       case Array(g, a, v) => Validated.valid(MavenCoordinate(MavenGroup(g), MavenArtifactId(a), Version(v)))
       case other => Validated.invalidNel(s"expected exactly three :, got $s")
     }
@@ -395,9 +398,6 @@ object Language {
 }
 
 case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId, classifier: Option[Classifier]) {
-
-  override lazy val hashCode: Int =
-    (group, artifact, classifier).hashCode
 
   def asString: String = classifier match {
     case None => s"${group.asString}:${artifact.asString}"
@@ -579,9 +579,9 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
           }
         case parts =>
           // This can be split, but may not be:
-          val unsplit = ap.get(a).map(pr => {
+          val unsplit = ap.get(a).map { pr =>
             pr.lang.unversioned(g, a, pr.classifier)
-          }).toSet
+          }.toSet
           val uvcs = unsplit.union(parts.flatMap { case (proj, subproj) =>
             ap.get(proj)
               .map { pr => pr.getModules.filter(_ == subproj).map((_, pr.classifier, pr.lang)) }
@@ -631,7 +631,7 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
    * we need to potentially remove the scala version to check the
    * ArtifactOrProject key
    */
-  def recordOf(m: UnversionedCoordinate): Option[ProjectRecord] =
+  private def recordOf(m: UnversionedCoordinate): Option[ProjectRecord] =
     unversionedToProj.get(m)
 
   def languageOf(m: UnversionedCoordinate): Option[Language] =
