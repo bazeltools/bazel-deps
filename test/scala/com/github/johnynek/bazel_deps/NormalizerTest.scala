@@ -147,4 +147,36 @@ class NormalizerTest extends FunSuite  {
       case None => fail("could not normalize")
     }
   }
+
+  test("test normalization with goofy circular transitive dep example") {
+
+    val g = Graph.empty[MavenCoordinate, Unit]
+
+    implicit class AbuseGraph(val g: Graph[MavenCoordinate, Unit]) {
+      def add(from: String, to: String): Graph[MavenCoordinate, Unit] =
+        g.addEdge(Edge(MavenCoordinate(from), MavenCoordinate(to), ()))
+    }
+
+    val cat1_2 = "a:cat:1.2"
+    val mouse1_2 = "a:mouse:1.2"
+    val cat1_1 = "a:cat:1.1"
+    val mouse1_1 = "a:mouse:1.1"
+
+
+    /**
+      * a:cat:1.2 -> a:mouse:1.2
+      * a:mouse:1.2 -> a:cat:1.1
+      * a:cat:1.1 -> a:mouse:1.1
+      *
+      * roots: cat1_2, mouse1_2
+      *
+      * goal: don't infinite loop in Normalizer.disambiguate
+      */
+    val finalG = g
+      .add(cat1_2, mouse1_2)
+      .add(mouse1_2, cat1_1)
+      .add(cat1_1, mouse1_1)
+
+    Normalizer(finalG, Set(cat1_2, mouse1_2).map(MavenCoordinate(_)), VersionConflictPolicy.default)
+  }
 }
