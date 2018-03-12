@@ -163,12 +163,9 @@ case class ArtifactOrProject(asString: String) {
     }
   }
 
-  def addClassifier(c: Classifier): ArtifactOrProject = {
-    val str = c.asString
-    str match {
-      case "" => this
-      case _ => ArtifactOrProject(s"$asString-$str")
-    }
+  def addClassifier(c: Classifier): ArtifactOrProject = c.asString match {
+    case "" => this
+    case nonEmpty => ArtifactOrProject(s"$asString-$nonEmpty")
   }
 }
 object ArtifactOrProject {
@@ -273,9 +270,9 @@ case class MavenArtifactId(asString: String) {
     case Array(a, p, c) => a
     case Array(a) => a
   }
-  def getClassifier: String = asString.split(":") match {
-    case Array(a, p, c) => c
-    case Array(a) => ""
+  def getClassifier: Option[String] = asString.split(":") match {
+    case Array(a, p, c) => Some(c)
+    case Array(a) => None
   }
 }
 
@@ -454,7 +451,7 @@ case class ProjectRecord(
 
   // Cache this
   override lazy val hashCode: Int =
-    (lang, version, modules, exports, exclude, processorClasses).hashCode
+    (lang, version, modules, classifiers, exports, exclude, processorClasses).hashCode
 
   def flatten(ap: ArtifactOrProject): List[(ArtifactOrProject, ProjectRecord)] =
     (getModules match {

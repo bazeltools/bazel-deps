@@ -165,4 +165,35 @@ class ParseTest extends FunSuite {
   }
 */
 
+  test("parse classifiers") {
+    val str = """dependencies:
+                |  com.github.jnr:
+                |    jffi:
+                |      lang: java
+                |      version: 1.2.16
+                |      classifiers: ["", javadoc, native]
+                |""".stripMargin('|')
+
+    assert(Decoders.decodeModel(Yaml, str) ==
+      Right(Model(
+        Dependencies(
+          MavenGroup("com.github.jnr") ->
+            Map(ArtifactOrProject("jffi") ->
+              ProjectRecord(
+                Language.Java,
+                Some(Version("1.2.16")),
+                None,
+                Some(Set("", "javadoc", "native").map(Classifier(_))),
+                None,
+                None,
+                None))),
+          None,
+          None)))
+
+    assert(MavenArtifactId(ArtifactOrProject("a"), Classifier("")).asString === "a")
+    assert(MavenArtifactId(ArtifactOrProject("a"), Classifier("c")).asString === "a:jar:c")
+    assert(MavenArtifactId("a").getClassifier === None)
+    assert(MavenArtifactId("a:jar:c").getClassifier === Some("c"))
+  }
+
 }
