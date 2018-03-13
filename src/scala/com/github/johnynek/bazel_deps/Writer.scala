@@ -88,7 +88,7 @@ object Writer {
             s"""# duplicates in ${coord.unversioned.asString} $status\n""" +
               vs.filterNot(e => replaced(e.source)).map { e =>
                 s"""# - ${e.source.asString} wanted version ${e.destination.version.asString}\n"""
-              }.mkString("")
+              }.toSeq.sorted.mkString("")
           case None =>
             ""
         }
