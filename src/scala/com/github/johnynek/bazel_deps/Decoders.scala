@@ -32,8 +32,10 @@ object Decoders {
   implicit val groupArtDecoder: Decoder[(MavenGroup, ArtifactOrProject)] =
     Decoder.decodeString.emap { s =>
       s.split(':') match {
+        case Array(g, a, p, c) => Right((MavenGroup(g), ArtifactOrProject(a, p, Some(c))))
+        case Array(g, a, p) => Right((MavenGroup(g), ArtifactOrProject(a, p, None)))
         case Array(g, a) => Right((MavenGroup(g), ArtifactOrProject(a)))
-        case _ => Left(s"did not find exactly one ':' in $s")
+        case _ => Left(s"$s did not match expected maven coord format <groupId>:<artifactId>[:<extension>[:<classifier>]]")
       }
     }
   implicit val resolverDecorder: Decoder[MavenServer] =
