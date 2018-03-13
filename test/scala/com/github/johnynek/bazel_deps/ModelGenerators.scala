@@ -15,6 +15,7 @@ object ModelGenerators {
 
   def projectRecordGen(l1: Language, langs: List[Language]): Gen[ProjectRecord] = for {
     lang <- Gen.oneOf(l1 :: langs)
+    c <- Gen.option(Gen.identifier.map(i => Classifier(i.mkString)))
     v <- Gen.option(Gen.listOfN(3, Gen.choose('0', '9')).map { l => Version(l.mkString) })
     sub <- Gen.choose(0, 6)
     exp <- Gen.choose(0, 3)
@@ -24,7 +25,7 @@ object ModelGenerators {
     exports <- Gen.option(Gen.listOfN(exp, join(mavenGroupGen, artifactOrProjGen)).map(_.toSet))
     exclude <- Gen.option(Gen.listOfN(exc, join(mavenGroupGen, artifactOrProjGen)).map(_.toSet))
     processorClasses <- Gen.option(Gen.listOfN(pcs, processorClassGen).map(_.toSet))
-  } yield ProjectRecord(lang, v, m, exports, exclude, processorClasses)
+  } yield ProjectRecord(lang, c, v, m, exports, exclude, processorClasses)
 
   def depGen(o: Options): Gen[Dependencies] = {
     val (l1, ls) = o.getLanguages match {

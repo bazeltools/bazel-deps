@@ -33,7 +33,7 @@ class ModelTest extends FunSuite {
     val lang = Language.Scala.default
     val deps = Dependencies(Map(
       MavenGroup("com.twitter") -> Map(
-        ArtifactOrProject("finagle") -> ProjectRecord(lang, Some(Version("0.1")), Some(Set(Subproject(""), Subproject("core"))), None, None, None)
+        ArtifactOrProject("finagle") -> ProjectRecord(lang, None, Some(Version("0.1")), Some(Set(Subproject(""), Subproject("core"))), None, None, None)
       )
     ))
 
@@ -54,7 +54,7 @@ class ModelTest extends FunSuite {
   }
 
   test("coordinate naming") {
-    val uc = UnversionedCoordinate(MavenGroup("com.twitter"), MavenArtifactId("finagle-core"))
+    val uc = UnversionedCoordinate(MavenGroup("com.twitter"), MavenArtifactId("finagle-core"), None)
     assert(uc.asString == "com.twitter:finagle-core")
     assert(uc.toBazelRepoName(NamePrefix("")) == "com_twitter_finagle_core")
     assert(uc.toBindingName(NamePrefix("")) == "jar/com/twitter/finagle_core")

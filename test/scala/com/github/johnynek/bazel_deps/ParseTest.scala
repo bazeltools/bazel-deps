@@ -25,6 +25,7 @@ class ParseTest extends FunSuite {
             Map(ArtifactOrProject("scalding") ->
               ProjectRecord(
                 Language.Scala.default,
+                None,
                 Some(Version("0.16.0")),
                 Some(Set("core", "args", "date").map(Subproject(_))),
                 None,
@@ -55,6 +56,7 @@ class ParseTest extends FunSuite {
             Map(ArtifactOrProject("scalding") ->
               ProjectRecord(
                 Language.Scala(Version("2.11.7"), true),
+                None,
                 Some(Version("0.16.0")),
                 Some(Set("core", "args", "date").map(Subproject(_))),
                 None,
@@ -93,6 +95,7 @@ class ParseTest extends FunSuite {
             Map(ArtifactOrProject("scalding") ->
               ProjectRecord(
                 Language.Scala(Version("2.11.7"), true),
+                None,
                 Some(Version("0.16.0")),
                 Some(Set("", "core", "args", "date").map(Subproject(_))),
                 None,
@@ -132,6 +135,7 @@ class ParseTest extends FunSuite {
             Map(ArtifactOrProject("auto-value") ->
               ProjectRecord(
                 Language.Java,
+                None,
                 Some(Version("1.5")),
                 None,
                 None,
