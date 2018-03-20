@@ -97,6 +97,9 @@ scala_binary(name = "parseproject",
                  ":makedeps",
                  ":commands",
                  ],
+             runtime_deps = [
+                 "//3rdparty/jvm/org/slf4j:slf4j_simple",
+             ],
              main_class = "com.github.johnynek.bazel_deps.ParseProject",
              visibility = ["//visibility:public"])
 
