@@ -11,7 +11,7 @@ import org.eclipse.aether.collection.{ CollectRequest, CollectResult }
 import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory
 import org.eclipse.aether.graph.{ Dependency, DependencyNode, DependencyVisitor, Exclusion }
 import org.eclipse.aether.impl.DefaultServiceLocator
-import org.eclipse.aether.repository.{ LocalRepository, RemoteRepository }
+import org.eclipse.aether.repository.{ LocalRepository, RemoteRepository, RepositoryPolicy }
 import org.eclipse.aether.resolution.{ ArtifactResult, ArtifactRequest }
 import org.eclipse.aether.spi.connector.RepositoryConnectorFactory
 import org.eclipse.aether.spi.connector.transport.TransporterFactory
@@ -52,7 +52,10 @@ class Resolver(servers: List[MavenServer], resolverCachePath: Path) {
 
   private val repositories =
     servers.map { case MavenServer(id, t, u) =>
-      new RemoteRepository.Builder(id, t, u).build
+      new RemoteRepository.Builder(id, t, u)
+        // Disable warnings from bazel-deps not passing checksums to Aether.  Use the default update policy.
+        .setPolicy(new RepositoryPolicy(true, RepositoryPolicy.UPDATE_POLICY_DAILY, RepositoryPolicy.CHECKSUM_POLICY_IGNORE))
+        .build
     }.asJava
 
   /**
