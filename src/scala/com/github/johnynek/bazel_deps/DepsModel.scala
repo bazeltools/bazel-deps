@@ -133,24 +133,19 @@ object Model {
 
 case class MavenGroup(asString: String)
 case class ArtifactOrProject(
-  artifact: String,
-  packaging: String,
-  classifier: Option[String]) {
+  artifact: MavenArtifactId) {
 
-  def asString = classifier match {
-    case Some(c) => s"$artifact:$packaging:$c"
-    case None => if (packaging == ArtifactOrProject.defaultPackaging) {
-      artifact
-    } else {
-      s"$artifact:$packaging"
-    }
-  }
+  def asString = artifact.asString
+
+  private val artifactId = artifact.artifactId
+  private val packaging = artifact.packaging
+  private val classifier = artifact.classifier
 
   val splitSubprojects: List[(ArtifactOrProject, Subproject)] =
-    if (artifact.contains('-')) {
-      val indices = artifact.iterator.zipWithIndex.collect { case (c, i) if c == '-' => i }
+    if (artifactId.contains('-')) {
+      val indices = artifactId.iterator.zipWithIndex.collect { case (c, i) if c == '-' => i }
       indices.map { i =>
-        (ArtifactOrProject(artifact.substring(0, i), packaging, classifier), Subproject(artifact.substring(i + 1)))
+        (ArtifactOrProject(MavenArtifactId(artifactId.substring(0, i), packaging, classifier)), Subproject(artifactId.substring(i + 1)))
       }.toList
     }
     else Nil
@@ -162,9 +157,9 @@ case class ArtifactOrProject(
 
   def split(a: ArtifactOrProject): Option[Subproject] =
     if (this == a) Some(Subproject(""))
-    else if (artifact.startsWith(a.artifact) && artifact.charAt(a.artifact.length) == '-')
+    else if (artifactId.startsWith(a.artifactId) && artifactId.charAt(a.artifactId.length) == '-')
       Some {
-        val sp = artifact.substring(a.artifact.length + 1) // skip the '-'
+        val sp = artifactId.substring(a.artifactId.length + 1) // skip the '-'
         Subproject(sp)
       }
     else None
@@ -173,21 +168,18 @@ case class ArtifactOrProject(
     val str = sp.asString
     str match {
       case "" => this
-      case _ => ArtifactOrProject(s"$artifact-$str", packaging, classifier)
+      case _ => ArtifactOrProject(MavenArtifactId(s"$artifactId-$str", packaging, classifier))
     }
   }
 }
 object ArtifactOrProject {
   implicit val ordering: Ordering[ArtifactOrProject] = Ordering.by(_.asString)
 
-  val defaultPackaging = "jar"
-
   def apply(str: String): ArtifactOrProject = {
-    str.split(":") match {
-      case Array(a, p, c) => ArtifactOrProject(a, p, Some(c))
-      case Array(a, p) => ArtifactOrProject(a, p, None)
-      case Array(a) => ArtifactOrProject(a, defaultPackaging, None)
-    }
+    ArtifactOrProject(MavenArtifactId(str))
+  }
+  def apply(artifactId: String, packaging: String, classifier: Option[String]): ArtifactOrProject = {
+    ArtifactOrProject(MavenArtifactId(artifactId, packaging, classifier))
   }
 }
 
@@ -335,53 +327,48 @@ object Version {
   }
 }
 
-/**
- * "Fully-qualified" maven artifact ID stored as a colon-separated string
- * (packaging and classifier optional): artifactId[:packaging[:classifier]]
- */
-case class MavenArtifactId(asString: String) {
-  // "artifact[:packaging[:classifier]]" => "artifact-<suffix>[:packaging[:classifier]]"
-  def addSuffix(s: String): MavenArtifactId = asString.split(":", 2) match {
-    case Array(artifact, rest) => MavenArtifactId(s"$artifact$s:$rest")
-    case Array(artifact) => MavenArtifactId(artifact + s)
+case class MavenArtifactId(
+  artifactId: String,
+  packaging: String,
+  classifier: Option[String]) {
+
+  def asString = classifier match {
+    case Some(c) => s"$artifactId:$packaging:$c"
+    case None => if (packaging == MavenArtifactId.defaultPackaging) {
+      artifactId
+    } else {
+      s"$artifactId:$packaging"
+    }
   }
 
-  def getArtifact: String = asString.split(":", 2) match {
-    case Array(s, _*) => s
-    case _ => sys.error("MavenArtifactId with no artifact: " + toString)
-  }
-
-  def getPackaging: String = asString.split(":") match {
-    case Array(_, p, _*) => p
-    case _ => "jar"
-  }
-
-  def getClassifier: Option[String] = asString.split(":") match {
-    case Array(_, _, c) => Some(c)
-    case _ => None
-  }
+  def addSuffix(s: String): MavenArtifactId = MavenArtifactId(s"$artifactId$s", packaging, classifier)
 }
 
 object MavenArtifactId {
-  val defaultClassifier = ""
+  val defaultPackaging = "jar"
 
   def apply(a: ArtifactOrProject): MavenArtifactId = MavenArtifactId(a.asString)
   def apply(a: ArtifactOrProject, s: Subproject): MavenArtifactId = MavenArtifactId(a.toArtifact(s))
 
-  def apply(artifact: String, packaging: String, classifier: Option[String]): MavenArtifactId = {
-    MavenArtifactId(artifact, packaging, classifier.getOrElse(defaultClassifier))
-  }
-
   // convenience: empty string classifier converted to None
   def apply(artifact: String, packaging: String, classifier: String): MavenArtifactId = {
-    MavenArtifactId(ArtifactOrProject(
+    assert(packaging != "")
+    MavenArtifactId(
       artifact,
       packaging,
       classifier match {
         case "" => None
-        case c => Some(classifier)
+        case c => Some(c)
       }
-    ))
+    )
+  }
+
+  def apply(str: String): MavenArtifactId = {
+    str.split(":") match {
+      case Array(a, p, c) => MavenArtifactId(a, p, Some(c))
+      case Array(a, p) => MavenArtifactId(a, p, None)
+      case Array(a) => MavenArtifactId(a, defaultPackaging, None)
+    }
   }
 }
 
@@ -479,14 +466,14 @@ object Language {
 
     def removeSuffix(uv: UnversionedCoordinate) : UnversionedCoordinate = {
       val aid = uv.artifact
-      removeSuffix(aid.getArtifact) match {
+      removeSuffix(aid.artifactId) match {
         case None => uv
-        case Some(a) => UnversionedCoordinate(uv.group, MavenArtifactId(a, aid.getPackaging, aid.getClassifier))
+        case Some(a) => UnversionedCoordinate(uv.group, MavenArtifactId(a, aid.packaging, aid.classifier))
       }
     }
 
     def endsWithScalaVersion(uv: UnversionedCoordinate): Boolean =
-      uv.artifact.getArtifact.endsWith(suffix)
+      uv.artifact.artifactId.endsWith(suffix)
 
     def unmangle(m: MavenCoordinate) = {
       val uv = m.unversioned
@@ -869,7 +856,7 @@ object Dependencies {
       val g0 = candidates.flatMap { case ap@(a, p) =>
         require(p.modules == None) // this is an invariant true of candidates
         val subs = a.splitSubprojects1.toList
-        val prefix = subs.map { case (ArtifactOrProject(artifact, packaging, classifier), _) => artifact }.min
+        val prefix = subs.map { case (ArtifactOrProject(MavenArtifactId(artifact, _, _)), _) => artifact }.min
         subs.map { case (a, sp) =>
           (prefix, (a, (p, (sp, ap))))
         }

@@ -65,11 +65,11 @@ class ModelTest extends FunSuite {
     assert(uc.bindTarget(np) == "//external:jar/unique_com/twitter/finagle_core")
   }
 
-  test("packaging and classifier are extracted properly from MavenArtifactId") {
+  test("packaging and classifier are extracted properly parsed in MavenArtifactId") {
     def assertAll(id: MavenArtifactId, a: String, p: String, c: Option[String]) : Unit = {
-      assert(id.getArtifact == a)
-      assert(id.getPackaging == p)
-      assert(id.getClassifier == c)
+      assert(id.artifactId == a)
+      assert(id.packaging == p)
+      assert(id.classifier == c)
     }
 
     assertAll(MavenArtifactId("foo"), "foo", "jar", None)
@@ -77,18 +77,31 @@ class ModelTest extends FunSuite {
     assertAll(MavenArtifactId("foo:dll:tests"), "foo", "dll", Some("tests"))
   }
 
-  test("ArtifactOrProject asString") {
-    assert(ArtifactOrProject("foo", "jar", Some("some-classifier")).asString == "foo:jar:some-classifier")
-    assert(ArtifactOrProject("foo", "dll", Some("some-classifier")).asString == "foo:dll:some-classifier")
+  test("MavenArtifactId asString") {
+    assert(MavenArtifactId("foo", "jar", Some("some-classifier")).asString == "foo:jar:some-classifier")
+    assert(MavenArtifactId("foo", "dll", Some("some-classifier")).asString == "foo:dll:some-classifier")
 
     // rule: don't include packaging if packaging = jar and no classifier
-    assert(ArtifactOrProject("foo", "jar", None).asString == "foo")
-    assert(ArtifactOrProject("foo", "dll", None).asString == "foo:dll")
+    assert(MavenArtifactId("foo", "jar", None).asString == "foo")
+    assert(MavenArtifactId("foo", "dll", None).asString == "foo:dll")
 
     List("foo:jar:some-classifier", "foo", "foo:dll", "foo:dll:some-classifier").foreach { s => {
-      assert(ArtifactOrProject(s).asString == s)
+      assert(MavenArtifactId(s).asString == s)
     }}
 
-    assert(ArtifactOrProject("foo:jar").asString == "foo")
+    assert(MavenArtifactId("foo:jar").asString == "foo")
+  }
+
+  test("MavenArtifactId addSuffix") {
+    assert(MavenArtifactId("foo:dll:some-classifier").addSuffix("_1").asString == "foo_1:dll:some-classifier")
+    assert(MavenArtifactId("foo:dll").addSuffix("_1").asString == "foo_1:dll")
+    assert(MavenArtifactId("foo:jar:some-classifier").addSuffix("_1").asString == "foo_1:jar:some-classifier")
+
+    // special: remove default packaging
+    assert(MavenArtifactId("foo:jar").addSuffix("_1").asString == "foo_1")
+  }
+
+  test("MavenArtifactId packaging and classifier defaults") {
+
   }
 }
