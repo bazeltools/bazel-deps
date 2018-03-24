@@ -146,7 +146,7 @@ class ParseTest extends FunSuite {
   test("parse a file that includes packaging for an artifact") {
     val str = """dependencies:
                 |  com.google.auto.value:
-                |    "auto-value:dll":
+                |    auto-value:dll:
                 |      version: "1.5"
                 |      lang: java
                 |""".stripMargin('|')
@@ -170,7 +170,7 @@ class ParseTest extends FunSuite {
   test("parse a file that includes packaging for an artifact with subprojects") {
     val str = """dependencies:
                 |  com.google.auto.value:
-                |    "auto-value:dll":
+                |    auto-value:dll:
                 |      modules: ["", "extras"]
                 |      version: "1.5"
                 |      lang: java
@@ -195,7 +195,7 @@ class ParseTest extends FunSuite {
   test("parse a file that includes classifier") {
     val str = """dependencies:
                 |  com.google.auto.value:
-                |    "auto-value:dll:best-one":
+                |    auto-value:dll:best-one:
                 |      version: "1.5"
                 |      lang: java
                 |""".stripMargin('|')

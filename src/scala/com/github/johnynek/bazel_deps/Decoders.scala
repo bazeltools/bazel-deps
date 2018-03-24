@@ -38,7 +38,7 @@ object Decoders {
         case _ => Left(s"$s did not match expected maven coord format <groupId>:<artifactId>[:<extension>[:<classifier>]]")
       }
     }
-  implicit val resolverDecorder: Decoder[MavenServer] =
+  implicit val resolverDecoder: Decoder[MavenServer] =
     Decoder.decodeMapLike[Map, String, String].emap { smap =>
       def expect(k: String): Either[String, String] =
         smap.get(k) match {

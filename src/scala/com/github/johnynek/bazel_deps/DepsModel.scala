@@ -139,7 +139,7 @@ case class ArtifactOrProject(
 
   def asString = classifier match {
     case Some(c) => s"$artifact:$packaging:$c"
-    case None => if (packaging == "jar") {
+    case None => if (packaging == ArtifactOrProject.defaultPackaging) {
       artifact
     } else {
       s"$artifact:$packaging"
@@ -180,11 +180,13 @@ case class ArtifactOrProject(
 object ArtifactOrProject {
   implicit val ordering: Ordering[ArtifactOrProject] = Ordering.by(_.asString)
 
+  val defaultPackaging = "jar"
+
   def apply(str: String): ArtifactOrProject = {
     str.split(":") match {
       case Array(a, p, c) => ArtifactOrProject(a, p, Some(c))
       case Array(a, p) => ArtifactOrProject(a, p, None)
-      case Array(a) => ArtifactOrProject(a, "jar", None)
+      case Array(a) => ArtifactOrProject(a, defaultPackaging, None)
     }
   }
 }
@@ -333,7 +335,12 @@ object Version {
   }
 }
 
+/**
+ * "Fully-qualified" maven artifact ID stored as a colon-separated string
+ * (packaging and classifier optional): artifactId[:packaging[:classifier]]
+ */
 case class MavenArtifactId(asString: String) {
+  // "artifact[:packaging[:classifier]]" => "artifact-<suffix>[:packaging[:classifier]]"
   def addSuffix(s: String): MavenArtifactId = asString.split(":", 2) match {
     case Array(artifact, rest) => MavenArtifactId(s"$artifact$s:$rest")
     case Array(artifact) => MavenArtifactId(artifact + s)
@@ -356,11 +363,13 @@ case class MavenArtifactId(asString: String) {
 }
 
 object MavenArtifactId {
+  val defaultClassifier = ""
+
   def apply(a: ArtifactOrProject): MavenArtifactId = MavenArtifactId(a.asString)
   def apply(a: ArtifactOrProject, s: Subproject): MavenArtifactId = MavenArtifactId(a.toArtifact(s))
 
   def apply(artifact: String, packaging: String, classifier: Option[String]): MavenArtifactId = {
-    MavenArtifactId(artifact, packaging, classifier.getOrElse(""))
+    MavenArtifactId(artifact, packaging, classifier.getOrElse(defaultClassifier))
   }
 
   // convenience: empty string classifier converted to None
@@ -604,7 +613,6 @@ case class ProjectRecord(
 
   def toDoc: Doc = {
     def colonPair(a: MavenGroup, b: ArtifactOrProject): Doc =
-      // TODO: do we need to do anything special here for ArtifactOrProject?
       quoteDoc(s"${a.asString}:${b.asString}")
 
     def exportsDoc(e: Set[(MavenGroup, ArtifactOrProject)]): Doc =

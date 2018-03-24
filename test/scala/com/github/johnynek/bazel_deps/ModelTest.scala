@@ -64,4 +64,31 @@ class ModelTest extends FunSuite {
     assert(uc.toBindingName(np) == "jar/unique_com/twitter/finagle_core")
     assert(uc.bindTarget(np) == "//external:jar/unique_com/twitter/finagle_core")
   }
+
+  test("packaging and classifier are extracted properly from MavenArtifactId") {
+    def assertAll(id: MavenArtifactId, a: String, p: String, c: Option[String]) : Unit = {
+      assert(id.getArtifact == a)
+      assert(id.getPackaging == p)
+      assert(id.getClassifier == c)
+    }
+
+    assertAll(MavenArtifactId("foo"), "foo", "jar", None)
+    assertAll(MavenArtifactId("foo:dll"), "foo", "dll", None)
+    assertAll(MavenArtifactId("foo:dll:tests"), "foo", "dll", Some("tests"))
+  }
+
+  test("ArtifactOrProject asString") {
+    assert(ArtifactOrProject("foo", "jar", Some("some-classifier")).asString == "foo:jar:some-classifier")
+    assert(ArtifactOrProject("foo", "dll", Some("some-classifier")).asString == "foo:dll:some-classifier")
+
+    // rule: don't include packaging if packaging = jar and no classifier
+    assert(ArtifactOrProject("foo", "jar", None).asString == "foo")
+    assert(ArtifactOrProject("foo", "dll", None).asString == "foo:dll")
+
+    List("foo:jar:some-classifier", "foo", "foo:dll", "foo:dll:some-classifier").foreach { s => {
+      assert(ArtifactOrProject(s).asString == s)
+    }}
+
+    assert(ArtifactOrProject("foo:jar").asString == "foo")
+  }
 }
