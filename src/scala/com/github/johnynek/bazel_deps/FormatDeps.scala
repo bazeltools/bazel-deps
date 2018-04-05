@@ -31,7 +31,7 @@ object FormatDeps {
       case Right(m) => m
     }
 
-    val stream = model.toDoc.renderStream(100)
+    val stream = model.toDoc.renderStreamTrim(100)
     if (overwrite) {
       val pw = new PrintWriter(path)
       stream.foreach(pw.print(_))
