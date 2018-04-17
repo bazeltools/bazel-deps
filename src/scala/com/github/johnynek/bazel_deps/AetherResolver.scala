@@ -17,6 +17,7 @@ import org.eclipse.aether.spi.connector.RepositoryConnectorFactory
 import org.eclipse.aether.spi.connector.transport.TransporterFactory
 import org.eclipse.aether.transport.file.FileTransporterFactory
 import org.eclipse.aether.transport.http.HttpTransporterFactory
+import org.slf4j.LoggerFactory
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
@@ -25,6 +26,13 @@ import scala.collection.breakOut
 import cats.{catsInstancesForId, Id, Monad}
 
 class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extends SequentialResolver[Id] {
+
+  private[this] val logger = LoggerFactory.getLogger(getClass)
+
+  logger.info(s"using resolverCachePath: $resolverCachePath")
+  servers.foreach { case MavenServer(id, _, url) =>
+    logger.info(s"using resolver $id -> $url")
+  }
 
   def resolverMonad: Monad[Id] = catsInstancesForId
 
@@ -212,23 +220,27 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
        * If project a has an optional dependency on b, that does
        * not mean another project does not have a non-optional dependency
        */
-      if (visited((dep, shouldAdd))) false
-      else {
+      if (visited((dep, shouldAdd))) {
+        logger.info(s"already seen dep: ($dep, $shouldAdd)")
+        false
+      } else {
         visited = visited + (dep -> shouldAdd)
         val mvncoord = coord(dep)
         if (shouldAdd) {
+          logger.info(s"adding dep: ($dep, ${dep.isOptional}, ${dep.getScope})")
           currentDeps = currentDeps.addNode(mvncoord)
-        }
-        else {
-          //println(s"$dep, ${dep.isOptional}, ${dep.getScope}")
+        } else {
+          logger.info(s"not adding dep: ($dep, ${dep.isOptional}, ${dep.getScope})")
         }
         stack match {
           case Nil => ()
           case h :: _ =>
             val src = coord(h)
             if (shouldAdd && !excludeEdge(src, mvncoord)) {
-              currentDeps = currentDeps
-                .addEdge(Edge(src, mvncoord, ()))
+              logger.info(s"adding edge: $src -> $mvncoord")
+              currentDeps = currentDeps.addEdge(Edge(src, mvncoord, ()))
+            } else {
+              logger.info(s"not adding edge: $src -> $mvncoord")
             }
         }
         stack = dep :: stack
