@@ -3,9 +3,12 @@ package com.github.johnynek.bazel_deps
 import IO.{Path, Result}
 import cats.Traverse
 import cats.implicits._
+import org.slf4j.LoggerFactory
 import scala.util.{ Failure, Success, Try }
 
 object Writer {
+
+  private[this] val logger = LoggerFactory.getLogger("Writer")
 
   /**
    * Takes a BUILD file path and generated contents, and returns the formatted version of those contents (e.g. with
@@ -74,7 +77,7 @@ object Writer {
             val serverUrl = servers.getOrElse(sha.serverId, "")
             (s""", "sha1": "${hex}"""", s""", "repository": "${serverUrl}"""")
           case Some(Failure(err)) =>
-            System.err.println(s"failed to find sha of ${coord.asString}: $err")
+            logger.error(s"failed to find sha of ${coord.asString}:", err)
             throw err
           case None => ("", "")
         }

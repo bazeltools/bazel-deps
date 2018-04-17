@@ -1,15 +1,58 @@
 package com.github.johnynek.bazel_deps
 
-import cats.data.{ NonEmptyList, Validated }
+import cats.data.{ NonEmptyList, Validated, ValidatedNel }
 import cats.implicits._
-import com.monovore.decline.{ Command => DCommand, _ }
+import com.monovore.decline.{ Argument, Command => DCommand, _ }
 import java.io.File
 import java.nio.file.Path
+
+sealed abstract class Verbosity(val repr: String, val level: Int)
+
+object Verbosity {
+  case object Error extends Verbosity("error", 1)
+  case object Warn extends Verbosity("warn", 2)
+  case object Info extends Verbosity("info", 3)
+  case object Debug extends Verbosity("debug", 4)
+  case object Trace extends Verbosity("trace", 5)
+
+  val levels: Map[String, Verbosity] =
+    Map(
+      "error" -> Error,
+      "warn" -> Warn,
+      "info" -> Info,
+      "debug" -> Debug,
+      "trace" -> Trace)
+
+  private[this] val names: String =
+    levels.values.toList.sortBy(_.level).map(_.repr).mkString(", ")
+
+  val helpMessage: String =
+    s"How verbose to log at (one of: $names, default: warn)."
+
+  def errorMessage(s: String): String =
+    s"Invalid verbosity level '$s'." + "\n" + s"Valid verbosity levels are: $names."
+
+  implicit object VerbosityArgument extends Argument[Verbosity] {
+    def defaultMetavar: String = "LEVEL"
+    def read(s: String): ValidatedNel[String, Verbosity] =
+      levels.get(s.toLowerCase) match {
+        case Some(v) => Validated.valid(v)
+        case None => Validated.invalidNel(errorMessage(s))
+      }
+  }
+}
 
 sealed abstract class Command
 
 object Command {
-  case class Generate(repoRoot: Path, depsFile: String, shaFile: String, buildifier: Option[String], checkOnly: Boolean) extends Command {
+  case class Generate(
+    repoRoot: Path,
+    depsFile: String,
+    shaFile: String,
+    buildifier: Option[String],
+    checkOnly: Boolean,
+    verbosity: Verbosity
+  ) extends Command {
     def absDepsFile: File =
       new File(repoRoot.toFile, depsFile)
 
@@ -44,7 +87,13 @@ object Command {
       "check-only",
       help = "if set, the generated files are checked against the existing files but are not written; exits 0 if the files match").orFalse
 
-    (repoRoot |@| depsFile |@| shaFile |@| buildifier |@| checkOnly).map(Generate(_, _, _, _, _))
+    val verbosity = Opts.option[Verbosity](
+      "verbosity",
+      short = "v",
+      help = Verbosity.helpMessage
+    ).orElse(Opts(Verbosity.Warn))
+
+    (repoRoot |@| depsFile |@| shaFile |@| buildifier |@| checkOnly |@| verbosity).map(Generate(_, _, _, _, _, _))
   }
 
   case class FormatDeps(deps: Path, overwrite: Boolean) extends Command
