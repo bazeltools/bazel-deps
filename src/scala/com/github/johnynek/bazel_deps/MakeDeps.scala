@@ -1,20 +1,23 @@
 package com.github.johnynek.bazel_deps
 
+import cats.instances.try_._
 import java.io.File
 import java.nio.file.Paths
 import io.circe.jawn.JawnParser
+import org.slf4j.LoggerFactory
 import scala.sys.process.{ BasicIO, Process, ProcessIO }
 import scala.util.{ Failure, Success, Try }
-import cats.instances.try_._
 
 object MakeDeps {
+
+  private[this] val logger = LoggerFactory.getLogger("MakeDeps")
 
   def apply(g: Command.Generate): Unit = {
 
     val content: String = Model.readFile(g.absDepsFile) match {
       case Success(str) => str
       case Failure(err) =>
-        System.err.println(s"[ERROR]: Failed to read ${g.depsFile}.\n$err")
+        logger.error(s"Failed to read ${g.depsFile}", err)
         System.exit(1)
         sys.error("unreachable")
     }
@@ -23,7 +26,7 @@ object MakeDeps {
     val model = Decoders.decodeModel(parser, content) match {
       case Right(m) => m
       case Left(err) =>
-        System.err.println(s"[ERROR]: Failed to parse ${g.depsFile}.\n$err")
+        logger.error(s"Failed to parse ${g.depsFile}.", err)
         System.exit(1)
         sys.error("unreachable")
     }
@@ -35,7 +38,7 @@ object MakeDeps {
         Try(Process(List("bazel", "info", "output_base"), projectRoot) !!) match {
           case Success(path) => Paths.get(path.trim, "bazel-deps/local-repo")
           case Failure(err) =>
-            System.err.println(s"[ERROR]: Could not find resolver cache path -- `bazel info output_base` failed.\n$err")
+            logger.error(s"Could not find resolver cache path -- `bazel info output_base` failed.", err)
             System.exit(1)
             sys.error("unreachable")
         }
@@ -48,12 +51,12 @@ object MakeDeps {
 
     Normalizer(graph, deps.roots, model.getOptions.getVersionConflictPolicy) match {
       case None =>
-        println("[ERROR] could not normalize versions:")
-        println(graph.nodes.groupBy(_.unversioned)
+        val output = graph.nodes.groupBy(_.unversioned)
           .mapValues { _.map(_.version).toList.sorted }
           .filter { case (_, s) => s.lengthCompare(1) > 0 }
           .map { case (u, vs) => s"""${u.asString}: ${vs.mkString(", ")}\n""" }
-          .mkString("\n"))
+          .mkString("\n")
+        logger.error(s"could not normalize versions:\n$output")
         System.exit(1)
       case Some(normalized) =>
         /**
@@ -77,8 +80,8 @@ object MakeDeps {
           }.toList match {
             case Nil => ()
             case missing =>
-              System.err.println(
-                s"Missing unversioned deps in the normalized graph: ${missing.map(_.asString).mkString(" ")}")
+              val output = missing.map(_.asString).mkString(" ")
+              logger.error(s"Missing unversioned deps in the normalized graph: $output")
               System.exit(-1)
           }
 
@@ -92,7 +95,7 @@ object MakeDeps {
         val targets = Writer.targets(normalized, model) match {
           case Right(t) => t
           case Left(err) =>
-            System.err.println(s"""Could not find explicit exports named by: ${err.mkString(", ")}""")
+            logger.error(s"""Could not find explicit exports named by: ${err.mkString(", ")}""")
             System.exit(-1)
             sys.error("exited already")
         }
@@ -114,7 +117,7 @@ object MakeDeps {
             val exit = Process(List(buildifierPath, "-path", p.asString, "-"), projectRoot).run(processIO).exitValue
             // Blocks until the process exits.
             if (exit != 0) {
-              System.err.println(s"buildifier $buildifierPath failed (code $exit) for ${p.asString}:\n$error")
+              logger.error(s"buildifier $buildifierPath failed (code $exit) for ${p.asString}:\n$error")
               System.exit(-1)
               sys.error("unreachable")
             }
@@ -143,14 +146,14 @@ object MakeDeps {
     // Here we actually run the whole thing
     io.foldMap(IO.fileSystemExec(projectRoot)) match {
       case Failure(err) =>
-        System.err.println(err)
+        logger.error("Failure during IO:", err)
         System.exit(-1)
       case Success(comparisons) =>
         val mismatchedFiles = comparisons.filter(!_.ok)
         if (mismatchedFiles.isEmpty) {
           println(s"all ${comparisons.size} generated files are up-to-date")
         } else {
-          System.err.println(s"some generated files are not up-to-date:\n${mismatchedFiles.map(_.path.asString).sorted.mkString("\n")}")
+          logger.error(s"some generated files are not up-to-date:\n${mismatchedFiles.map(_.path.asString).sorted.mkString("\n")}")
           System.exit(2)
         }
     }
@@ -170,7 +173,7 @@ object MakeDeps {
     // Here we actually run the whole thing
     io.foldMap(IO.fileSystemExec(projectRoot)) match {
       case Failure(err) =>
-        System.err.println(err)
+        logger.error("Failure during IO:", err)
         System.exit(-1)
       case Success(builds) =>
         println(s"wrote ${targets.size} targets in $builds BUILD files")

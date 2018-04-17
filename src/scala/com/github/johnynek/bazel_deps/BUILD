@@ -56,7 +56,8 @@ scala_library(name = "io",
               srcs = ["IO.scala"],
               deps = [
                   "//3rdparty/jvm/org/typelevel:cats_core",
-                  "//3rdparty/jvm/org/typelevel:cats_free"
+                  "//3rdparty/jvm/org/typelevel:cats_free",
+                  "//3rdparty/jvm/org/slf4j:slf4j_api",
               ],
               exports = [
                   "//3rdparty/jvm/org/typelevel:cats_free"
@@ -78,6 +79,7 @@ scala_library(name = "writer",
                       ":io",
                       "//3rdparty/jvm/org/typelevel:cats_core",
                       "//3rdparty/jvm/org/typelevel:cats_free",
+                      "//3rdparty/jvm/org/slf4j:slf4j_api",
                       "@org_typelevel_paiges//:paiges",
                       ],
               visibility = ["//visibility:public"])
@@ -90,6 +92,7 @@ scala_library(name = "makedeps",
                  "//3rdparty/jvm/org/eclipse/aether:aether_api",
                  "//3rdparty/jvm/org/typelevel:cats_core",
                  "//3rdparty/jvm/org/typelevel:cats_free",
+                 "//3rdparty/jvm/org/slf4j:slf4j_api",
                  ":circeyaml",
                  ":commands",
                  ":decoders",
@@ -108,8 +111,6 @@ scala_binary(name = "parseproject",
              deps = [
                  ":makedeps",
                  ":commands",
-                 ],
-             runtime_deps = [
                  "//3rdparty/jvm/org/slf4j:slf4j_simple",
              ],
              main_class = "com.github.johnynek.bazel_deps.ParseProject",
