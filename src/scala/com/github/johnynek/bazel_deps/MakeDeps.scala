@@ -41,8 +41,8 @@ object MakeDeps {
         }
     }
     val deps = model.dependencies
-    val resolver = new Resolver(model.getOptions.getResolvers, resolverCachePath.toAbsolutePath)
-    val graph = resolver.addAll(Graph.empty, deps.roots, model)
+    val resolver = new AetherResolver(model.getOptions.getResolvers, resolverCachePath.toAbsolutePath)
+    val graph = resolver.buildGraph(deps.roots.toList.sorted, model)
     // This is a defensive check that can be removed as we add more tests
     deps.roots.foreach { m => require(graph.nodes(m), s"$m") }
 
@@ -85,7 +85,7 @@ object MakeDeps {
         def replaced(m: MavenCoordinate): Boolean =
           model.getReplacements.get(m.unversioned).isDefined
 
-        val shas = resolver.getShas(normalized.nodes.filterNot(replaced))
+        val shas = resolver.getShas(normalized.nodes.filterNot(replaced).toList.sorted)
         // build the workspace
         def ws = Writer.workspace(g.depsFile, normalized, duplicates, shas, model)
         // build the BUILDs in thirdParty
