@@ -14,8 +14,6 @@ object MakeDeps {
 
   def apply(g: Command.Generate): Unit = {
 
-    logger.info("hello world!")
-
     val content: String = Model.readFile(g.absDepsFile) match {
       case Success(str) => str
       case Failure(err) =>
