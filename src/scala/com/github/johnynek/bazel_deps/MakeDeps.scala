@@ -33,21 +33,8 @@ object MakeDeps {
     }
     val workspacePath = g.shaFilePath
     val projectRoot = g.repoRoot.toFile
-    val resolverCachePath = model.getOptions.getResolverCache match {
-      case ResolverCache.Local => Paths.get("target/local-repo")
-      case ResolverCache.BazelOutputBase =>
-        Try(Process(List("bazel", "info", "output_base"), projectRoot) !!) match {
-          case Success(path) => Paths.get(path.trim, "bazel-deps/local-repo")
-          case Failure(err) =>
-            logger.error(s"Could not find resolver cache path -- `bazel info output_base` failed.", err)
-            System.exit(1)
-            sys.error("unreachable")
-        }
-    }
-    val deps = model.dependencies
-    val resolver = new AetherResolver(model.getOptions.getResolvers, resolverCachePath.toAbsolutePath)
 
-    resolver.run(resolve(model, resolver)) match {
+    runResolve(model, projectRoot) match {
       case Failure(err) =>
         logger.error("resolution and sha collection failed", err)
         System.exit(1)
@@ -96,6 +83,27 @@ object MakeDeps {
           executeGenerate(model, projectRoot, IO.path(workspacePath), ws, targets, formatter)
         }
     }
+  }
+
+  private def runResolve(model: Model, projectRoot: File): Try[(Graph[MavenCoordinate, Unit],
+    SortedMap[MavenCoordinate, ResolvedSha1Value],
+    Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]])] = {
+    val resolverCachePath = model.getOptions.getResolverCache match {
+      case ResolverCache.Local => Paths.get("target/local-repo")
+      case ResolverCache.BazelOutputBase =>
+        Try(Process(List("bazel", "info", "output_base"), projectRoot) !!) match {
+          case Success(path) => Paths.get(path.trim, "bazel-deps/local-repo")
+          case Failure(err) =>
+            logger.error(s"Could not find resolver cache path -- `bazel info output_base` failed.", err)
+            System.exit(1)
+            sys.error("unreachable")
+        }
+    }
+    val deps = model.dependencies
+    // TODO select the resolver from the Model settings
+    val resolver = new AetherResolver(model.getOptions.getResolvers, resolverCachePath.toAbsolutePath)
+
+    resolver.run(resolve(model, resolver))
   }
 
   private def resolve[F[_]](model: Model,
