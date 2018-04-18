@@ -101,7 +101,10 @@ object MakeDeps {
     }
     val deps = model.dependencies
     // TODO select the resolver from the Model settings
-    val resolver = new AetherResolver(model.getOptions.getResolvers, resolverCachePath.toAbsolutePath)
+    //val resolver = new AetherResolver(model.getOptions.getResolvers, resolverCachePath.toAbsolutePath)
+    val ec = scala.concurrent.ExecutionContext.Implicits.global
+    import scala.concurrent.duration._
+    val resolver = new CoursierResolver(model.getOptions.getResolvers, ec, 600.seconds)
 
     resolver.run(resolve(model, resolver))
   }

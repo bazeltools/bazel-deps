@@ -10,6 +10,12 @@ object Decoders {
   implicit val subprojDecoder: Decoder[Subproject] = stringWrapper(Subproject(_))
   implicit val dirnameDecoder: Decoder[DirectoryName] = stringWrapper(DirectoryName(_))
   implicit val targetDecoder: Decoder[BazelTarget] = stringWrapper(BazelTarget(_))
+  implicit val resolverTypeDecoder: Decoder[ResolverType] = 
+    Decoder.decodeString.emap {
+      case "aether" => Right(ResolverType.Aether)
+      case "coursier" => Right(ResolverType.Coursier)
+      case other => Left(s"unrecogized resolverType: $other")
+    }
   implicit val transitivityDecoder: Decoder[Transitivity] =
     Decoder.decodeString.emap {
       case "exports" => Right(Transitivity.Exports)

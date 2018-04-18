@@ -8,8 +8,8 @@ import scala.util.control.NonFatal
 import org.typelevel.paiges.Doc
 import cats.kernel.{ CommutativeMonoid, Monoid, Semigroup }
 import cats.implicits._
+import cats.{ Applicative, Functor, Foldable, Id, SemigroupK, Traverse }
 import cats.data.{ Validated, ValidatedNel, Ior, NonEmptyList }
-import cats.{ Applicative, Functor, Foldable, Traverse }
 
 /**
  * These should be upstreamed to paiges
@@ -1028,11 +1028,8 @@ case class DirectoryName(asString: String) {
 object DirectoryName {
   def default: DirectoryName = DirectoryName("3rdparty/jvm")
 
-  /** Take the right-most (most recent)
-   */
-  implicit val dirNameSemigroup: Semigroup[DirectoryName] = new Semigroup[DirectoryName] {
-    def combine(a: DirectoryName, b: DirectoryName) = b
-  }
+  implicit val dirNameSemigroup: Semigroup[DirectoryName] =
+    Options.useRight.algebra[DirectoryName]
 }
 
 sealed abstract class Transitivity(val asString: String)
@@ -1057,11 +1054,8 @@ object ResolverCache {
   case object Local extends ResolverCache("local")
   case object BazelOutputBase extends ResolverCache("bazel_output_base")
 
-  /** Take the right-most (most recent)
-   */
-  implicit val resolverCacheSemigroup: Semigroup[ResolverCache] = new Semigroup[ResolverCache] {
-    def combine(a: ResolverCache, b: ResolverCache) = b
-  }
+  implicit val resolverCacheSemigroup: Semigroup[ResolverCache] =
+    Options.useRight.algebra[ResolverCache]
 }
 
 case class NamePrefix(val asString: String)
@@ -1070,11 +1064,20 @@ object NamePrefix {
 
   def default: NamePrefix = NamePrefix("")
 
-  /** Take the right-most (most recent)
-   */
-  implicit val namePrefixSemigroup: Semigroup[NamePrefix] = new Semigroup[NamePrefix] {
-    def combine(a: NamePrefix, b: NamePrefix) = b
-  }
+  implicit val namePrefixSemigroup: Semigroup[NamePrefix] =
+    Options.useRight.algebra[NamePrefix]
+}
+
+sealed abstract class ResolverType(val asString: String)
+
+object ResolverType {
+  case object Aether extends ResolverType("aether")
+  case object Coursier extends ResolverType("coursier")
+
+  val default = Aether
+
+  implicit val resolverSemigroup: Semigroup[ResolverType] =
+    Options.useRight.algebra[ResolverType]
 }
 
 
@@ -1087,8 +1090,9 @@ case class Options(
   buildHeader: Option[List[String]],
   resolverCache: Option[ResolverCache],
   namePrefix: Option[NamePrefix],
-  licenses: Option[Set[String]]
-  ) {
+  licenses: Option[Set[String]],
+  resolverType: Option[ResolverType]
+) {
 
   def isDefault: Boolean =
     versionConflictPolicy.isEmpty &&
@@ -1099,7 +1103,8 @@ case class Options(
     buildHeader.isEmpty &&
     resolverCache.isEmpty &&
     namePrefix.isEmpty &&
-    licenses.isEmpty
+    licenses.isEmpty &&
+    resolverType.isEmpty
 
   def getLicenses: Set[String] =
     licenses.getOrElse(Set.empty)
@@ -1139,6 +1144,9 @@ case class Options(
   def getNamePrefix: NamePrefix =
     namePrefix.getOrElse(NamePrefix.default)
 
+  def getResolverType: ResolverType =
+    resolverType.getOrElse(ResolverType.default)
+
   def toDoc: Doc = {
     val items = List(
       ("versionConflictPolicy",
@@ -1158,7 +1166,8 @@ case class Options(
       ("resolverCache", resolverCache.map { rc => Doc.text(rc.asString) }),
       ("namePrefix", namePrefix.map { p => quoteDoc(p.asString) }),
       ("licenses",
-        licenses.map { l => list(l.toList.sorted)(quoteDoc) })
+        licenses.map { l => list(l.toList.sorted)(quoteDoc) }),
+      ("resolverType", resolverType.map(r => quoteDoc(r.asString)))
     ).sortBy(_._1)
      .collect { case (k, Some(v)) => (k, v) }
 
@@ -1168,13 +1177,19 @@ case class Options(
 }
 
 object Options {
+
   def default: Options = optionsMonoid.empty
+
+  def useRight: SemigroupK[Id] =
+    new SemigroupK[Id] {
+      def combineK[A](x: A, y: A): A = y
+    }
 
   /**
    * A monoid on options that is just the point-wise monoid
    */
   implicit val optionsMonoid: Monoid[Options] = new Monoid[Options] {
-    val empty = Options(None, None, None, None, None, None, None, None, None)
+    val empty = Options(None, None, None, None, None, None, None, None, None, None)
 
     def combine(a: Options, b: Options): Options = {
       val vcp = Monoid[Option[VersionConflictPolicy]].combine(a.versionConflictPolicy, b.versionConflictPolicy)
@@ -1186,8 +1201,8 @@ object Options {
       val resolverCache = Monoid[Option[ResolverCache]].combine(a.resolverCache, b.resolverCache)
       val namePrefix = Monoid[Option[NamePrefix]].combine(a.namePrefix, b.namePrefix)
       val licenses = Monoid[Option[Set[String]]].combine(a.licenses, b.licenses)
-
-      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix, licenses)
+      val resolverType = Monoid[Option[ResolverType]].combine(a.resolverType, a.resolverType)
+      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix, licenses, resolverType)
     }
   }
 }
