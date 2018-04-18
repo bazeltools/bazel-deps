@@ -41,13 +41,13 @@ dependencies:
   org.apache.maven:
     maven-aether-provider:
       lang: java
-      version: "3.1.0"
+      version: "3.3.9"
 
   org.eclipse.aether:
     aether:
       lang: java
       modules: [ "api", "connector-basic", "impl", "transport-file", "transport-http" ]
-      version: "1.0.2.v20150114"
+      version: "1.1.0"
 
   org.scala-lang.modules:
     scala-xml:
