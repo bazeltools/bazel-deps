@@ -2,7 +2,7 @@ package com.github.johnynek.bazel_deps
 
 import coursier.{Fetch, Cache, Resolution}
 import coursier.util.Task
-import cats.Monad
+import cats.MonadError
 import scala.collection.immutable.SortedMap
 import scala.util.Try
 
@@ -12,10 +12,10 @@ class CoursierResolver(servers: List[MavenServer]) extends Resolver[Task] {
 
   val fetch = Fetch.from(repos, Cache.fetch[Task]())
 
-  implicit def resolverMonad: Monad[Task] = ???
+  implicit def resolverMonad: MonadError[Task, Throwable] = ???
 
   def run[A](fa: Task[A]): Try[A] = ???
-  def getShas(m: List[MavenCoordinate]): Task[SortedMap[MavenCoordinate, Try[ResolvedSha1Value]]] =
+  def getShas(m: List[MavenCoordinate]): Task[SortedMap[MavenCoordinate, ResolvedSha1Value]] =
     ???
 
   // Build the entire transitive graph of a set of coordinates

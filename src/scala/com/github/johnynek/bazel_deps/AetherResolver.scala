@@ -23,9 +23,11 @@ import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 import scala.collection.immutable.SortedMap
 import scala.collection.breakOut
-import cats.{catsInstancesForId, Id, Monad}
+import cats.{instances, MonadError, Foldable}
 
-class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extends SequentialResolver[Id] {
+import cats.implicits._
+
+class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extends SequentialResolver[Try] {
 
   private[this] val logger = LoggerFactory.getLogger(getClass)
 
@@ -34,8 +36,8 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
     logger.info(s"using resolver $id -> $url")
   }
 
-  def run[A](a: A): Try[A] = Success(a)
-  def resolverMonad: Monad[Id] = catsInstancesForId
+  def run[A](a: Try[A]): Try[A] = a
+  def resolverMonad: MonadError[Try, Throwable] = instances.try_.catsStdInstancesForTry
 
   private val system: RepositorySystem = {
     val locator = MavenRepositorySystemUtils.newServiceLocator
@@ -84,7 +86,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
     system.collectDependencies(session, collectRequest);
   }
 
-  def getShas(m: List[MavenCoordinate]): SortedMap[MavenCoordinate, Try[ResolvedSha1Value]] = {
+  def getShas(m: List[MavenCoordinate]): Try[SortedMap[MavenCoordinate, ResolvedSha1Value]] = {
     /**
      * We try to request the jar.sha1 file, if that fails, we request the jar
      * and do the sha1.
@@ -118,7 +120,12 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
     val computes =
       getExt(shas.collect { case (m, Failure(_)) => m }.toList, "jar")(computeShaOf)
 
-    shas ++ computes
+    // this is sequence but this version of cats does not have traverse on SortedMap
+    Foldable[List].foldM(
+      (shas ++ computes).toList,
+      SortedMap.empty[MavenCoordinate, ResolvedSha1Value]) { case (m, (k, trySha)) =>
+        trySha.map { sha => m + (k -> sha) }
+      }
   }
   private def getFile(m: MavenCoordinate, ext: String, a: ArtifactResult): Try[File] =
     a.getArtifact match {
@@ -168,7 +175,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
 
   type Node = MavenCoordinate
 
-  def addToGraph(deps: Graph[Node, Unit], dep: MavenCoordinate, m: Model): Graph[Node, Unit] = {
+  def addToGraph(deps: Graph[Node, Unit], dep: MavenCoordinate, m: Model): Try[Graph[Node, Unit]] = Try {
     val collectResult = request(dep, m)
     val exceptions = collectResult.getExceptions.asScala
     if (exceptions.nonEmpty) {
