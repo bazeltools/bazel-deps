@@ -17,6 +17,7 @@ import org.eclipse.aether.spi.connector.RepositoryConnectorFactory
 import org.eclipse.aether.spi.connector.transport.TransporterFactory
 import org.eclipse.aether.transport.file.FileTransporterFactory
 import org.eclipse.aether.transport.http.HttpTransporterFactory
+import org.slf4j.LoggerFactory
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
@@ -26,9 +27,16 @@ import cats.{catsInstancesForId, Id, Monad}
 
 class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extends SequentialResolver[Id] {
 
+  private[this] val logger = LoggerFactory.getLogger(getClass)
+
+  logger.info(s"using resolverCachePath: $resolverCachePath")
+  servers.foreach { case MavenServer(id, _, url) =>
+    logger.info(s"using resolver $id -> $url")
+  }
+
   def resolverMonad: Monad[Id] = catsInstancesForId
 
-  private val system = {
+  private val system: RepositorySystem = {
     val locator = MavenRepositorySystemUtils.newServiceLocator
     locator.addService(classOf[RepositoryConnectorFactory], classOf[BasicRepositoryConnectorFactory])
     locator.addService(classOf[TransporterFactory], classOf[FileTransporterFactory])
@@ -36,6 +44,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
 
     locator.setErrorHandler(new DefaultServiceLocator.ErrorHandler {
       override def serviceCreationFailed(t: Class[_], impl: Class[_], exception: Throwable) {
+        logger.error(s"could not create service: $t, $impl", exception)
         exception.printStackTrace()
       }
     })
@@ -159,8 +168,13 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
   type Node = MavenCoordinate
 
   def addToGraph(deps: Graph[Node, Unit], dep: MavenCoordinate, m: Model): Graph[Node, Unit] = {
+    val collectResult = request(dep, m)
+    val exceptions = collectResult.getExceptions.asScala
+    if (exceptions.nonEmpty) {
+      logger.error(s"exceptions on request: ${exceptions.toList}")
+    }
     val visitor = new Visitor(deps, m)
-    val result = request(dep, m).getRoot.accept(visitor)
+    collectResult.getRoot.accept(visitor)
     visitor.currentDeps
   }
 
@@ -205,6 +219,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
       model.dependencies.excludes(src.unversioned).contains(dest.unversioned)
 
     def visitEnter(depNode: DependencyNode): Boolean = {
+      logger.info(s"${depNode.getDependency} -> ${depNode.getChildren.asScala.toList.map(_.getDependency)}")
       val dep = depNode.getDependency
       val shouldAdd = addEdgeTo(dep)
       /**
@@ -212,23 +227,29 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
        * If project a has an optional dependency on b, that does
        * not mean another project does not have a non-optional dependency
        */
-      if (visited((dep, shouldAdd))) false
-      else {
+      if (visited((dep, shouldAdd))) {
+        logger.info(s"already seen dep: ($dep, $shouldAdd)")
+        false
+      } else {
         visited = visited + (dep -> shouldAdd)
         val mvncoord = coord(dep)
         if (shouldAdd) {
+          logger.info(s"adding dep: ($dep, ${dep.isOptional}, ${dep.getScope})")
           currentDeps = currentDeps.addNode(mvncoord)
+        } else {
+          logger.info(s"not adding dep: ($dep, ${dep.isOptional}, ${dep.getScope})")
         }
-        else {
-          //println(s"$dep, ${dep.isOptional}, ${dep.getScope}")
-        }
+        logger.info(s"path depth: ${stack.size}")
         stack match {
-          case Nil => ()
+          case Nil =>
+            ()
           case h :: _ =>
             val src = coord(h)
             if (shouldAdd && !excludeEdge(src, mvncoord)) {
-              currentDeps = currentDeps
-                .addEdge(Edge(src, mvncoord, ()))
+              logger.info(s"adding edge: $src -> $mvncoord")
+              currentDeps = currentDeps.addEdge(Edge(src, mvncoord, ()))
+            } else {
+              logger.info(s"not adding edge: $src -> $mvncoord")
             }
         }
         stack = dep :: stack
@@ -238,7 +259,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
     def visitLeave(dep: DependencyNode): Boolean = {
       require(stack.head == dep.getDependency, s"stack mismatch: ${stack.head} != ${dep.getDependency}")
       stack = stack.tail
-      true
+      true // always visit siblings
     }
   }
 }

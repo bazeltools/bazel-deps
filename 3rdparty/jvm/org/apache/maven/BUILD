@@ -5,16 +5,40 @@ java_library(
         "//external:jar/org/apache/maven/maven_aether_provider"
     ],
     runtime_deps = [
+        "//3rdparty/jvm/org/apache/commons:commons_lang3",
         "//3rdparty/jvm/org/codehaus/plexus:plexus_component_annotations",
         "//3rdparty/jvm/org/codehaus/plexus:plexus_utils",
         "//3rdparty/jvm/org/eclipse/aether:aether_api",
         "//3rdparty/jvm/org/eclipse/aether:aether_impl",
         "//3rdparty/jvm/org/eclipse/aether:aether_spi",
         "//3rdparty/jvm/org/eclipse/aether:aether_util",
-        "//3rdparty/jvm/org/eclipse/sisu:org_eclipse_sisu_plexus",
         ":maven_model",
         ":maven_model_builder",
         ":maven_repository_metadata"
+    ],
+    visibility = [
+        "//visibility:public"
+    ]
+)
+
+
+
+java_library(
+    name = "maven_artifact",
+    exports = [
+        "//external:jar/org/apache/maven/maven_artifact"
+    ],
+    visibility = [
+        "//visibility:public"
+    ]
+)
+
+
+
+java_library(
+    name = "maven_builder_support",
+    exports = [
+        "//external:jar/org/apache/maven/maven_builder_support"
     ],
     visibility = [
         "//visibility:public"
@@ -41,7 +65,10 @@ java_library(
         "//external:jar/org/apache/maven/maven_model_builder"
     ],
     runtime_deps = [
-        "//3rdparty/jvm/org/codehaus/plexus:plexus_interpolation"
+        "//3rdparty/jvm/com/google/guava:guava",
+        "//3rdparty/jvm/org/codehaus/plexus:plexus_interpolation",
+        ":maven_artifact",
+        ":maven_builder_support"
     ],
     visibility = [
         "//visibility:public"
