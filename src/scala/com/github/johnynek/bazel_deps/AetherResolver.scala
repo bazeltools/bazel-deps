@@ -232,8 +232,10 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
         } else {
           logger.info(s"not adding dep: ($dep, ${dep.isOptional}, ${dep.getScope})")
         }
+        logger.info(s"path depth: ${stack.size}")
         stack match {
-          case Nil => ()
+          case Nil =>
+            ()
           case h :: _ =>
             val src = coord(h)
             if (shouldAdd && !excludeEdge(src, mvncoord)) {
