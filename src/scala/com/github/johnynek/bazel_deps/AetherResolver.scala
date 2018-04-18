@@ -213,6 +213,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
       model.dependencies.excludes(src.unversioned).contains(dest.unversioned)
 
     def visitEnter(depNode: DependencyNode): Boolean = {
+      logger.info(s"${depNode.getDependency} -> ${depNode.getChildren.asScala.toList.map(_.getDependency)}")
       val dep = depNode.getDependency
       val shouldAdd = addEdgeTo(dep)
       /**
@@ -252,7 +253,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
     def visitLeave(dep: DependencyNode): Boolean = {
       require(stack.head == dep.getDependency, s"stack mismatch: ${stack.head} != ${dep.getDependency}")
       stack = stack.tail
-      true
+      true // always visit siblings
     }
   }
 }
