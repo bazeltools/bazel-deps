@@ -1,6 +1,7 @@
 package com.github.johnynek.bazel_deps
 
-import java.io.{ File, BufferedReader, FileReader }
+import java.io.{ BufferedReader, ByteArrayOutputStream, File, FileInputStream, FileReader, InputStream }
+import java.security.MessageDigest
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
@@ -167,9 +168,69 @@ object ArtifactOrProject {
   implicit val ordering: Ordering[ArtifactOrProject] = Ordering.by(_.asString)
 }
 
+case class Sha1Value(toHex: String)
+
+object Sha1Value {
+
+  def computeShaOf(f: File): Try[Sha1Value] = Try {
+    val sha = MessageDigest.getInstance("SHA-1")
+    val fis = new FileInputStream(f)
+    try {
+      // var n = 0;
+      // val buffer = new Array[Byte](8192)
+      // while (n != -1) {
+      //   n = fis.read(buffer)
+      //   if (n > 0) sha.update(buffer, 0, n)
+      // }
+      withContent(fis) { (buffer, n) =>
+        if (n > 0) sha.update(buffer, 0, n) else ()
+      }
+      Success(Sha1Value(sha.digest.map("%02X".format(_)).mkString.toLowerCase))
+    }
+    catch {
+      case NonFatal(err) => Failure(err)
+    }
+    finally {
+      fis.close
+    }
+  }.flatten
+
+  def withContent(is: InputStream)(f: (Array[Byte], Int) => Unit): Unit = {
+    val data = Array.ofDim[Byte](16384)
+    var nRead = is.read(data, 0, data.length)
+    while (nRead != -1) {
+      f(data, nRead)
+      nRead = is.read(data, 0, data.length)
+    }
+  }
+
+  def parseFile(file: File): Try[Sha1Value] = {
+    val fis = new FileInputStream(file)
+    val baos = new ByteArrayOutputStream()
+    withContent(fis) { (buffer, n) =>
+      baos.write(buffer, 0, n)
+    }
+    val s = new String(baos.toByteArray, "UTF-8")
+    parseData(s)
+  }
+
+  def parseData(contents: String): Try[Sha1Value] = {
+    val hexString = contents
+      .split("\\s") // some files have sha<whitespace>filename
+      .dropWhile(_.isEmpty)
+      .head
+      .trim
+      .toLowerCase
+    if (hexString.length == 40 && hexString.matches("[0-9A-Fa-f]*")) {
+      Success(Sha1Value(hexString))
+    } else {
+      Failure(new Exception(s"string: $hexString, not a valid SHA1"))
+    }
+  }
+}
+
 case class Subproject(asString: String)
 case class Version(asString: String)
-case class Sha1Value(toHex: String)
 case class MavenServer(id: String, contentType: String, url: String) {
   def toDoc: Doc =
     packedYamlMap(

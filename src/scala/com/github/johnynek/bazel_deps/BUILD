@@ -42,6 +42,7 @@ scala_library(
         "//3rdparty/jvm/io/get_coursier:coursier",
         "//3rdparty/jvm/io/get_coursier:coursier_cache",
         "//3rdparty/jvm/org/typelevel:cats_core",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
         ":resolver",
         ":depsmodel",
         ":graph",
