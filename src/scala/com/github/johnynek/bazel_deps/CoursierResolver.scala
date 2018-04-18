@@ -4,7 +4,6 @@ import coursier.{Fetch, Cache, Resolution}
 import coursier.util.Task
 import cats.{Monad, MonadError, Traverse}
 import cats.data.{Nested, NonEmptyList, Validated, ValidatedNel}
-//import cats.instances._
 import cats.implicits._
 import org.slf4j.LoggerFactory
 import scala.collection.immutable.SortedMap
@@ -63,16 +62,22 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
     def lookup(c: MavenCoordinate): N[ResolvedSha1Value] = {
 
-      def downloadSha1s(us: List[String]): Task[Option[ResolvedSha1Value]] =
-        us.foldM(Option.empty[ResolvedSha1Value]) {
-          case (s @ Some(_), _) => Task.point(s)
-          case (None, u) => downloadSha1(u)
+      def downloadSha1s(as: List[coursier.Artifact]): Task[Option[ResolvedSha1Value]] =
+        as.foldM(Option.empty[ResolvedSha1Value]) {
+          case (s @ Some(r), _) => Task.point(s)
+          case (None, a) => downloadSha1(a)
         }
 
-      def downloadSha1(u: String): Task[Option[ResolvedSha1Value]] =
-        Task.delay {
-          val file = Cache.localFile(u, Cache.default, None)
-          Sha1Value.parseFile(file).map(s => ResolvedSha1Value(s, serverId)).toOption
+      def downloadSha1(a: coursier.Artifact): Task[Option[ResolvedSha1Value]] =
+        Cache.file[Task](a).run.map {
+          case Left(error) =>
+            None
+          case Right(file) =>
+            val o = Sha1Value.parseFile(file).map(s => ResolvedSha1Value(s, serverId)).toOption
+            o.foreach { r =>
+              logger.info(s"SHA-1 for ${c.asString} downloaded from ${a.url} (${r.sha1Value.toHex})")
+            }
+            o
         }
 
       def computeSha1(artifact: coursier.Artifact): Task[ResolvedSha1Value] =
@@ -81,8 +86,10 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             case Left(error) =>
               Failure(FileErrorException(error))
             case Right(file) =>
-              Sha1Value.computeShaOf(file)
-                .map(sha => ResolvedSha1Value(sha, serverId))
+              Sha1Value.computeShaOf(file).map { sha =>
+                logger.info(s"SHA-1 for ${c.asString} computed from ${artifact.url} (${sha.toHex})")
+                ResolvedSha1Value(sha, serverId)
+              }
           })
         }
 
@@ -104,8 +111,15 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
           Task.point(Validated.invalid(nel))
         case Right((src, proj)) =>
           val dep = coursier.Dependency(module, version)
-          val artifacts = src.artifacts(dep, proj, None).toList
-          downloadSha1s(artifacts.flatMap(_.checksumUrls.get("SHA-1"))).flatMap {
+
+          val artifacts = src.artifacts(dep, proj, None)
+            .iterator
+            .filter(_.url.endsWith(".jar"))
+            .toList
+
+          if (artifacts.isEmpty) sys.error(s"no artifacts for ${c.asString} found")
+
+          downloadSha1s(artifacts.flatMap(_.extra.get("SHA-1"))).flatMap {
             case Some(s) => Task.point(s)
             case None => computeSha1s(artifacts)
           }.map(Validated.valid(_))

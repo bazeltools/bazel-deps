@@ -50,6 +50,9 @@ java_library(
     exports = [
         "//external:jar/org/eclipse/aether/aether_spi"
     ],
+    runtime_deps = [
+        ":aether_api"
+    ],
     visibility = [
         "//visibility:public"
     ]
@@ -97,6 +100,9 @@ java_library(
     name = "aether_util",
     exports = [
         "//external:jar/org/eclipse/aether/aether_util"
+    ],
+    runtime_deps = [
+        ":aether_api"
     ],
     visibility = [
         "//visibility:public"
