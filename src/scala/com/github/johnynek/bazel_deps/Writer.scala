@@ -57,7 +57,7 @@ object Writer {
 
   def workspace(depsFile: String, g: Graph[MavenCoordinate, Unit],
     duplicates: Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]],
-    shas: Map[MavenCoordinate, Try[ResolvedSha1Value]],
+    shas: Map[MavenCoordinate, ResolvedSha1Value],
     model: Model): String = {
     val nodes = g.nodes
 
@@ -72,13 +72,10 @@ object Writer {
       .map { case coord@MavenCoordinate(g, a, v) =>
         val isRoot = model.dependencies.roots(coord)
         val (shaStr, serverStr) = shas.get(coord) match {
-          case Some(Success(sha)) =>
+          case Some(sha) =>
             val hex = sha.sha1Value.toHex
             val serverUrl = servers.getOrElse(sha.serverId, "")
             (s""", "sha1": "${hex}"""", s""", "repository": "${serverUrl}"""")
-          case Some(Failure(err)) =>
-            logger.error(s"failed to find sha of ${coord.asString}:", err)
-            throw err
           case None => ("", "")
         }
         val comment = duplicates.get(coord.unversioned) match {

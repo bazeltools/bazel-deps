@@ -1,12 +1,13 @@
 package com.github.johnynek.bazel_deps
 
-import cats.instances.try_._
 import java.io.File
 import java.nio.file.Paths
 import io.circe.jawn.JawnParser
 import org.slf4j.LoggerFactory
 import scala.sys.process.{ BasicIO, Process, ProcessIO }
 import scala.util.{ Failure, Success, Try }
+import scala.collection.immutable.SortedMap
+import cats.implicits._
 
 object MakeDeps {
 
@@ -45,50 +46,12 @@ object MakeDeps {
     }
     val deps = model.dependencies
     val resolver = new AetherResolver(model.getOptions.getResolvers, resolverCachePath.toAbsolutePath)
-    val graph = resolver.buildGraph(deps.roots.toList.sorted, model)
-    // This is a defensive check that can be removed as we add more tests
-    deps.roots.foreach { m => require(graph.nodes(m), s"$m") }
 
-    Normalizer(graph, deps.roots, model.getOptions.getVersionConflictPolicy) match {
-      case None =>
-        val output = graph.nodes.groupBy(_.unversioned)
-          .mapValues { _.map(_.version).toList.sorted }
-          .filter { case (_, s) => s.lengthCompare(1) > 0 }
-          .map { case (u, vs) => s"""${u.asString}: ${vs.mkString(", ")}\n""" }
-          .mkString("\n")
-        logger.error(s"could not normalize versions:\n$output")
+    resolver.run(resolve(model, resolver)) match {
+      case Failure(err) =>
+        logger.error("resolution and sha collection failed", err)
         System.exit(1)
-      case Some(normalized) =>
-        /**
-         * The graph is now normalized, lets get the shas
-         */
-        val duplicates = graph.nodes
-          .groupBy(_.unversioned)
-          .mapValues { ns =>
-            ns.flatMap { n =>
-              graph.hasDestination(n).filter(e => normalized.nodes(e.source))
-            }
-          }
-          .filter { case (_, set) => set.map(_.destination.version).size > 1 }
-
-        /**
-         * Make sure all the optional versioned items were found
-         */
-        val uvNodes = normalized.nodes.map(_.unversioned)
-        deps.unversionedRoots.filterNot { u =>
-            uvNodes(u) || model.getReplacements.get(u).isDefined
-          }.toList match {
-            case Nil => ()
-            case missing =>
-              val output = missing.map(_.asString).mkString(" ")
-              logger.error(s"Missing unversioned deps in the normalized graph: $output")
-              System.exit(-1)
-          }
-
-        def replaced(m: MavenCoordinate): Boolean =
-          model.getReplacements.get(m.unversioned).isDefined
-
-        val shas = resolver.getShas(normalized.nodes.filterNot(replaced).toList.sorted)
+      case Success((normalized, shas, duplicates)) =>
         // build the workspace
         def ws = Writer.workspace(g.depsFile, normalized, duplicates, shas, model)
         // build the BUILDs in thirdParty
@@ -133,6 +96,68 @@ object MakeDeps {
           executeGenerate(model, projectRoot, IO.path(workspacePath), ws, targets, formatter)
         }
     }
+  }
+
+  private def resolve[F[_]](model: Model,
+    resolver: Resolver[F]): F[(Graph[MavenCoordinate, Unit],
+    SortedMap[MavenCoordinate, ResolvedSha1Value],
+    Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]])] = {
+    import resolver.resolverMonad
+
+    val deps = model.dependencies
+    resolver.buildGraph(deps.roots.toList.sorted, model)
+      .flatMap { graph =>
+        // This is a defensive check that can be removed as we add more tests
+        resolverMonad.catchNonFatal {
+          deps.roots.foreach { m => require(graph.nodes(m), s"$m") }
+          graph
+        }
+      }
+      .flatMap { graph =>
+        Normalizer(graph, deps.roots, model.getOptions.getVersionConflictPolicy) match {
+          case None =>
+            val output = graph.nodes.groupBy(_.unversioned)
+              .mapValues { _.map(_.version).toList.sorted }
+              .filter { case (_, s) => s.lengthCompare(1) > 0 }
+              .map { case (u, vs) => s"""${u.asString}: ${vs.mkString(", ")}\n""" }
+              .mkString("\n")
+            resolverMonad.raiseError(new Exception(
+              s"could not normalize versions:\n$output"))
+          case Some(normalized) =>
+            /**
+             * The graph is now normalized, lets get the shas
+             */
+            val duplicates = graph.nodes
+              .groupBy(_.unversioned)
+              .mapValues { ns =>
+                ns.flatMap { n =>
+                  graph.hasDestination(n).filter(e => normalized.nodes(e.source))
+                }
+              }
+              .filter { case (_, set) => set.map(_.destination.version).size > 1 }
+
+            /**
+             * Make sure all the optional versioned items were found
+             */
+            val uvNodes = normalized.nodes.map(_.unversioned)
+            val check = deps.unversionedRoots.filterNot { u =>
+                uvNodes(u) || model.getReplacements.get(u).isDefined
+              }.toList match {
+                case Nil => resolverMonad.pure(())
+                case missing =>
+                  val output = missing.map(_.asString).mkString(" ")
+                  resolverMonad.raiseError(new Exception(s"Missing unversioned deps in the normalized graph: $output"))
+              }
+
+            def replaced(m: MavenCoordinate): Boolean =
+              model.getReplacements.get(m.unversioned).isDefined
+
+            for {
+              _ <- check
+              shas <- resolver.getShas(normalized.nodes.filterNot(replaced).toList.sorted)
+            } yield (normalized, shas, duplicates)
+        }
+      }
   }
 
   private def executeCheckOnly(model: Model, projectRoot: File, workspacePath: IO.Path, workspaceContents: String, targets: List[Target], formatter: Writer.BuildFileFormatter): Unit = {
