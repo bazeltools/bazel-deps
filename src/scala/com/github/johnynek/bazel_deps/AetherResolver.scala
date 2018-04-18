@@ -36,7 +36,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
 
   def resolverMonad: Monad[Id] = catsInstancesForId
 
-  private val system = {
+  private val system: RepositorySystem = {
     val locator = MavenRepositorySystemUtils.newServiceLocator
     locator.addService(classOf[RepositoryConnectorFactory], classOf[BasicRepositoryConnectorFactory])
     locator.addService(classOf[TransporterFactory], classOf[FileTransporterFactory])
@@ -44,6 +44,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
 
     locator.setErrorHandler(new DefaultServiceLocator.ErrorHandler {
       override def serviceCreationFailed(t: Class[_], impl: Class[_], exception: Throwable) {
+        logger.error(s"could not create service: $t, $impl", exception)
         exception.printStackTrace()
       }
     })
@@ -167,8 +168,13 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
   type Node = MavenCoordinate
 
   def addToGraph(deps: Graph[Node, Unit], dep: MavenCoordinate, m: Model): Graph[Node, Unit] = {
+    val collectResult = request(dep, m)
+    val exceptions = collectResult.getExceptions.asScala
+    if (exceptions.nonEmpty) {
+      logger.error(s"exceptions on request: ${exceptions.toList}")
+    }
     val visitor = new Visitor(deps, m)
-    val result = request(dep, m).getRoot.accept(visitor)
+    collectResult.getRoot.accept(visitor)
     visitor.currentDeps
   }
 
