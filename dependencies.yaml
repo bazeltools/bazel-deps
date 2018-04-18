@@ -38,6 +38,12 @@ dependencies:
       lang: scala
       version: "0.8.0"
 
+  io.get-coursier:
+    coursier:
+      modules: ["", "cache"]
+      lang: scala
+      version: "1.1.0-M1"
+
   org.apache.maven:
     maven-aether-provider:
       lang: java

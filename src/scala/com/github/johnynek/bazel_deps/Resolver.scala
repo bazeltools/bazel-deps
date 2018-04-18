@@ -18,6 +18,8 @@ trait Resolver[F[_]] {
 
   // Build the entire transitive graph of a set of coordinates
   def buildGraph(coords: List[MavenCoordinate], m: Model): F[Graph[MavenCoordinate, Unit]]
+
+  def run[A](f: F[A]): Try[A]
 }
 
 trait SequentialResolver[F[_]] extends Resolver[F] {

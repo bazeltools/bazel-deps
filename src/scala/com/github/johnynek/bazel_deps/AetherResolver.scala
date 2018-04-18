@@ -34,6 +34,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
     logger.info(s"using resolver $id -> $url")
   }
 
+  def run[A](a: A): Try[A] = Success(a)
   def resolverMonad: Monad[Id] = catsInstancesForId
 
   private val system: RepositorySystem = {

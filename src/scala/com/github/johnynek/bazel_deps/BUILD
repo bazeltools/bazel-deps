@@ -35,6 +35,19 @@ scala_library(name = "resolver",
               ],
               visibility = ["//visibility:public"])
 
+scala_library(
+    name = "coursier_resolver",
+    srcs = ["CoursierResolver.scala"],
+    deps = [
+        "//3rdparty/jvm/io/get_coursier:coursier",
+        "//3rdparty/jvm/io/get_coursier:coursier_cache",
+        "//3rdparty/jvm/org/typelevel:cats_core",
+        ":resolver",
+        ":depsmodel",
+        ":graph",
+        ],
+    visibility = ["//visibility:public"])
+
 scala_library(name = "aether_resolver",
               srcs = ["AetherResolver.scala"],
               deps = [
