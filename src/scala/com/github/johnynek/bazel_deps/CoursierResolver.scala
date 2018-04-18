@@ -5,16 +5,26 @@ import coursier.util.Task
 import cats.MonadError
 import scala.collection.immutable.SortedMap
 import scala.util.Try
+import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.duration.Duration
 
-class CoursierResolver(servers: List[MavenServer]) extends Resolver[Task] {
+class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTimeout: Duration) extends Resolver[Task] {
   // TODO: add support for a local file cache other than ivy
   val repos = Cache.ivy2Local :: servers.map { ms => coursier.MavenRepository(ms.url) }
 
   val fetch = Fetch.from(repos, Cache.fetch[Task]())
 
-  implicit def resolverMonad: MonadError[Task, Throwable] = ???
+  implicit def resolverMonad: MonadError[Task, Throwable] =
+    new MonadError[Task, Throwable] {
+      def pure[A](a: A) = Task.point(a)
+      def flatMap[A, B](fa: Task[A])(fn: A => Task[B]) = fa.flatMap(fn)
+      def handleErrorWith[A](fa: Task[A])(rec: Throwable => Task[A]) = ???
+      def raiseError[A](e: Throwable): Task[A] = ???
+      def tailRecM[A, B](a: A)(f: A => Task[Either[A, B]]): Task[B] = ???
+    }
 
-  def run[A](fa: Task[A]): Try[A] = ???
+  def run[A](fa: Task[A]): Try[A] = Try(Await.result(fa.value(ec), runTimeout))
+
   def getShas(m: List[MavenCoordinate]): Task[SortedMap[MavenCoordinate, ResolvedSha1Value]] =
     ???
 
