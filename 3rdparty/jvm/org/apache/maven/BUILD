@@ -28,6 +28,10 @@ java_library(
     exports = [
         "//external:jar/org/apache/maven/maven_artifact"
     ],
+    runtime_deps = [
+        "//3rdparty/jvm/org/apache/commons:commons_lang3",
+        "//3rdparty/jvm/org/codehaus/plexus:plexus_utils"
+    ],
     visibility = [
         "//visibility:public"
     ]
@@ -40,6 +44,10 @@ java_library(
     exports = [
         "//external:jar/org/apache/maven/maven_builder_support"
     ],
+    runtime_deps = [
+        "//3rdparty/jvm/org/apache/commons:commons_lang3",
+        "//3rdparty/jvm/org/codehaus/plexus:plexus_utils"
+    ],
     visibility = [
         "//visibility:public"
     ]
@@ -51,6 +59,10 @@ java_library(
     name = "maven_model",
     exports = [
         "//external:jar/org/apache/maven/maven_model"
+    ],
+    runtime_deps = [
+        "//3rdparty/jvm/org/apache/commons:commons_lang3",
+        "//3rdparty/jvm/org/codehaus/plexus:plexus_utils"
     ],
     visibility = [
         "//visibility:public"
@@ -66,9 +78,13 @@ java_library(
     ],
     runtime_deps = [
         "//3rdparty/jvm/com/google/guava:guava",
+        "//3rdparty/jvm/org/apache/commons:commons_lang3",
+        "//3rdparty/jvm/org/codehaus/plexus:plexus_component_annotations",
         "//3rdparty/jvm/org/codehaus/plexus:plexus_interpolation",
+        "//3rdparty/jvm/org/codehaus/plexus:plexus_utils",
         ":maven_artifact",
-        ":maven_builder_support"
+        ":maven_builder_support",
+        ":maven_model"
     ],
     visibility = [
         "//visibility:public"
@@ -81,6 +97,9 @@ java_library(
     name = "maven_repository_metadata",
     exports = [
         "//external:jar/org/apache/maven/maven_repository_metadata"
+    ],
+    runtime_deps = [
+        "//3rdparty/jvm/org/codehaus/plexus:plexus_utils"
     ],
     visibility = [
         "//visibility:public"

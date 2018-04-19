@@ -1,7 +1,6 @@
 package com.github.johnynek.bazel_deps
 
-import java.security.MessageDigest
-import java.io.{ File, FileInputStream }
+import java.io.File
 import java.nio.file.Path
 import java.util
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
@@ -118,7 +117,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
 
     val shas = getExt(m.toList, "jar.sha1")(readShaContents)
     val computes =
-      getExt(shas.collect { case (m, Failure(_)) => m }.toList, "jar")(computeShaOf)
+      getExt(shas.collect { case (m, Failure(_)) => m }.toList, "jar")(Sha1Value.computeShaOf)
 
     // this is sequence but this version of cats does not have traverse on SortedMap
     Foldable[List].foldM(
@@ -139,39 +138,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
     }
 
   private def readShaContents(f: File): Try[Sha1Value] =
-    Model.readFile(f).flatMap { str =>
-      val hexString = str
-          .split("\\s") // some files have sha<whitespace>filename
-          .dropWhile(_.isEmpty)
-          .head
-          .trim
-          .toLowerCase
-      if (hexString.length == 40 && hexString.matches("[0-9A-Fa-f]*")) {
-        Success(Sha1Value(hexString))
-      } else {
-        Failure(new Exception(s"string: $hexString, not a valid SHA1"))
-      }
-    }
-
-  private def computeShaOf(f: File): Try[Sha1Value] = Try {
-    val sha = MessageDigest.getInstance("SHA-1")
-    val fis = new FileInputStream(f)
-    try {
-      var n = 0;
-      val buffer = new Array[Byte](8192)
-      while (n != -1) {
-        n = fis.read(buffer)
-        if (n > 0) sha.update(buffer, 0, n)
-      }
-      Success(Sha1Value(sha.digest.map("%02X".format(_)).mkString.toLowerCase))
-    }
-    catch {
-      case NonFatal(err) => Failure(err)
-    }
-    finally {
-      fis.close
-    }
-  }.flatten
+    Model.readFile(f).flatMap(Sha1Value.parseData)
 
   type Node = MavenCoordinate
 

@@ -67,7 +67,8 @@ object ModelGenerators {
     cache <- Gen.option(Gen.oneOf(ResolverCache.Local, ResolverCache.BazelOutputBase))
     prefix <- Gen.option(Gen.identifier.map(NamePrefix(_)))
     licenses <- Gen.option(Gen.someOf("unencumbered", "permissive", "restricted", "notice").map(_.toSet))
-  } yield Options(vcp, dir, langs, res, trans, heads, cache, prefix, licenses)
+    resolverType <- Gen.option(Gen.oneOf(ResolverType.Aether, ResolverType.Coursier))
+  } yield Options(vcp, dir, langs, res, trans, heads, cache, prefix, licenses, resolverType)
 
   val modelGen: Gen[Model] = for {
     o <- Gen.option(optionGen)

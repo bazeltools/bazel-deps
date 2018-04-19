@@ -35,6 +35,20 @@ scala_library(name = "resolver",
               ],
               visibility = ["//visibility:public"])
 
+scala_library(
+    name = "coursier_resolver",
+    srcs = ["CoursierResolver.scala"],
+    deps = [
+        "//3rdparty/jvm/io/get_coursier:coursier",
+        "//3rdparty/jvm/io/get_coursier:coursier_cache",
+        "//3rdparty/jvm/org/typelevel:cats_core",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        ":resolver",
+        ":depsmodel",
+        ":graph",
+        ],
+    visibility = ["//visibility:public"])
+
 scala_library(name = "aether_resolver",
               srcs = ["AetherResolver.scala"],
               deps = [
@@ -88,8 +102,10 @@ scala_library(name = "writer",
 scala_library(name = "makedeps",
              srcs = ["MakeDeps.scala", "FormatDeps.scala", "MergeDeps.scala"],
              deps = [
+                 "//3rdparty/jvm/io/get_coursier:coursier",
+                 "//3rdparty/jvm/io/get_coursier:coursier_cache",
                  "//3rdparty/jvm/io/circe:circe_core",
-                 "//3rdparty/jvm/io/circe:circe_jawn_2_11",
+                 "//3rdparty/jvm/io/circe:circe_jawn",
                  "//3rdparty/jvm/org/eclipse/aether:aether_api",
                  "//3rdparty/jvm/org/typelevel:cats_core",
                  "//3rdparty/jvm/org/typelevel:cats_free",
@@ -102,6 +118,7 @@ scala_library(name = "makedeps",
                  ":io",
                  ":normalizer",
                  ":aether_resolver",
+                 ":coursier_resolver",
                  ":resolver",
                  ":writer",
              ],
