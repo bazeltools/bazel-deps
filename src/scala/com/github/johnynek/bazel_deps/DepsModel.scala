@@ -176,12 +176,6 @@ object Sha1Value {
     val sha = MessageDigest.getInstance("SHA-1")
     val fis = new FileInputStream(f)
     try {
-      // var n = 0;
-      // val buffer = new Array[Byte](8192)
-      // while (n != -1) {
-      //   n = fis.read(buffer)
-      //   if (n > 0) sha.update(buffer, 0, n)
-      // }
       withContent(fis) { (buffer, n) =>
         if (n > 0) sha.update(buffer, 0, n) else ()
       }
@@ -1201,7 +1195,7 @@ object Options {
       val resolverCache = Monoid[Option[ResolverCache]].combine(a.resolverCache, b.resolverCache)
       val namePrefix = Monoid[Option[NamePrefix]].combine(a.namePrefix, b.namePrefix)
       val licenses = Monoid[Option[Set[String]]].combine(a.licenses, b.licenses)
-      val resolverType = Monoid[Option[ResolverType]].combine(a.resolverType, a.resolverType)
+      val resolverType = Monoid[Option[ResolverType]].combine(a.resolverType, b.resolverType)
       Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix, licenses, resolverType)
     }
   }

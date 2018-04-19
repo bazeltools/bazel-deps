@@ -129,6 +129,9 @@ In the options we set:
   binding targets of each dependency are prefixed.
 * licenses: a set of strings added a licenses rule to each generated bazel target.  Required by
   bazel if your build targets are under third_party/
+* resolverType: the string aether or coursier. `aether` is the default, but it is slower and seems
+  to silently miss some dependencies for reasons we don't yet understand. Coursier will likely be
+  the default in the future, but for now it is opt in.
 
 In the default case, with no options given, we use:
 - `highest` versionConflictPolicy

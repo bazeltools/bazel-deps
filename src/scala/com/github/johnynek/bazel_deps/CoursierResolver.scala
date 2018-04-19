@@ -13,9 +13,9 @@ import scala.concurrent.duration.Duration
 
 class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTimeout: Duration) extends Resolver[Task] {
   // TODO: add support for a local file cache other than ivy
-  val repos = Cache.ivy2Local :: servers.map { ms => coursier.MavenRepository(ms.url) }
+  private[this] val repos = Cache.ivy2Local :: servers.map { ms => coursier.MavenRepository(ms.url) }
 
-  val fetch = Fetch.from(repos, Cache.fetch[Task]())
+  private[this] val fetch = Fetch.from(repos, Cache.fetch[Task]())
 
   private[this] val logger = LoggerFactory.getLogger("bazel_deps.CoursierResolver")
 
@@ -27,7 +27,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
       logger.warn(s"resolver is only using a local ivy cache")
       ""
     case m :: ms =>
-      if (ms.nonEmpty) logger.warn(s"server ids may be unreliable")
+      if (ms.nonEmpty) logger.warn(s"server ids may be unreliable, assuming all from $m")
       m.id
   }
 
@@ -54,6 +54,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
   def run[A](fa: Task[A]): Try[A] = Try(Await.result(fa.value(ec), runTimeout))
 
   case class FileErrorException(error: coursier.FileError) extends Exception(error.describe)
+  case class DownloadFailures(messages: NonEmptyList[String]) extends Exception("resolution errors:\n" + messages.toList.mkString("\n"))
 
   def getShas(m: List[MavenCoordinate]): Task[SortedMap[MavenCoordinate, ResolvedSha1Value]] = {
 
@@ -71,6 +72,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
       def downloadSha1(a: coursier.Artifact): Task[Option[ResolvedSha1Value]] =
         Cache.file[Task](a).run.map {
           case Left(error) =>
+            logger.info(s"failure to download ${a.url}, ${error.describe}")
             None
           case Right(file) =>
             val o = Sha1Value.parseFile(file).map(s => ResolvedSha1Value(s, serverId)).toOption
@@ -95,16 +97,27 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
       def computeSha1s(as: List[coursier.Artifact]): Task[ResolvedSha1Value] =
         as match {
-          case Nil => Task.point(sys.error("!!!"))
-          case a :: _ => computeSha1(a)
+          case Nil => resolverMonad.raiseError(new RuntimeException(s"we could not download the artifact ${c.asString} to compute the hash"))
+          case head :: tail =>
+            resolverMonad.handleErrorWith(computeSha1(head))(_ => computeSha1s(tail))
         }
-        
+
       val module = coursier.Module(c.group.asString, c.artifact.asString, Map.empty)
       val version = c.version.asString
       val f = Cache.fetch[Task]()
-      val t = Fetch.find[Task](repos, module, version, f).run
+      val task = Fetch.find[Task](repos, module, version, f).run
 
-      Nested[Task, L, ResolvedSha1Value](t.flatMap {
+      /*
+       * we use Nested here to accumulate all the errors so we can
+       * present all to the user, not just one at a time.
+       *
+       * Note, we could have a custom Task applicative here to make
+       * sure we run in parallel, but the default product/map2 will
+       * probably be sequential.
+       *
+       * See cats.Parallel for this.
+       */
+      Nested[Task, L, ResolvedSha1Value](task.flatMap {
         case Left(errors) =>
           val nel = NonEmptyList.fromList(errors.toList)
             .getOrElse(NonEmptyList("<empty message>", Nil))
@@ -112,17 +125,19 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
         case Right((src, proj)) =>
           val dep = coursier.Dependency(module, version)
 
+          // TODO, this does not seem like the idea thing, but it seems to work.
           val artifacts = src.artifacts(dep, proj, None)
             .iterator
             .filter(_.url.endsWith(".jar"))
             .toList
 
-          if (artifacts.isEmpty) sys.error(s"no artifacts for ${c.asString} found")
-
-          downloadSha1s(artifacts.flatMap(_.extra.get("SHA-1"))).flatMap {
-            case Some(s) => Task.point(s)
-            case None => computeSha1s(artifacts)
-          }.map(Validated.valid(_))
+          if (artifacts.isEmpty) resolverMonad.raiseError(new RuntimeException(s"no artifacts for ${c.asString} found"))
+          else {
+            downloadSha1s(artifacts.flatMap(_.extra.get("SHA-1"))).flatMap {
+              case Some(s) => Task.point(s)
+              case None => computeSha1s(artifacts)
+            }.map(Validated.valid(_))
+          }
       })
     }
 
@@ -133,8 +148,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
       case Validated.Valid(xs) =>
         Task.point(SortedMap(xs: _*))
       case Validated.Invalid(errors) =>
-        val message = "resolution errors:\n" + errors.toList.mkString("\n")
-        resolverMonad.raiseError(new RuntimeException(message))
+        resolverMonad.raiseError(DownloadFailures(errors))
     }
   }
 
