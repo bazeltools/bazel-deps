@@ -19,17 +19,9 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
   private[this] val logger = LoggerFactory.getLogger("bazel_deps.CoursierResolver")
 
-  // TODO: we should be tracking server ids along with the artifacts
-  // below, to give more accurate results when multiple servers are
-  // used.
-  private[this] val serverId: String = servers match {
-    case Nil =>
-      logger.warn(s"resolver is only using a local ivy cache")
-      ""
-    case m :: ms =>
-      if (ms.nonEmpty) logger.warn(s"server ids may be unreliable, assuming all from $m")
-      m.id
-  }
+  def serverFor(a: coursier.Artifact): Option[MavenServer] =
+    if (a.url.isEmpty) None
+    else servers.find { ms => a.url.startsWith(ms.url) }
 
   implicit def resolverMonad: MonadError[Task, Throwable] =
     new MonadError[Task, Throwable] {
@@ -75,6 +67,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             logger.info(s"failure to download ${a.url}, ${error.describe}")
             None
           case Right(file) =>
+            val serverId = serverFor(a).fold("")(_.id)
             val o = Sha1Value.parseFile(file).map(s => ResolvedSha1Value(s, serverId)).toOption
             o.foreach { r =>
               logger.info(s"SHA-1 for ${c.asString} downloaded from ${a.url} (${r.sha1Value.toHex})")
@@ -90,6 +83,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             case Right(file) =>
               Sha1Value.computeShaOf(file).map { sha =>
                 logger.info(s"SHA-1 for ${c.asString} computed from ${artifact.url} (${sha.toHex})")
+                val serverId = serverFor(artifact).fold("")(_.id)
                 ResolvedSha1Value(sha, serverId)
               }
           })
