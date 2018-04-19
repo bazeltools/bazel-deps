@@ -154,10 +154,15 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
   // Build the entire transitive graph of a set of coordinates
   def buildGraph(coords: List[MavenCoordinate], m: Model): Task[Graph[MavenCoordinate, Unit]] = {
-    def toDep(mc: MavenCoordinate): coursier.Dependency =
+    def toDep(mc: MavenCoordinate): coursier.Dependency = {
+      val exs = m.dependencies.excludes(mc.unversioned)
+      val exSet: Set[(String, String)] =
+        exs.map { elem => (elem.group.asString, elem.artifact.asString) }
       coursier.Dependency(
         coursier.Module(mc.group.asString, mc.artifact.asString),
-        mc.version.asString)
+        mc.version.asString,
+        exclusions = exSet)
+    }
 
     def toCoord(cd: coursier.Dependency): MavenCoordinate =
       MavenCoordinate(
