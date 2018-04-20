@@ -173,7 +173,8 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
         val cnode = toCoord(n)
         val g1 = g.addNode(cnode)
         deps.foldLeft(g1) { (g, dep) =>
-          g.addEdge(Edge(cnode, toCoord(dep), ()))
+          if (dep.optional) g
+          else g.addEdge(Edge(cnode, toCoord(dep), ()))
         }
       }
     }
