@@ -77,7 +77,11 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
     val ex = ml.dependencies.excludes(m.unversioned)
     val exclusions = new util.ArrayList[Exclusion]()
     for (elem <- ex){
-      val exclusion = new Exclusion(elem.group.asString, elem.artifact.asString, "", "jar")
+      val exclusion = new Exclusion(
+        elem.group.asString,
+        elem.artifact.artifactId,
+        elem.artifact.classifier.orNull,
+        elem.artifact.packaging)
       exclusions.add(exclusion)
     }
     collectRequest.setRoot(new Dependency(new DefaultArtifact(m.asString), "", false, exclusions))
@@ -90,10 +94,14 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
      * We try to request the jar.sha1 file, if that fails, we request the jar
      * and do the sha1.
      */
-    def toArtifactRequest(m: MavenCoordinate, extension: String): ArtifactRequest = {
-      val classifier = null // We don't use this
+    def toArtifactRequest(m: MavenCoordinate, extensionSuffix: String): ArtifactRequest = {
+      val a = m.artifact
       val art = new DefaultArtifact(
-        m.group.asString, m.artifact.asString, classifier, extension, m.version.asString)
+        m.group.asString,
+        a.artifactId,
+        a.classifier.orNull,
+        a.packaging + extensionSuffix /* e.g. "jar" + .sha" */,
+        m.version.asString)
       val context = null
       new ArtifactRequest(art, repositories, context)
     }
@@ -115,9 +123,9 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
         }.toMap
       })
 
-    val shas = getExt(m.toList, "jar.sha1")(readShaContents)
+    val shas = getExt(m.toList, "sha1")(readShaContents)
     val computes =
-      getExt(shas.collect { case (m, Failure(_)) => m }.toList, "jar")(Sha1Value.computeShaOf)
+      getExt(shas.collect { case (m, Failure(_)) => m }.toList, "" /* no suffix */)(Sha1Value.computeShaOf)
 
     // this is sequence but this version of cats does not have traverse on SortedMap
     Foldable[List].foldM(
@@ -161,7 +169,11 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
     def coord(a: Dependency): MavenCoordinate = {
       val artifact = a.getArtifact
       MavenCoordinate(MavenGroup(artifact.getGroupId),
-        MavenArtifactId(artifact.getArtifactId),
+        MavenArtifactId(
+          artifact.getArtifactId /* non-null */,
+          artifact.getExtension /* non-null; corresponds to "packaging" */,
+          artifact.getClassifier /* non-null; "" -> no classifier */
+        ),
         Version(artifact.getVersion))
     }
 
