@@ -1,7 +1,7 @@
 package com.github.johnynek.bazel_deps
 
 import java.io.File
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 import io.circe.jawn.JawnParser
 import org.slf4j.LoggerFactory
 import scala.sys.process.{ BasicIO, Process, ProcessIO }
@@ -34,7 +34,7 @@ object MakeDeps {
     val workspacePath = g.shaFilePath
     val projectRoot = g.repoRoot.toFile
 
-    runResolve(model, projectRoot) match {
+    resolverCachePath(model, projectRoot).flatMap(runResolve(model, _)) match {
       case Failure(err) =>
         logger.error("resolution and sha collection failed", err)
         System.exit(1)
@@ -85,25 +85,26 @@ object MakeDeps {
     }
   }
 
-  private def runResolve(model: Model, projectRoot: File): Try[(Graph[MavenCoordinate, Unit],
-    SortedMap[MavenCoordinate, ResolvedSha1Value],
-    Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]])] = {
-    val resolverCachePath = model.getOptions.getResolverCache match {
-      case ResolverCache.Local => Paths.get("target/local-repo")
+  private def resolverCachePath(model: Model, projectRoot: File): Try[Path] =
+    (model.getOptions.getResolverCache match {
+      case ResolverCache.Local => Try(Paths.get("target/local-repo"))
       case ResolverCache.BazelOutputBase =>
         Try(Process(List("bazel", "info", "output_base"), projectRoot) !!) match {
-          case Success(path) => Paths.get(path.trim, "bazel-deps/local-repo")
+          case Success(path) => Try(Paths.get(path.trim, "bazel-deps/local-repo"))
           case Failure(err) =>
             logger.error(s"Could not find resolver cache path -- `bazel info output_base` failed.", err)
-            System.exit(1)
-            sys.error("unreachable")
+            Failure(err)
         }
-    }
-    val deps = model.dependencies
+    })
+    .map(_.toAbsolutePath)
+
+  private[bazel_deps] def runResolve(model: Model, resolverCachePath: Path): Try[(Graph[MavenCoordinate, Unit],
+    SortedMap[MavenCoordinate, ResolvedSha1Value],
+    Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]])] =
 
     model.getOptions.getResolverType match {
       case ResolverType.Aether =>
-        val resolver = new AetherResolver(model.getOptions.getResolvers, resolverCachePath.toAbsolutePath)
+        val resolver = new AetherResolver(model.getOptions.getResolvers, resolverCachePath)
         resolver.run(resolve(model, resolver))
       case ResolverType.Coursier =>
         val ec = scala.concurrent.ExecutionContext.Implicits.global
@@ -111,7 +112,6 @@ object MakeDeps {
         val resolver = new CoursierResolver(model.getOptions.getResolvers, ec, 600.seconds)
         resolver.run(resolve(model, resolver))
     }
-  }
 
   private def resolve[F[_]](model: Model,
     resolver: Resolver[F]): F[(Graph[MavenCoordinate, Unit],

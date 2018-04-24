@@ -171,10 +171,12 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
       depCache.foldLeft(Graph.empty[MavenCoordinate, Unit]) { case (g, (n, deps)) =>
         val cnode = toCoord(n)
+        val exs = m.dependencies.excludes(cnode.unversioned)
         val g1 = g.addNode(cnode)
         deps.foldLeft(g1) { (g, dep) =>
-          if (dep.optional) g
-          else g.addEdge(Edge(cnode, toCoord(dep), ()))
+          val depCoord = toCoord(dep)
+          if (dep.optional || exs(depCoord.unversioned)) g
+          else g.addEdge(Edge(cnode, depCoord, ()))
         }
       }
     }
