@@ -75,6 +75,7 @@ object Decoders {
   implicit def optionsDecoder: Decoder[Options] = {
     implicit val versionLang: Decoder[Language] =
       Decoder.decodeString.emap {
+        case "kt_jvm" => Right(Language.KotlinJvm)
         case "java" => Right(Language.Java)
         case s if s.startsWith("scala:") =>
           s.split(':') match {
@@ -99,6 +100,7 @@ object Decoders {
 
       implicit val lang: Decoder[Language] =
         Decoder.decodeString.emap {
+          case "kt_jvm" => Right(Language.KotlinJvm: Language)
           case "java" => Right(Language.Java : Language)
           case "scala" =>
             opts.getLanguages

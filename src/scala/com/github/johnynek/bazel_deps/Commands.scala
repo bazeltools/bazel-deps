@@ -117,6 +117,7 @@ object Command {
   implicit val langArg: Argument[Language] = new Argument[Language] {
     def defaultMetavar: String = "lang"
     def read(s: String) = s match {
+      case "kt_jvm" => Validated.valid(Language.KotlinJvm)
       case "java" => Validated.valid(Language.Java)
       case "scala" => Validated.valid(Language.Scala.default)
       case other => Validated.invalidNel(s"unknown language: $other")
