@@ -387,6 +387,24 @@ object Language {
     def unmangle(m: MavenCoordinate) = m
   }
 
+  case object KotlinJvm extends Language {
+    def asString = "kt_jvm"
+    def asOptionsString = asString
+    def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
+      MavenCoordinate(g, MavenArtifactId(a), v)
+
+    def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate =
+      MavenCoordinate(g, MavenArtifactId(a, sp), v)
+
+    def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate =
+      UnversionedCoordinate(g, MavenArtifactId(a))
+
+    def unversioned(g: MavenGroup, a: ArtifactOrProject, sp: Subproject): UnversionedCoordinate =
+      UnversionedCoordinate(g, MavenArtifactId(a, sp))
+
+    def unmangle(m: MavenCoordinate) = m
+  }
+
   case class Scala(v: Version, mangle: Boolean) extends Language {
     def asString = if (mangle) "scala" else "scala/unmangled"
     def asOptionsString: String = s"scala:${v.asString}"

@@ -29,6 +29,8 @@ object Label {
     case Language.Java => Label(Some(u.toBazelRepoName(np)), Path(List("jar")), "")
     // If we know we have a scala jar, just use ":file" to be sure we can deal with macros
     case Language.Scala(_, _) => Label(Some(u.toBazelRepoName(np)), Path(List("jar")), "file")
+    // If we know we have a kotlin jar, just use ":file" to be sure we don't have ijar's generated
+    case Language.KotlinJvm => Label(Some(u.toBazelRepoName(np)), Path(List("jar")), "file")
   }
 
   def replaced(u: UnversionedCoordinate, r: Replacements): Option[(Label, Language)] =
@@ -47,6 +49,7 @@ object Label {
 
     val artName = lang match {
       case Language.Java => m.artifact.asString
+      case Language.KotlinJvm => m.artifact.asString
       case s@Language.Scala(_, true) =>
         s.removeSuffix(m.artifact.asString) match {
           case Some(n) => n
