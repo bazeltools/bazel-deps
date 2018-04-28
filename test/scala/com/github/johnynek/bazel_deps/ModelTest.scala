@@ -100,8 +100,4 @@ class ModelTest extends FunSuite {
     // special: remove default packaging
     assert(MavenArtifactId("foo:jar").addSuffix("_1").asString == "foo_1")
   }
-
-  test("MavenArtifactId packaging and classifier defaults") {
-
-  }
 }

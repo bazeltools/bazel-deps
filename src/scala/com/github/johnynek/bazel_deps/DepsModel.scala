@@ -132,14 +132,13 @@ object Model {
 }
 
 case class MavenGroup(asString: String)
-case class ArtifactOrProject(
-  artifact: MavenArtifactId) {
-
-  def asString = artifact.asString
+case class ArtifactOrProject(artifact: MavenArtifactId) {
 
   private val artifactId = artifact.artifactId
   private val packaging = artifact.packaging
   private val classifier = artifact.classifier
+
+  def asString: String = artifact.asString
 
   val splitSubprojects: List[(ArtifactOrProject, Subproject)] =
     if (artifactId.contains('-')) {
@@ -332,7 +331,7 @@ case class MavenArtifactId(
   packaging: String,
   classifier: Option[String]) {
 
-  def asString = classifier match {
+  def asString: String = classifier match {
     case Some(c) => s"$artifactId:$packaging:$c"
     case None => if (packaging == MavenArtifactId.defaultPackaging) {
       artifactId
@@ -363,13 +362,13 @@ object MavenArtifactId {
     )
   }
 
-  def apply(str: String): MavenArtifactId = {
+  def apply(str: String): MavenArtifactId =
     str.split(":") match {
       case Array(a, p, c) => MavenArtifactId(a, p, Some(c))
       case Array(a, p) => MavenArtifactId(a, p, None)
       case Array(a) => MavenArtifactId(a, defaultPackaging, None)
+      case _ => sys.error(s"$str did not match expected format <artifactId>[:<packaging>[:<classifier>]]")
     }
-  }
 }
 
 case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, version: Version) {

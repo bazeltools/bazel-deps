@@ -73,6 +73,40 @@ Each group id can only appear once, so you should collocate dependencies by grou
 we are using does not fail on duplicate keys, it just takes the last one, so watch out. It would be good
 to fix that, but writing a new yaml parser is out of scope.
 
+#### <a name="packaging-classifiers">Packaging and Classifiers</a>
+
+Depending on artifacts with classifiers is straightforward: just add the packaging and classifier as part of the
+artifact id:
+
+```yaml
+dependencies:
+  net.sf.json-lib:
+    json-lib:jar:jdk15: # artifact:packaging:classifier
+      lang: java
+      version: "2.4"
+```
+
+**Note**: Currently, only `jar` packaging is supported for dependencies. More work is needed on the `bazel-deps` backend
+to ensure that non-jar dependencies are written as `data` attributes, instead of regular jar dependencies. 
+
+Excluding artifacts with packaging or classifiers is similar to including dependencies. Non-jar packaging _is_ supported
+for `exclude`.
+
+```yaml
+  com.amazonaws:
+    DynamoDBLocal:
+      lang: java
+      version: "1.11.86"
+      exclude:
+        - "com.almworks.sqlite4java:sqlite4java-win32-x86:dll"
+        - "com.almworks.sqlite4java:sqlite4java-win32-x64:dll"
+        - "com.almworks.sqlite4java:libsqlite4java-osx:dylib"
+        - "com.almworks.sqlite4java:libsqlite4java-linux-i386:so"
+        - "com.almworks.sqlite4java:libsqlite4java-linux-amd64:so"
+```
+
+#### <a name="annotation-processors">Annotation Processors (`processorClasses`)</a>
+
 A target may also optionally add `processorClasses` to a dependency. This is for [annotation processors](https://docs.oracle.com/javase/8/docs/api/javax/annotation/processing/Processor.html).
 `bazel-deps` will generate a `java_library` and a `java_plugin` for each annotation processor defined. For example, we can define Google's auto-value annotation processor via:
 ```

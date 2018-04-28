@@ -83,12 +83,8 @@ object Tool {
           props.getOrElse(k, "${" + k + "}")
         })
       }
-      def ropt(s: Option[String]): Option[String] = s match {
-        case Some(s) => Some(r(s))
-        case None => None
-      }
 
-      Dep(r(groupId), r(artifactId), r(version), scope, ropt(packaging), ropt(classifier))
+      Dep(r(groupId), r(artifactId), r(version), scope,packaging.map(r), classifier.map(r))
     }
   }
 
