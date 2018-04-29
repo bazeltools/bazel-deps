@@ -46,13 +46,16 @@ object Label {
     .toList))
 
     val artName = lang match {
-      case Language.Java => m.artifact.asString
-      case s@Language.Scala(_, true) =>
-        s.removeSuffix(m.artifact.asString) match {
-          case Some(n) => n
-          case None => sys.error(s"scala coordinate: ${m.asString} does not have correct suffix for $s")
+      case Language.Java => m.toTargetName
+      case s@Language.Scala(_, true) => {
+        val uvWithRemoved = s.removeSuffix(m)
+        if (m == uvWithRemoved) {
+          sys.error(s"scala coordinate: ${m.asString} does not have correct suffix for $s")
+        } else {
+          uvWithRemoved.toTargetName
         }
-      case Language.Scala(_, false) => m.artifact.asString
+      }
+      case Language.Scala(_, false) => m.toTargetName
     }
 
     val name = artName.map {

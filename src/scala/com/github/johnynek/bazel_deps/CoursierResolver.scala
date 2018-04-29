@@ -96,7 +96,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             resolverMonad.handleErrorWith(computeSha1(head))(_ => computeSha1s(tail))
         }
 
-      val module = coursier.Module(c.group.asString, c.artifact.asString, Map.empty)
+      val module = coursier.Module(c.group.asString, c.artifact.artifactId, Map.empty)
       val version = c.version.asString
       val f = Cache.fetch[Task]()
       val task = Fetch.find[Task](repos, module, version, f).run
@@ -117,7 +117,10 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             .getOrElse(NonEmptyList("<empty message>", Nil))
           Task.point(Validated.invalid(nel))
         case Right((src, proj)) =>
-          val dep = coursier.Dependency(module, version)
+          val dep = coursier.Dependency(module, version, attributes = coursier.Attributes(
+            c.artifact.packaging,
+            c.artifact.classifier.getOrElse("")
+          ))
 
           // TODO, this does not seem like the idea thing, but it seems to work.
           val artifacts = src.artifacts(dep, proj, None)
@@ -151,17 +154,29 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
     def toDep(mc: MavenCoordinate): coursier.Dependency = {
       val exs = m.dependencies.excludes(mc.unversioned)
       val exSet: Set[(String, String)] =
-        exs.map { elem => (elem.group.asString, elem.artifact.asString) }
+        exs.map { elem => (elem.group.asString, elem.artifact.artifactId) }
       coursier.Dependency(
-        coursier.Module(mc.group.asString, mc.artifact.asString),
+        coursier.Module(mc.group.asString, mc.artifact.artifactId),
         mc.version.asString,
-        exclusions = exSet)
+        exclusions = exSet,
+        attributes = coursier.Attributes(
+          mc.artifact.packaging,
+          mc.artifact.classifier.getOrElse("")
+        ))
+    }
+
+    def artifactFromDep(cd: coursier.Dependency): MavenArtifactId = {
+      val attrs = cd.attributes
+      val packaging =
+        if (attrs.`type`.isEmpty) "jar"
+        else attrs.`type`
+      MavenArtifactId(cd.module.name, packaging, attrs.classifier /* empty string OK */)
     }
 
     def toCoord(cd: coursier.Dependency): MavenCoordinate =
       MavenCoordinate(
         MavenGroup(cd.module.organization),
-        MavenArtifactId(cd.module.name),
+        artifactFromDep(cd),
         Version(cd.version))
 
     val roots: Set[coursier.Dependency] = coords.map(toDep).toSet

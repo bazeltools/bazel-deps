@@ -142,6 +142,106 @@ class ParseTest extends FunSuite {
         None,
         None)))
   }
+
+  test("parse a file that includes packaging for an artifact") {
+    val str = """dependencies:
+                |  com.google.auto.value:
+                |    auto-value:dll:
+                |      version: "1.5"
+                |      lang: java
+                |""".stripMargin('|')
+
+    assert(Decoders.decodeModel(Yaml, str) ==
+      Right(Model(
+        Dependencies(
+          MavenGroup("com.google.auto.value") ->
+            Map(ArtifactOrProject("auto-value:dll") ->
+              ProjectRecord(
+                Language.Java,
+                Some(Version("1.5")),
+                None,
+                None,
+                None,
+                None))),
+        None,
+        None)))
+  }
+
+  test("parse a file that includes packaging for an artifact with subprojects") {
+    val str = """dependencies:
+                |  com.google.auto.value:
+                |    auto-value:dll:
+                |      modules: ["", "extras"]
+                |      version: "1.5"
+                |      lang: java
+                |""".stripMargin('|')
+
+    assert(Decoders.decodeModel(Yaml, str) ==
+      Right(Model(
+        Dependencies(
+          MavenGroup("com.google.auto.value") ->
+            Map(ArtifactOrProject("auto-value:dll") ->
+              ProjectRecord(
+                Language.Java,
+                Some(Version("1.5")),
+                Some(Set("", "extras").map(Subproject(_))),
+                None,
+                None,
+                None))),
+        None,
+        None)))
+  }
+
+  test("parse a file that includes classifier") {
+    val str = """dependencies:
+                |  com.google.auto.value:
+                |    auto-value:dll:best-one:
+                |      version: "1.5"
+                |      lang: java
+                |""".stripMargin('|')
+
+    assert(Decoders.decodeModel(Yaml, str) ==
+      Right(Model(
+        Dependencies(
+          MavenGroup("com.google.auto.value") ->
+            Map(ArtifactOrProject("auto-value:dll:best-one") ->
+              ProjectRecord(
+                Language.Java,
+                Some(Version("1.5")),
+                None,
+                None,
+                None,
+                None))),
+        None,
+        None)))
+  }
+
+  test("parse a file that _excludes_ something with a classifier") {
+    val str = """dependencies:
+                |  com.google.auto.value:
+                |    auto-value:
+                |      exclude:
+                |        - "foo:bar:so:fancy"
+                |      version: "1.5"
+                |      lang: java
+                |""".stripMargin('|')
+
+    assert(Decoders.decodeModel(Yaml, str) ==
+      Right(Model(
+        Dependencies(
+          MavenGroup("com.google.auto.value") ->
+            Map(ArtifactOrProject("auto-value") ->
+              ProjectRecord(
+                Language.Java,
+                Some(Version("1.5")),
+                None,
+                None,
+                Some(Set((MavenGroup("foo"), ArtifactOrProject(MavenArtifactId("bar:so:fancy"))))),
+                None))),
+        None,
+        None)))
+  }
+
   /*
    * TODO make this test pass
    * see: https://github.com/johnynek/bazel-deps/issues/15

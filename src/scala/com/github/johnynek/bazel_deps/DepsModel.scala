@@ -132,12 +132,19 @@ object Model {
 }
 
 case class MavenGroup(asString: String)
-case class ArtifactOrProject(asString: String) {
+case class ArtifactOrProject(artifact: MavenArtifactId) {
+
+  private val artifactId = artifact.artifactId
+  private val packaging = artifact.packaging
+  private val classifier = artifact.classifier
+
+  def asString: String = artifact.asString
+
   val splitSubprojects: List[(ArtifactOrProject, Subproject)] =
-    if (asString.contains('-')) {
-      val indices = asString.iterator.zipWithIndex.collect { case (c, i) if c == '-' => i }
+    if (artifactId.contains('-')) {
+      val indices = artifactId.iterator.zipWithIndex.collect { case (c, i) if c == '-' => i }
       indices.map { i =>
-        (ArtifactOrProject(asString.substring(0, i)), Subproject(asString.substring(i + 1)))
+        (ArtifactOrProject(MavenArtifactId(artifactId.substring(0, i), packaging, classifier)), Subproject(artifactId.substring(i + 1)))
       }.toList
     }
     else Nil
@@ -149,9 +156,9 @@ case class ArtifactOrProject(asString: String) {
 
   def split(a: ArtifactOrProject): Option[Subproject] =
     if (this == a) Some(Subproject(""))
-    else if (asString.startsWith(a.asString) && asString.charAt(a.asString.length) == '-')
+    else if (artifactId.startsWith(a.artifactId) && artifactId.charAt(a.artifactId.length) == '-')
       Some {
-        val sp = asString.substring(a.asString.length + 1) // skip the '-'
+        val sp = artifactId.substring(a.artifactId.length + 1) // skip the '-'
         Subproject(sp)
       }
     else None
@@ -160,12 +167,19 @@ case class ArtifactOrProject(asString: String) {
     val str = sp.asString
     str match {
       case "" => this
-      case _ => ArtifactOrProject(s"$asString-$str")
+      case _ => ArtifactOrProject(MavenArtifactId(s"$artifactId-$str", packaging, classifier))
     }
   }
 }
 object ArtifactOrProject {
   implicit val ordering: Ordering[ArtifactOrProject] = Ordering.by(_.asString)
+
+  def apply(str: String): ArtifactOrProject = {
+    ArtifactOrProject(MavenArtifactId(str))
+  }
+  def apply(artifactId: String, packaging: String, classifier: Option[String]): ArtifactOrProject = {
+    ArtifactOrProject(MavenArtifactId(artifactId, packaging, classifier))
+  }
 }
 
 case class Sha1Value(toHex: String)
@@ -312,17 +326,49 @@ object Version {
   }
 }
 
-case class MavenArtifactId(asString: String) {
-  def addSuffix(s: String): MavenArtifactId = MavenArtifactId(asString + s)
+case class MavenArtifactId(
+  artifactId: String,
+  packaging: String,
+  classifier: Option[String]) {
+
+  def asString: String = classifier match {
+    case Some(c) => s"$artifactId:$packaging:$c"
+    case None => if (packaging == MavenArtifactId.defaultPackaging) {
+      artifactId
+    } else {
+      s"$artifactId:$packaging"
+    }
+  }
+
+  def addSuffix(s: String): MavenArtifactId = MavenArtifactId(s"$artifactId$s", packaging, classifier)
 }
 
 object MavenArtifactId {
+  val defaultPackaging = "jar"
+
   def apply(a: ArtifactOrProject): MavenArtifactId = MavenArtifactId(a.asString)
-  def apply(a: ArtifactOrProject, s: Subproject): MavenArtifactId = {
-    val ap = a.asString
-    val sp = s.asString
-    MavenArtifactId(if (sp.isEmpty) ap else s"$ap-$sp")
+  def apply(a: ArtifactOrProject, s: Subproject): MavenArtifactId = MavenArtifactId(a.toArtifact(s))
+
+  // convenience: empty string classifier converted to None
+  def apply(artifact: String, packaging: String, classifier: String): MavenArtifactId = {
+    assert(packaging != "")
+    MavenArtifactId(
+      artifact,
+      packaging,
+      classifier match {
+        case "" => None
+        case c => Some(c)
+      }
+    )
   }
+
+  def apply(str: String): MavenArtifactId =
+    str.split(":") match {
+      case Array(a, p, c) => MavenArtifactId(a, p, Some(c))
+      case Array(a, p) => MavenArtifactId(a, p, None)
+      case Array(a) => MavenArtifactId(a, defaultPackaging, None)
+      case _ => sys.error(s"$str did not match expected format <artifactId>[:<packaging>[:<classifier>]]")
+    }
 }
 
 case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, version: Version) {
@@ -417,14 +463,24 @@ object Language {
       if (s.endsWith(suffix)) Some(s.dropRight(suffix.size))
       else None
 
+    def removeSuffix(uv: UnversionedCoordinate) : UnversionedCoordinate = {
+      val aid = uv.artifact
+      removeSuffix(aid.artifactId) match {
+        case None => uv
+        case Some(a) => UnversionedCoordinate(uv.group, MavenArtifactId(a, aid.packaging, aid.classifier))
+      }
+    }
+
     def endsWithScalaVersion(uv: UnversionedCoordinate): Boolean =
-      uv.asString.endsWith(suffix)
+      uv.artifact.artifactId.endsWith(suffix)
 
     def unmangle(m: MavenCoordinate) = {
-      val MavenCoordinate(g, a, v) = m
-      removeSuffix(a.asString) match {
-        case None => m
-        case Some(a) => MavenCoordinate(g, MavenArtifactId(a), v)
+      val uv = m.unversioned
+      val uvWithRemoved = removeSuffix(uv)
+      if (uv == uvWithRemoved) {
+        m
+      } else {
+        MavenCoordinate(uvWithRemoved, v)
       }
     }
   }
@@ -450,12 +506,21 @@ case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
     }
     .mkString
 
+  /**
+    * The bazel-safe target name
+    */
+  def toTargetName: String =
+    artifact.asString.map {
+      case ':' => '_'
+      case o => o
+    }
+
   def toBindingName(namePrefix: NamePrefix): String = {
     val g = group.asString.map {
       case '.' => '/'
       case o => o
     }
-    s"jar/${namePrefix.asString}$g/${artifact.asString}".map {
+    s"jar/${namePrefix.asString}$g/${toTargetName}".map {
       case '.' | '-' => '_'
       case o => o
     }
@@ -790,7 +855,7 @@ object Dependencies {
       val g0 = candidates.flatMap { case ap@(a, p) =>
         require(p.modules == None) // this is an invariant true of candidates
         val subs = a.splitSubprojects1.toList
-        val prefix = subs.map { case (ArtifactOrProject(pre), _) => pre }.min
+        val prefix = subs.map { case (ArtifactOrProject(MavenArtifactId(artifact, _, _)), _) => artifact }.min
         subs.map { case (a, sp) =>
           (prefix, (a, (p, (sp, ap))))
         }

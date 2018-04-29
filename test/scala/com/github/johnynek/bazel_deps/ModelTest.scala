@@ -64,4 +64,40 @@ class ModelTest extends FunSuite {
     assert(uc.toBindingName(np) == "jar/unique_com/twitter/finagle_core")
     assert(uc.bindTarget(np) == "//external:jar/unique_com/twitter/finagle_core")
   }
+
+  test("packaging and classifier are extracted properly parsed in MavenArtifactId") {
+    def assertAll(id: MavenArtifactId, a: String, p: String, c: Option[String]) : Unit = {
+      assert(id.artifactId == a)
+      assert(id.packaging == p)
+      assert(id.classifier == c)
+    }
+
+    assertAll(MavenArtifactId("foo"), "foo", "jar", None)
+    assertAll(MavenArtifactId("foo:dll"), "foo", "dll", None)
+    assertAll(MavenArtifactId("foo:dll:tests"), "foo", "dll", Some("tests"))
+  }
+
+  test("MavenArtifactId asString") {
+    assert(MavenArtifactId("foo", "jar", Some("some-classifier")).asString == "foo:jar:some-classifier")
+    assert(MavenArtifactId("foo", "dll", Some("some-classifier")).asString == "foo:dll:some-classifier")
+
+    // rule: don't include packaging if packaging = jar and no classifier
+    assert(MavenArtifactId("foo", "jar", None).asString == "foo")
+    assert(MavenArtifactId("foo", "dll", None).asString == "foo:dll")
+
+    List("foo:jar:some-classifier", "foo", "foo:dll", "foo:dll:some-classifier").foreach { s => {
+      assert(MavenArtifactId(s).asString == s)
+    }}
+
+    assert(MavenArtifactId("foo:jar").asString == "foo")
+  }
+
+  test("MavenArtifactId addSuffix") {
+    assert(MavenArtifactId("foo:dll:some-classifier").addSuffix("_1").asString == "foo_1:dll:some-classifier")
+    assert(MavenArtifactId("foo:dll").addSuffix("_1").asString == "foo_1:dll")
+    assert(MavenArtifactId("foo:jar:some-classifier").addSuffix("_1").asString == "foo_1:jar:some-classifier")
+
+    // special: remove default packaging
+    assert(MavenArtifactId("foo:jar").addSuffix("_1").asString == "foo_1")
+  }
 }
