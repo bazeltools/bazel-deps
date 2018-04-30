@@ -19,6 +19,9 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
   private[this] val logger = LoggerFactory.getLogger("bazel_deps.CoursierResolver")
 
+  // Instructs the coursier resolver to keep `runtime`-scoped dependencies.
+  private[this] val DefaultConfiguration = "default(compile)"
+
   def serverFor(a: coursier.Artifact): Option[MavenServer] =
     if (a.url.isEmpty) None
     else servers.find { ms => a.url.startsWith(ms.url) }
@@ -117,7 +120,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             .getOrElse(NonEmptyList("<empty message>", Nil))
           Task.point(Validated.invalid(nel))
         case Right((src, proj)) =>
-          val dep = coursier.Dependency(module, version, attributes = coursier.Attributes(
+          val dep = coursier.Dependency(module, version, configuration = DefaultConfiguration, attributes = coursier.Attributes(
             c.artifact.packaging,
             c.artifact.classifier.getOrElse("")
           ))
@@ -158,6 +161,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
       coursier.Dependency(
         coursier.Module(mc.group.asString, mc.artifact.artifactId),
         mc.version.asString,
+        configuration = DefaultConfiguration,
         exclusions = exSet,
         attributes = coursier.Attributes(
           mc.artifact.packaging,
