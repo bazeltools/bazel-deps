@@ -160,4 +160,34 @@ dependencies:
       MavenCoordinate(
         MavenGroup("org.sonatype.sisu"), MavenArtifactId("sisu-guice", "jar", "no_aop"), Version("2.9.4"))))
   }
+
+  test("test runtime scopes") {
+    val config = """
+options:
+  languages: [ "java" ]
+  resolverType: "coursier"
+  resolvers:
+    - id: "mavencentral"
+      type: "default"
+      url: https://repo.maven.apache.org/maven2/
+  transitivity: runtime_deps
+  versionConflictPolicy: highest
+dependencies:
+  org.mockito:
+    mockito-core:
+      lang: java
+      version: "2.7.20"
+"""
+
+    val model = Decoders.decodeModel(Yaml, config).right.get
+    val (graph, shas, normalized) = MakeDeps.runResolve(model, null).get
+
+    assert(graph.nodes.contains(
+      MavenCoordinate(
+        MavenGroup("org.mockito"), MavenArtifactId("mockito-core"), Version("2.7.20"))))
+    // objenesis is a runtime-scoped dependencyof mockito; ensure Coursier includes it like compile-scoped dependencies.
+    assert(graph.nodes.contains(
+      MavenCoordinate(
+        MavenGroup("org.objenesis"), MavenArtifactId("objenesis"), Version("2.5"))))
+  }
 }
