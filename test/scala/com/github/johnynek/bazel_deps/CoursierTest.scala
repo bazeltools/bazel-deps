@@ -224,6 +224,6 @@ dependencies:
     val model = Decoders.decodeModel(Yaml, config).right.get
     val (normalized, shas, duplicates) = MakeDeps.runResolve(model, null).get
 
-    Writer.targets(normalized, model)
+    assert(Writer.targets(normalized, model).isLeft)
   }
 }
