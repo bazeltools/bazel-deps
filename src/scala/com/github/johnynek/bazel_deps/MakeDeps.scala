@@ -44,8 +44,8 @@ object MakeDeps {
         // build the BUILDs in thirdParty
         val targets = Writer.targets(normalized, model) match {
           case Right(t) => t
-          case Left(err) =>
-            logger.error(s"""Could not find explicit exports named by: ${err.mkString(", ")}""")
+          case Left(errs) =>
+            errs.toList.foreach { e => logger.error(e.message) }
             System.exit(-1)
             sys.error("exited already")
         }

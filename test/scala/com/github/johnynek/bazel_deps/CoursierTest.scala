@@ -190,4 +190,40 @@ dependencies:
       MavenCoordinate(
         MavenGroup("org.objenesis"), MavenArtifactId("objenesis"), Version("2.5"))))
   }
+
+  test("test stack overflow case") {
+    val config = """
+options:
+  languages: [ "java" ]
+  resolverType: "coursier"
+  resolvers:
+    - id: "mavencentral"
+      type: "default"
+      url: https://repo.maven.apache.org/maven2/
+  transitivity: runtime_deps
+  versionConflictPolicy: highest
+dependencies:
+  org.apache.hadoop:
+    hadoop:
+      lang: java
+      modules: [ "aws", "client-runtime" ]
+      version: "3.0.0"
+    hadoop-client-api:
+      exports:
+        - "org.apache.hadoop:hadoop-client-runtime"
+        - "org.apache.htrace:htrace-core4"
+      lang: java
+      version: "3.0.0"
+
+  org.apache.htrace:
+    htrace-core4:
+      lang: java
+      version: "4.1.0-incubating"
+"""
+
+    val model = Decoders.decodeModel(Yaml, config).right.get
+    val (normalized, shas, duplicates) = MakeDeps.runResolve(model, null).get
+
+    assert(Writer.targets(normalized, model).isLeft)
+  }
 }

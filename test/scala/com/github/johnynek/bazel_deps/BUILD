@@ -90,6 +90,7 @@ scala_test(name = "coursier_test",
            srcs = ["CoursierTest.scala"],
            deps = [
                "//3rdparty/jvm/io/circe:circe_core",
+               "//src/scala/com/github/johnynek/bazel_deps:writer",
                "//src/scala/com/github/johnynek/bazel_deps:circeyaml",
                "//src/scala/com/github/johnynek/bazel_deps:decoders",
                "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
