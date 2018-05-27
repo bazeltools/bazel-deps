@@ -3,16 +3,21 @@ package com.github.johnynek.bazel_deps
 import IO.Path
 
 case class Label(workspace: Option[String], path: Path, name: String) {
-  def asStringFrom(p: Path): String = {
-    val nmPart = if (name.isEmpty) "" else s":$name"
-    if (workspace.isEmpty && path == p) nmPart
-    else {
-      val ws = workspace.fold("") { nm => s"@$nm" }
-      path.parts match {
-        case Nil => s"$ws//$nmPart"
-        case ps => ps.mkString(s"$ws//", "/", s"$nmPart")
-      }
+  def packageLabel: Label = Label(workspace, path, "")
+
+  private[this] val nmPart = if (name.isEmpty) "" else s":$name"
+
+  def fromRoot: String = {
+    val ws = workspace.fold("") { nm => s"@$nm" }
+    path.parts match {
+      case Nil => s"$ws//$nmPart"
+      case ps => ps.mkString(s"$ws//", "/", nmPart)
     }
+  }
+
+  def asStringFrom(p: Path): String = {
+    if (workspace.isEmpty && path == p) nmPart
+    else fromRoot
   }
 }
 
