@@ -183,6 +183,11 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
         artifactFromDep(cd),
         Version(cd.version))
 
+    def coursierExcludes(cd: coursier.Dependency): Set[UnversionedCoordinate] =
+      cd.exclusions.map { case (grp, artid) =>
+        UnversionedCoordinate(MavenGroup(grp), MavenArtifactId(artid))
+      }
+
     val roots: Set[coursier.Dependency] = coords.map(toDep).toSet
 
     Resolution(roots).process.run(fetch).map { res =>
@@ -194,8 +199,14 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
         val g1 = g.addNode(cnode)
         deps.foldLeft(g1) { (g, dep) =>
           val depCoord = toCoord(dep)
-          if (dep.optional || exs(depCoord.unversioned)) g
-          else g.addEdge(Edge(cnode, depCoord, ()))
+          val cxs = coursierExcludes(dep)
+          val uv = depCoord.unversioned
+          println(s"coursier excludes: for $depCoord: $cxs")
+          if (dep.optional || exs(uv) || cxs(uv)) g
+          else {
+            println(s"adding edge $cnode -> $depCoord")
+            g.addEdge(Edge(cnode, depCoord, ()))
+          }
         }
       }
     }
