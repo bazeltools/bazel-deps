@@ -5,7 +5,7 @@ java_library(
         "//external:jar/org/codehaus/plexus/plexus_component_annotations"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -17,7 +17,7 @@ java_library(
         "//external:jar/org/codehaus/plexus/plexus_interpolation"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -29,7 +29,7 @@ java_library(
         "//external:jar/org/codehaus/plexus/plexus_utils"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

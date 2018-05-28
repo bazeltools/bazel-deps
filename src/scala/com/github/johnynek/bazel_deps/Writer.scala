@@ -214,8 +214,10 @@ object Writer {
 
       val rootName = model.getOptions.getThirdPartyDirectory
       val thirdPartyVis = Target.Visibility.SubPackages(Label(None, Path(rootName.parts), ""))
+
+      val allRootsUv = model.dependencies.roots.map(_.unversioned) | model.dependencies.unversionedRoots
       def visibility(uv: UnversionedCoordinate): Target.Visibility =
-        if (model.dependencies.unversionedRoots(uv)) Target.Visibility.Public
+        if (allRootsUv(uv)) Target.Visibility.Public
         else thirdPartyVis
 
       /**

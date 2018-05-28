@@ -33,7 +33,7 @@ java_library(
         "//3rdparty/jvm/org/codehaus/plexus:plexus_utils"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -49,7 +49,7 @@ java_library(
         "//3rdparty/jvm/org/codehaus/plexus:plexus_utils"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -65,7 +65,7 @@ java_library(
         "//3rdparty/jvm/org/codehaus/plexus:plexus_utils"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -87,7 +87,7 @@ java_library(
         ":maven_model"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -102,7 +102,7 @@ java_library(
         "//3rdparty/jvm/org/codehaus/plexus:plexus_utils"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

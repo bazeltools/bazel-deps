@@ -39,7 +39,9 @@ In any case, we add a comment for any duplicates found in the workspace loading 
 
 To declare dependencies, add items to the `dependencies` key in your declaration file. The format
 should be yaml or json. It should have [`dependencies`](#dependencies) and it may have [`replacements`](#replacements)
-and [`options`](#options).
+and [`options`](#options). Important: only dependencies explicitly named have public visibility,
+transitive dependencies not listed in the dependencies file have visibility limited to the third
+party directory.
 
 ### <a name="dependencies">Dependencies</a>
 
@@ -64,6 +66,10 @@ dependencies:
       lang: scala
       modules: [core, date, args, db, arvo]
 ```
+The `version` field is optional. If it is absent, it means this jar is expected to be found by
+transitive dependencies, and it is available to be used outside of the thirdparty directory, but the
+exact version used can be selected according to the version resolution rules. It is an error to have
+an unversioned dependency that is not a transitive dependency of another versioned dependency.
 
 A target may optionally add `exports` and `exclude` lists to a dependency. `exports` should be just the group and
 artifact (such as: `com.twitter:scalding-core` in the above), and they should be listed in the dependencies. `exclude`
