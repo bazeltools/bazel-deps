@@ -296,6 +296,7 @@ maven_dependencies(maven_load)
         labelFor(proj, "main").map { lab =>
           Target(scalaLang,
             lab,
+            visibility = Target.Visibility.Public,
             deps = labs.toSet,
             sources = Target.SourceList.Globs(List("src/main/**/*.scala", "src/main/**/*.java")))
         }

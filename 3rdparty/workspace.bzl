@@ -60,7 +60,7 @@ def list_dependencies():
     {"artifact": "org.eclipse.aether:aether-api:1.1.0", "lang": "java", "sha1": "05dd291e788f50dfb48822dab29defc16ad70860", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_eclipse_aether_aether_api", "actual": "@org_eclipse_aether_aether_api//jar", "bind": "jar/org/eclipse/aether/aether_api"},
     {"artifact": "org.eclipse.aether:aether-connector-basic:1.1.0", "lang": "java", "sha1": "f5c784bdd704ff64166c086eb6b31e2784c87b66", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_eclipse_aether_aether_connector_basic", "actual": "@org_eclipse_aether_aether_connector_basic//jar", "bind": "jar/org/eclipse/aether/aether_connector_basic"},
     {"artifact": "org.eclipse.aether:aether-impl:1.1.0", "lang": "java", "sha1": "8236fde6a1a4a7c6018d0a09e476f11c5ca8c2e1", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_eclipse_aether_aether_impl", "actual": "@org_eclipse_aether_aether_impl//jar", "bind": "jar/org/eclipse/aether/aether_impl"},
-# duplicates in org.eclipse.aether:aether-spi promoted to 1.1.0
+# duplicates in org.eclipse.aether:aether-spi fixed to 1.1.0
 # - org.apache.maven:maven-aether-provider:3.3.9 wanted version 1.0.2.v20150114
 # - org.eclipse.aether:aether-connector-basic:1.1.0 wanted version 1.1.0
 # - org.eclipse.aether:aether-impl:1.1.0 wanted version 1.1.0
@@ -81,7 +81,7 @@ def list_dependencies():
     {"artifact": "org.scalactic:scalactic_2.11:3.0.1", "lang": "scala", "sha1": "3c444d143879dc172fa555cea08fd0de6fa2f34f", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_scalactic_scalactic_2_11", "actual": "@org_scalactic_scalactic_2_11//jar:file", "bind": "jar/org/scalactic/scalactic_2_11"},
     {"artifact": "org.scalatest:scalatest_2.11:3.0.1", "lang": "scala", "sha1": "40a1842e7f0b915d87de1cb69f9c6962a65ee1fd", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_scalatest_scalatest_2_11", "actual": "@org_scalatest_scalatest_2_11//jar:file", "bind": "jar/org/scalatest/scalatest_2_11"},
     {"artifact": "org.slf4j:jcl-over-slf4j:1.6.2", "lang": "java", "sha1": "ac4cd2d6d0cf4342b4e8fd520c686851fc681912", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_slf4j_jcl_over_slf4j", "actual": "@org_slf4j_jcl_over_slf4j//jar", "bind": "jar/org/slf4j/jcl_over_slf4j"},
-# duplicates in org.slf4j:slf4j-api promoted to 1.7.25
+# duplicates in org.slf4j:slf4j-api fixed to 1.7.25
 # - org.slf4j:jcl-over-slf4j:1.6.2 wanted version 1.6.2
 # - org.slf4j:slf4j-simple:1.7.25 wanted version 1.7.25
     {"artifact": "org.slf4j:slf4j-api:1.7.25", "lang": "java", "sha1": "da76ca59f6a57ee3102f8f9bd9cee742973efa8a", "repository": "https://repo.maven.apache.org/maven2/", "name": "org_slf4j_slf4j_api", "actual": "@org_slf4j_slf4j_api//jar", "bind": "jar/org/slf4j/slf4j_api"},

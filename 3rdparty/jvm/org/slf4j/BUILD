@@ -8,7 +8,7 @@ java_library(
         ":slf4j_api"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

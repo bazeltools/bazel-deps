@@ -5,7 +5,7 @@ java_library(
         "//external:jar/com/fasterxml/jackson/core/jackson_annotations"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

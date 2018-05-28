@@ -82,7 +82,7 @@ scala_import(
         "//3rdparty/jvm/org/scala_lang:scala_library"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

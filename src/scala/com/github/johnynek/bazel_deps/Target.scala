@@ -49,11 +49,18 @@ object Target {
         }
     }
   }
+
+  sealed abstract class Visibility(val asString: String)
+  object Visibility {
+    case object Public extends Visibility("//visibility:public")
+    case class SubPackages(of: Label) extends Visibility(s"${of.packageLabel.fromRoot}:__subpackages__")
+  }
 }
 
 case class Target(
   lang: Language,
   name: Label,
+  visibility: Target.Visibility,
   kind: Target.Kind = Target.Library,
   deps: Set[Label] = Set.empty,
   jars: Set[Label] = Set.empty,
@@ -113,18 +120,18 @@ case class Target(
         "deps" -> labelList(exports ++ jars),
         "licenses" -> renderLicenses(licenses),
         "processor_class" -> quote(pc.asString),
-        visibility()
+        visibilityDoc
       )) + Doc.line
 
-    def visibility(): (String, Doc) =
-      "visibility" -> renderList(Doc.text("["), List("//visibility:public"), Doc.text("]"))(quote)
+    def visibilityDoc: (String, Doc) =
+      "visibility" -> renderList(Doc.text("["), List(visibility.asString), Doc.text("]"))(quote)
 
     def renderLicenses(licenses: Set[String]): Doc =
       if (!licenses.isEmpty) renderList(Doc.text("["), licenses.toList, Doc.text("]"))(quote)
       else Doc.empty
 
     sortKeys(targetType, name.name, List(
-      visibility(),
+      visibilityDoc,
       "deps" -> labelList(deps),
       "licenses" -> renderLicenses(licenses),
       "srcs" -> sources.render,

@@ -116,7 +116,7 @@ object Writer {
         List(s"""$comment    {${kv("artifact", coord.asString)}""",
              s"""${kv("lang", l.asString)}$shaStr$serverStr""",
              s"""${kv("name", coord.unversioned.toBazelRepoName(prefix))}""",
-             s"""${kv("actual", actual.asStringFrom(Path(Nil)))}""",
+             s"""${kv("actual", actual.fromRoot)}""",
              s"""${kv("bind", coord.unversioned.toBindingName(prefix))}},""").mkString(", ")
       }
       .mkString("\n")
@@ -212,12 +212,19 @@ object Writer {
        */
       val uvToRep = model.getReplacements.unversionedToReplacementRecord
 
+      val rootName = model.getOptions.getThirdPartyDirectory
+      val thirdPartyVis = Target.Visibility.SubPackages(Label(None, Path(rootName.parts), ""))
+
+      val allRootsUv = model.dependencies.roots.map(_.unversioned) | model.dependencies.unversionedRoots
+      def visibility(uv: UnversionedCoordinate): Target.Visibility =
+        if (allRootsUv(uv)) Target.Visibility.Public
+        else thirdPartyVis
+
       /**
        * Here are all the unversioned artifacts we need to create targets for:
        */
       val allUnversioned: Set[UnversionedCoordinate] = uvToVerExplicit.keySet.union(uvToRep.keySet)
 
-      val rootName = model.getOptions.getThirdPartyDirectory
       val licenses = model.getOptions.getLicenses
       val pathInRoot = rootName.parts
 
@@ -231,12 +238,14 @@ object Writer {
               Target(lang,
                 kind = Target.Library,
                 name = Label.localTarget(pathInRoot, u, lang),
+                visibility = visibility(u),
                 exports = Set(lab),
                 jars = Set.empty)
             case _: Language.Scala =>
               Target(lang,
                 kind = Target.Library,
                 name = Label.localTarget(pathInRoot, u, lang),
+                visibility = visibility(u),
                 exports = Set(lab),
                 jars = Set.empty)
           }
@@ -282,6 +291,7 @@ object Writer {
                     Target(lang,
                       kind = Target.Library,
                       name = Label.localTarget(pathInRoot, u, lang),
+                      visibility = visibility(u),
                       exports = (exports + lab) ++ uvexports,
                       jars = Set.empty,
                       runtimeDeps = runtime_deps -- uvexports,
@@ -291,6 +301,7 @@ object Writer {
                     Target(lang,
                       kind = Target.Import,
                       name = Label.localTarget(pathInRoot, u, lang),
+                      visibility = visibility(u),
                       exports = exports ++ uvexports,
                       jars = Set(lab),
                       runtimeDeps = runtime_deps -- uvexports,

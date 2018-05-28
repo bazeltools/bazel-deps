@@ -105,7 +105,7 @@ java_library(
         ":aether_api"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

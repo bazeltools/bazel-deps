@@ -5,7 +5,7 @@ java_library(
         "//external:jar/org/apache/commons/commons_lang3"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

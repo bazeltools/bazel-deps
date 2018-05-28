@@ -39,8 +39,6 @@ object MakeDeps {
         logger.error("resolution and sha collection failed", err)
         System.exit(1)
       case Success((normalized, shas, duplicates)) =>
-        // build the workspace
-        def ws = Writer.workspace(g.depsFile, normalized, duplicates, shas, model)
         // build the BUILDs in thirdParty
         val targets = Writer.targets(normalized, model) match {
           case Right(t) => t
@@ -77,6 +75,8 @@ object MakeDeps {
           case None => (_, s) => s
         }
 
+        // build the workspace
+        val ws = Writer.workspace(g.depsFile, normalized, duplicates, shas, model)
         if (g.checkOnly) {
           executeCheckOnly(model, projectRoot, IO.path(workspacePath), ws, targets, formatter)
         } else {
