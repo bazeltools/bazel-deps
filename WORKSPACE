@@ -1,12 +1,17 @@
 workspace(name = "com_github_johnynek_bazel_deps")
 
+load("@bazel_tools//tools/build_defs/repo:git.bzl",
+     "git_repository", "new_git_repository")
+
 git_repository(
     name = "io_bazel_rules_scala",
     remote = "git://github.com/bazelbuild/rules_scala",
-    commit = "c5f7fae8d7540148b78a8d1cecef459397dbb62b" # update this as needed
+    commit = "861d4faab281a42f79922b087a026b88a22c20b3" # update this as needed
 )
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repositories")
 scala_repositories()
+load("@io_bazel_rules_scala//scala:toolchains.bzl", "scala_register_toolchains")
+scala_register_toolchains()
 
 load("//3rdparty:workspace.bzl", "maven_dependencies")
 
@@ -17,7 +22,7 @@ new_git_repository(
     remote = "git://github.com/typelevel/paiges",
     commit = "0cdb92ac7f40cb251a76077cb0ac92b68a620c57",
     # inconsistency in how we refer to build paths in new_native/new git
-    build_file = "3rdparty/manual/BUILD.paiges",
+    build_file = "@//3rdparty/manual:BUILD.paiges",
     # use target: "@org_typelevel_paiges//:paiges"
 )
 
@@ -27,7 +32,7 @@ new_git_repository(
     # this is 0.2.2
     commit = "b3dd1442923949f1fd2822b266f2e3626919f2c6",
     # inconsistency in how we refer to build paths in new_native/new git
-    build_file = "3rdparty/manual/BUILD.decline",
+    build_file = "@//3rdparty/manual:BUILD.decline",
     # use target: "@org_typelevel_paiges//:decline"
 )
 
