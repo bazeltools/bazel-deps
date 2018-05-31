@@ -39,7 +39,9 @@ In any case, we add a comment for any duplicates found in the workspace loading 
 
 To declare dependencies, add items to the `dependencies` key in your declaration file. The format
 should be yaml or json. It should have [`dependencies`](#dependencies) and it may have [`replacements`](#replacements)
-and [`options`](#options).
+and [`options`](#options). Important: only dependencies explicitly named have public visibility,
+transitive dependencies not listed in the dependencies file have visibility limited to the third
+party directory.
 
 ### <a name="dependencies">Dependencies</a>
 
@@ -64,6 +66,10 @@ dependencies:
       lang: scala
       modules: [core, date, args, db, arvo]
 ```
+The `version` field is optional. If it is absent, it means this jar is expected to be found by
+transitive dependencies, and it is available to be used outside of the thirdparty directory, but the
+exact version used can be selected according to the version resolution rules. It is an error to have
+an unversioned dependency that is not a transitive dependency of another versioned dependency.
 
 A target may optionally add `exports` and `exclude` lists to a dependency. `exports` should be just the group and
 artifact (such as: `com.twitter:scalding-core` in the above), and they should be listed in the dependencies. `exclude`
@@ -72,6 +78,40 @@ list should also be only the group and artifact.
 Each group id can only appear once, so you should collocate dependencies by group. WARNING the parsing library
 we are using does not fail on duplicate keys, it just takes the last one, so watch out. It would be good
 to fix that, but writing a new yaml parser is out of scope.
+
+#### <a name="packaging-classifiers">Packaging and Classifiers</a>
+
+Depending on artifacts with classifiers is straightforward: just add the packaging and classifier as part of the
+artifact id:
+
+```yaml
+dependencies:
+  net.sf.json-lib:
+    json-lib:jar:jdk15: # artifact:packaging:classifier
+      lang: java
+      version: "2.4"
+```
+
+**Note**: Currently, only `jar` packaging is supported for dependencies. More work is needed on the `bazel-deps` backend
+to ensure that non-jar dependencies are written as `data` attributes, instead of regular jar dependencies. 
+
+Excluding artifacts with packaging or classifiers is similar to including dependencies. Non-jar packaging _is_ supported
+for `exclude`.
+
+```yaml
+  com.amazonaws:
+    DynamoDBLocal:
+      lang: java
+      version: "1.11.86"
+      exclude:
+        - "com.almworks.sqlite4java:sqlite4java-win32-x86:dll"
+        - "com.almworks.sqlite4java:sqlite4java-win32-x64:dll"
+        - "com.almworks.sqlite4java:libsqlite4java-osx:dylib"
+        - "com.almworks.sqlite4java:libsqlite4java-linux-i386:so"
+        - "com.almworks.sqlite4java:libsqlite4java-linux-amd64:so"
+```
+
+#### <a name="annotation-processors">Annotation Processors (`processorClasses`)</a>
 
 A target may also optionally add `processorClasses` to a dependency. This is for [annotation processors](https://docs.oracle.com/javase/8/docs/api/javax/annotation/processing/Processor.html).
 `bazel-deps` will generate a `java_library` and a `java_plugin` for each annotation processor defined. For example, we can define Google's auto-value annotation processor via:
@@ -115,7 +155,7 @@ In the options we set:
 * buildHeader: usually you will want to configure your scala support here:
 ```
   buildHeader:
-    - load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
+    - load("@io_bazel_rules_scala//scala:scala_import.bzl", "scala_import")
 ```
 * languages: java and scala
 * thirdPartyDirectory: path to where we write the BUILD files for thirdparty. The default is `3rdparty/jvm`.
@@ -127,6 +167,11 @@ In the options we set:
   output_base`)
 * namePrefix: a string added to the generated workspace names, to avoid conflicts.  The external repository names and
   binding targets of each dependency are prefixed.
+* licenses: a set of strings added a licenses rule to each generated bazel target.  Required by
+  bazel if your build targets are under third_party/
+* resolverType: the string aether or coursier. `aether` is the default, but it is slower and seems
+  to silently miss some dependencies for reasons we don't yet understand. Coursier will likely be
+  the default in the future, but for now it is opt in.
 
 In the default case, with no options given, we use:
 - `highest` versionConflictPolicy

@@ -49,18 +49,26 @@ object Target {
         }
     }
   }
+
+  sealed abstract class Visibility(val asString: String)
+  object Visibility {
+    case object Public extends Visibility("//visibility:public")
+    case class SubPackages(of: Label) extends Visibility(s"${of.packageLabel.fromRoot}:__subpackages__")
+  }
 }
 
 case class Target(
   lang: Language,
   name: Label,
+  visibility: Target.Visibility,
   kind: Target.Kind = Target.Library,
   deps: Set[Label] = Set.empty,
   jars: Set[Label] = Set.empty,
   sources: Target.SourceList = Target.SourceList.Empty,
   exports: Set[Label] = Set.empty,
   runtimeDeps: Set[Label] = Set.empty,
-  processorClasses: Set[ProcessorClass] = Set.empty) {
+  processorClasses: Set[ProcessorClass] = Set.empty,
+  licenses: Set[String] = Set.empty) {
 
   def toDoc: Doc = {
     import Target._
@@ -103,28 +111,34 @@ case class Target(
       if (pcs.size == 1) s"${name.name}_plugin"
       else s"${name.name}_plugin_${fqnToLabelFragment(pc.asString)}"
 
-    def renderPlugins(pcs: Set[ProcessorClass], exports: Set[Label]): Doc =
+    def renderPlugins(pcs: Set[ProcessorClass], exports: Set[Label], licenses: Set[String]): Doc =
       if (pcs.isEmpty) Doc.empty
-      else processorClasses.toList.sortBy(_.asString).map(renderPlugin(pcs, _, exports)).reduce((d1, d2) => d1 + d2)
+      else processorClasses.toList.sortBy(_.asString).map(renderPlugin(pcs, _, exports, licenses)).reduce((d1, d2) => d1 + d2)
 
-    def renderPlugin(pcs: Set[ProcessorClass], pc: ProcessorClass, exports: Set[Label]): Doc =
+    def renderPlugin(pcs: Set[ProcessorClass], pc: ProcessorClass, exports: Set[Label], licenses: Set[String]): Doc =
       sortKeys(Doc.text("java_plugin"), getPluginTargetName(pcs, pc), List(
         "deps" -> labelList(exports ++ jars),
+        "licenses" -> renderLicenses(licenses),
         "processor_class" -> quote(pc.asString),
-        visibility()
+        visibilityDoc
       )) + Doc.line
 
-    def visibility(): (String, Doc) =
-      "visibility" -> renderList(Doc.text("["), List("//visibility:public"), Doc.text("]"))(quote)
+    def visibilityDoc: (String, Doc) =
+      "visibility" -> renderList(Doc.text("["), List(visibility.asString), Doc.text("]"))(quote)
+
+    def renderLicenses(licenses: Set[String]): Doc =
+      if (!licenses.isEmpty) renderList(Doc.text("["), licenses.toList, Doc.text("]"))(quote)
+      else Doc.empty
 
     sortKeys(targetType, name.name, List(
-      visibility(),
+      visibilityDoc,
       "deps" -> labelList(deps),
+      "licenses" -> renderLicenses(licenses),
       "srcs" -> sources.render,
       "jars" -> labelList(jars),
       "exports" -> labelList(exports),
       "runtime_deps" -> labelList(runtimeDeps),
       "exported_plugins" -> renderExportedPlugins(processorClasses)
-    )) + renderPlugins(processorClasses, exports) + Doc.line
+    )) + renderPlugins(processorClasses, exports, licenses) + Doc.line
   }
 }

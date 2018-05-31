@@ -16,10 +16,10 @@ jdk:
   - oraclejdk8
 
 before_install:
-  - wget 'https://github.com/bazelbuild/bazel/releases/download/0.7.0/bazel-0.7.0-installer-linux-x86_64.sh'
+  - wget 'https://github.com/bazelbuild/bazel/releases/download/0.11.1/bazel-0.11.1-installer-linux-x86_64.sh'
   - sha256sum -c .bazel-installer-linux-x86_64.sh.sha256
-  - chmod +x bazel-0.7.0-installer-linux-x86_64.sh
-  - ./bazel-0.7.0-installer-linux-x86_64.sh --user
+  - chmod +x bazel-0.11.1-installer-linux-x86_64.sh
+  - ./bazel-0.11.1-installer-linux-x86_64.sh --user
   - cp .bazelrc.travis .bazelrc
 
 script:
@@ -27,4 +27,5 @@ script:
   - bazel test --test_output errors //...
   - bazel build src/scala/com/github/johnynek/bazel_deps/parseproject_deploy.jar
   - ./gen_maven_deps.sh generate -r `pwd` -s 3rdparty/workspace.bzl -d dependencies.yaml
+  - bazel run //:parse -- format-deps --overwrite --deps $PWD/dependencies.yaml
   - git diff --exit-code

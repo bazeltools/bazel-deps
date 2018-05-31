@@ -1,8 +1,8 @@
 options:
+  buildHeader: [ "load(\"@io_bazel_rules_scala//scala:scala_import.bzl\", \"scala_import\")" ]
   languages: [ "java", "scala:2.11.8" ]
-  buildHeader:
-    - load("@io_bazel_rules_scala//scala:scala_import.bzl", "scala_import")
-  resolvers: 
+  resolverType: "coursier"
+  resolvers:
     - id: "mavencentral"
       type: "default"
       url: https://repo.maven.apache.org/maven2/
@@ -13,48 +13,59 @@ dependencies:
   com.chuusai:
     shapeless:
       lang: scala
-  
+
+  com.fasterxml.jackson.core:
+    jackson:
+      lang: java
+      modules: [ "core", "databind" ]
+
   com.fasterxml.jackson.dataformat:
     jackson-dataformat-yaml:
       lang: java
       version: "2.5.3"
-  
+
   com.github.mpilquist:
     simulacrum:
-      exports: 
+      exports:
         - "org.typelevel:macro-compat"
       lang: scala
-  
+
   io.circe:
     circe:
       lang: scala
-      modules: [ "core", "jackson25", "parser" ]
+      modules: [ "core", "jackson25", "jawn", "parser" ]
       version: "0.8.0"
     circe-generic:
-      exports: 
+      exports:
         - "com.chuusai:shapeless"
         - "org.typelevel:cats-core"
         - "org.typelevel:cats-kernel"
         - "org.typelevel:macro-compat"
       lang: scala
       version: "0.8.0"
-  
+
+  io.get-coursier:
+    coursier:
+      lang: scala
+      modules: [ "", "cache" ]
+      version: "1.1.0-M1"
+
   org.apache.maven:
     maven-aether-provider:
       lang: java
-      version: "3.1.0"
-  
+      version: "3.3.9"
+
   org.eclipse.aether:
     aether:
       lang: java
-      modules: [ "api", "connector-basic", "impl", "transport-file", "transport-http" ]
-      version: "1.0.2.v20150114"
-  
+      modules: [ "api", "connector-basic", "impl", "spi", "transport-file", "transport-http" ]
+      version: "1.1.0"
+
   org.scala-lang.modules:
     scala-xml:
       lang: scala
       version: "1.0.6"
-  
+
   org.scalacheck:
     scalacheck:
       lang: scala
@@ -64,14 +75,20 @@ dependencies:
     scalactic:
       lang: scala
       version: "3.0.1"
-  
+
   org.scalatest:
     scalatest:
-      exports: 
+      exports:
         - "org.scalactic:scalactic"
       lang: scala
       version: "3.0.1"
-  
+
+  org.slf4j:
+    slf4j:
+      lang: java
+      modules: [ "api", "simple" ]
+      version: "1.7.25"
+
   org.spire-math:
     kind-projector:
       lang: scala
@@ -83,7 +100,7 @@ dependencies:
       modules: [ "free", "kernel", "macros" ]
       version: "0.9.0"
     cats-core:
-      exports: 
+      exports:
         - "org.typelevel:cats-kernel"
       lang: scala
       version: "0.9.0"
@@ -101,7 +118,7 @@ replacements:
     scala-reflect:
       lang: scala/unmangled
       target: "@scala//:scala-reflect"
-  
+
   org.scala-lang.modules:
     scala-parser-combinators:
       lang: scala

@@ -8,6 +8,7 @@ import java.io.{File, FileOutputStream, IOException}
 import java.nio.file.{Files, SimpleFileVisitor, FileVisitResult, Path => JPath}
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.Arrays
+import org.slf4j.LoggerFactory
 import scala.util.{ Failure, Success, Try }
 
 import cats.implicits._
@@ -19,6 +20,8 @@ import cats.implicits._
 object IO {
   val charset = "UTF-8"
   val pathSeparator = File.separator
+
+  private[this] val logger = LoggerFactory.getLogger("IO")
 
   case class Path(parts: List[String]) {
     def child(p: String): Path = Path(parts ++ List(p))
@@ -88,7 +91,7 @@ object IO {
   def run[A](io: Result[A], root: File)(resume: A => Unit): Unit =
     io.foldMap(IO.fileSystemExec(root)) match {
       case Failure(err) =>
-        System.err.println(err)
+        logger.error("Failure during IO:", err)
         System.exit(-1)
       case Success(result) =>
         resume(result)

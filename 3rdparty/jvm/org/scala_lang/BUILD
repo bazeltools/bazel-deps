@@ -5,7 +5,7 @@ scala_library(
         "@scala//:scala-compiler"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -17,7 +17,7 @@ scala_library(
         "@scala//:scala-library"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -29,7 +29,7 @@ scala_library(
         "@scala//:scala-reflect"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

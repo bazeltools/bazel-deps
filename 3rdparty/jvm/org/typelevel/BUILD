@@ -77,10 +77,11 @@ scala_import(
         "//external:jar/org/typelevel/machinist_2_11"
     ],
     runtime_deps = [
+        "//3rdparty/jvm/org/scala_lang:scala_library",
         "//3rdparty/jvm/org/scala_lang:scala_reflect"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 
@@ -90,6 +91,9 @@ scala_import(
     name = "macro_compat",
     jars = [
         "//external:jar/org/typelevel/macro_compat_2_11"
+    ],
+    runtime_deps = [
+        "//3rdparty/jvm/org/scala_lang:scala_library"
     ],
     visibility = [
         "//visibility:public"

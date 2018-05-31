@@ -55,14 +55,26 @@ object Normalizer {
           table(n).collect { case (_, Right(v)) => v }.toSet.size > 1
       }
 
-      def disambiguate(node: Node): Table =
+      def disambiguate(node: Node): Table = disambiguateHelper(node, Set())
+
+      def disambiguateHelper(node: Node, visited: Set[Node]): Table = {
         table(node)
           .map(_._1.map(_.unversioned))
           .find(isAmbiguous) match {
             case None => fixVersion(node) // note that parents are not ambiguous
             case Some(None) => sys.error("unreachable, roots are never ambiguous")
-            case Some(Some(p)) => disambiguate(p)
+            case Some(Some(p)) => {
+              if (!visited.contains(p)) {
+                disambiguateHelper(p, visited + p)
+              } else {
+                // We found a cycle in the maven dependency graph. Maven is OK with this (why!?),
+                // but bazel won't be. However, this might be a cycle in the transitive dependency
+                // graph that won't be present in the BUILD files, so we'll allow it for now.
+                fixVersion(node)
+              }
+            }
           }
+      }
 
       // invariant: all of node's parents must be unambiguous
       def fixVersion(node: Node): Table = {

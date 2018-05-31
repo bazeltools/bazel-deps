@@ -7,6 +7,9 @@ scala_import(
     jars = [
         "//external:jar/com/github/mpilquist/simulacrum_2_11"
     ],
+    runtime_deps = [
+        "//3rdparty/jvm/org/scala_lang:scala_library"
+    ],
     visibility = [
         "//visibility:public"
     ]

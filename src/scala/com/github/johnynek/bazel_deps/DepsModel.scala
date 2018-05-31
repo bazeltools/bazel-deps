@@ -1,14 +1,15 @@
 package com.github.johnynek.bazel_deps
 
-import java.io.{ File, BufferedReader, FileReader }
+import java.io.{ BufferedReader, ByteArrayOutputStream, File, FileInputStream, FileReader, InputStream }
+import java.security.MessageDigest
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 import org.typelevel.paiges.Doc
 import cats.kernel.{ CommutativeMonoid, Monoid, Semigroup }
 import cats.implicits._
+import cats.{ Applicative, Functor, Foldable, Id, SemigroupK, Traverse }
 import cats.data.{ Validated, ValidatedNel, Ior, NonEmptyList }
-import cats.{ Applicative, Functor, Foldable, Traverse }
 
 /**
  * These should be upstreamed to paiges
@@ -131,12 +132,19 @@ object Model {
 }
 
 case class MavenGroup(asString: String)
-case class ArtifactOrProject(asString: String) {
+case class ArtifactOrProject(artifact: MavenArtifactId) {
+
+  private val artifactId = artifact.artifactId
+  private val packaging = artifact.packaging
+  private val classifier = artifact.classifier
+
+  def asString: String = artifact.asString
+
   val splitSubprojects: List[(ArtifactOrProject, Subproject)] =
-    if (asString.contains('-')) {
-      val indices = asString.iterator.zipWithIndex.collect { case (c, i) if c == '-' => i }
+    if (artifactId.contains('-')) {
+      val indices = artifactId.iterator.zipWithIndex.collect { case (c, i) if c == '-' => i }
       indices.map { i =>
-        (ArtifactOrProject(asString.substring(0, i)), Subproject(asString.substring(i + 1)))
+        (ArtifactOrProject(MavenArtifactId(artifactId.substring(0, i), packaging, classifier)), Subproject(artifactId.substring(i + 1)))
       }.toList
     }
     else Nil
@@ -148,9 +156,9 @@ case class ArtifactOrProject(asString: String) {
 
   def split(a: ArtifactOrProject): Option[Subproject] =
     if (this == a) Some(Subproject(""))
-    else if (asString.startsWith(a.asString) && asString.charAt(a.asString.length) == '-')
+    else if (artifactId.startsWith(a.artifactId) && artifactId.charAt(a.artifactId.length) == '-')
       Some {
-        val sp = asString.substring(a.asString.length + 1) // skip the '-'
+        val sp = artifactId.substring(a.artifactId.length + 1) // skip the '-'
         Subproject(sp)
       }
     else None
@@ -159,17 +167,78 @@ case class ArtifactOrProject(asString: String) {
     val str = sp.asString
     str match {
       case "" => this
-      case _ => ArtifactOrProject(s"$asString-$str")
+      case _ => ArtifactOrProject(MavenArtifactId(s"$artifactId-$str", packaging, classifier))
     }
   }
 }
 object ArtifactOrProject {
   implicit val ordering: Ordering[ArtifactOrProject] = Ordering.by(_.asString)
+
+  def apply(str: String): ArtifactOrProject = {
+    ArtifactOrProject(MavenArtifactId(str))
+  }
+  def apply(artifactId: String, packaging: String, classifier: Option[String]): ArtifactOrProject = {
+    ArtifactOrProject(MavenArtifactId(artifactId, packaging, classifier))
+  }
+}
+
+case class Sha1Value(toHex: String)
+
+object Sha1Value {
+
+  def computeShaOf(f: File): Try[Sha1Value] = Try {
+    val sha = MessageDigest.getInstance("SHA-1")
+    val fis = new FileInputStream(f)
+    try {
+      withContent(fis) { (buffer, n) =>
+        if (n > 0) sha.update(buffer, 0, n) else ()
+      }
+      Success(Sha1Value(sha.digest.map("%02X".format(_)).mkString.toLowerCase))
+    }
+    catch {
+      case NonFatal(err) => Failure(err)
+    }
+    finally {
+      fis.close
+    }
+  }.flatten
+
+  def withContent(is: InputStream)(f: (Array[Byte], Int) => Unit): Unit = {
+    val data = Array.ofDim[Byte](16384)
+    var nRead = is.read(data, 0, data.length)
+    while (nRead != -1) {
+      f(data, nRead)
+      nRead = is.read(data, 0, data.length)
+    }
+  }
+
+  def parseFile(file: File): Try[Sha1Value] = {
+    val fis = new FileInputStream(file)
+    val baos = new ByteArrayOutputStream()
+    withContent(fis) { (buffer, n) =>
+      baos.write(buffer, 0, n)
+    }
+    val s = new String(baos.toByteArray, "UTF-8")
+    parseData(s)
+  }
+
+  def parseData(contents: String): Try[Sha1Value] = {
+    val hexString = contents
+      .split("\\s") // some files have sha<whitespace>filename
+      .dropWhile(_.isEmpty)
+      .head
+      .trim
+      .toLowerCase
+    if (hexString.length == 40 && hexString.matches("[0-9A-Fa-f]*")) {
+      Success(Sha1Value(hexString))
+    } else {
+      Failure(new Exception(s"string: $hexString, not a valid SHA1"))
+    }
+  }
 }
 
 case class Subproject(asString: String)
 case class Version(asString: String)
-case class Sha1Value(toHex: String)
 case class MavenServer(id: String, contentType: String, url: String) {
   def toDoc: Doc =
     packedYamlMap(
@@ -257,17 +326,49 @@ object Version {
   }
 }
 
-case class MavenArtifactId(asString: String) {
-  def addSuffix(s: String): MavenArtifactId = MavenArtifactId(asString + s)
+case class MavenArtifactId(
+  artifactId: String,
+  packaging: String,
+  classifier: Option[String]) {
+
+  def asString: String = classifier match {
+    case Some(c) => s"$artifactId:$packaging:$c"
+    case None => if (packaging == MavenArtifactId.defaultPackaging) {
+      artifactId
+    } else {
+      s"$artifactId:$packaging"
+    }
+  }
+
+  def addSuffix(s: String): MavenArtifactId = MavenArtifactId(s"$artifactId$s", packaging, classifier)
 }
 
 object MavenArtifactId {
+  val defaultPackaging = "jar"
+
   def apply(a: ArtifactOrProject): MavenArtifactId = MavenArtifactId(a.asString)
-  def apply(a: ArtifactOrProject, s: Subproject): MavenArtifactId = {
-    val ap = a.asString
-    val sp = s.asString
-    MavenArtifactId(if (sp.isEmpty) ap else s"$ap-$sp")
+  def apply(a: ArtifactOrProject, s: Subproject): MavenArtifactId = MavenArtifactId(a.toArtifact(s))
+
+  // convenience: empty string classifier converted to None
+  def apply(artifact: String, packaging: String, classifier: String): MavenArtifactId = {
+    assert(packaging != "")
+    MavenArtifactId(
+      artifact,
+      packaging,
+      classifier match {
+        case "" => None
+        case c => Some(c)
+      }
+    )
   }
+
+  def apply(str: String): MavenArtifactId =
+    str.split(":") match {
+      case Array(a, p, c) => MavenArtifactId(a, p, Some(c))
+      case Array(a, p) => MavenArtifactId(a, p, None)
+      case Array(a) => MavenArtifactId(a, defaultPackaging, None)
+      case _ => sys.error(s"$str did not match expected format <artifactId>[:<packaging>[:<classifier>]]")
+    }
 }
 
 case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, version: Version) {
@@ -362,14 +463,24 @@ object Language {
       if (s.endsWith(suffix)) Some(s.dropRight(suffix.size))
       else None
 
+    def removeSuffix(uv: UnversionedCoordinate) : UnversionedCoordinate = {
+      val aid = uv.artifact
+      removeSuffix(aid.artifactId) match {
+        case None => uv
+        case Some(a) => UnversionedCoordinate(uv.group, MavenArtifactId(a, aid.packaging, aid.classifier))
+      }
+    }
+
     def endsWithScalaVersion(uv: UnversionedCoordinate): Boolean =
-      uv.asString.endsWith(suffix)
+      uv.artifact.artifactId.endsWith(suffix)
 
     def unmangle(m: MavenCoordinate) = {
-      val MavenCoordinate(g, a, v) = m
-      removeSuffix(a.asString) match {
-        case None => m
-        case Some(a) => MavenCoordinate(g, MavenArtifactId(a), v)
+      val uv = m.unversioned
+      val uvWithRemoved = removeSuffix(uv)
+      if (uv == uvWithRemoved) {
+        m
+      } else {
+        MavenCoordinate(uvWithRemoved, v)
       }
     }
   }
@@ -395,12 +506,21 @@ case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
     }
     .mkString
 
+  /**
+    * The bazel-safe target name
+    */
+  def toTargetName: String =
+    artifact.asString.map {
+      case ':' => '_'
+      case o => o
+    }
+
   def toBindingName(namePrefix: NamePrefix): String = {
     val g = group.asString.map {
       case '.' => '/'
       case o => o
     }
-    s"jar/${namePrefix.asString}$g/${artifact.asString}".map {
+    s"jar/${namePrefix.asString}$g/${toTargetName}".map {
       case '.' | '-' => '_'
       case o => o
     }
@@ -735,7 +855,7 @@ object Dependencies {
       val g0 = candidates.flatMap { case ap@(a, p) =>
         require(p.modules == None) // this is an invariant true of candidates
         val subs = a.splitSubprojects1.toList
-        val prefix = subs.map { case (ArtifactOrProject(pre), _) => pre }.min
+        val prefix = subs.map { case (ArtifactOrProject(MavenArtifactId(artifact, _, _)), _) => artifact }.min
         subs.map { case (a, sp) =>
           (prefix, (a, (p, (sp, ap))))
         }
@@ -967,11 +1087,8 @@ case class DirectoryName(asString: String) {
 object DirectoryName {
   def default: DirectoryName = DirectoryName("3rdparty/jvm")
 
-  /** Take the right-most (most recent)
-   */
-  implicit val dirNameSemigroup: Semigroup[DirectoryName] = new Semigroup[DirectoryName] {
-    def combine(a: DirectoryName, b: DirectoryName) = b
-  }
+  implicit val dirNameSemigroup: Semigroup[DirectoryName] =
+    Options.useRight.algebra[DirectoryName]
 }
 
 sealed abstract class Transitivity(val asString: String)
@@ -996,11 +1113,8 @@ object ResolverCache {
   case object Local extends ResolverCache("local")
   case object BazelOutputBase extends ResolverCache("bazel_output_base")
 
-  /** Take the right-most (most recent)
-   */
-  implicit val resolverCacheSemigroup: Semigroup[ResolverCache] = new Semigroup[ResolverCache] {
-    def combine(a: ResolverCache, b: ResolverCache) = b
-  }
+  implicit val resolverCacheSemigroup: Semigroup[ResolverCache] =
+    Options.useRight.algebra[ResolverCache]
 }
 
 case class NamePrefix(val asString: String)
@@ -1009,11 +1123,20 @@ object NamePrefix {
 
   def default: NamePrefix = NamePrefix("")
 
-  /** Take the right-most (most recent)
-   */
-  implicit val namePrefixSemigroup: Semigroup[NamePrefix] = new Semigroup[NamePrefix] {
-    def combine(a: NamePrefix, b: NamePrefix) = b
-  }
+  implicit val namePrefixSemigroup: Semigroup[NamePrefix] =
+    Options.useRight.algebra[NamePrefix]
+}
+
+sealed abstract class ResolverType(val asString: String)
+
+object ResolverType {
+  case object Aether extends ResolverType("aether")
+  case object Coursier extends ResolverType("coursier")
+
+  val default = Aether
+
+  implicit val resolverSemigroup: Semigroup[ResolverType] =
+    Options.useRight.algebra[ResolverType]
 }
 
 
@@ -1025,8 +1148,10 @@ case class Options(
   transitivity: Option[Transitivity],
   buildHeader: Option[List[String]],
   resolverCache: Option[ResolverCache],
-  namePrefix: Option[NamePrefix]
-  ) {
+  namePrefix: Option[NamePrefix],
+  licenses: Option[Set[String]],
+  resolverType: Option[ResolverType]
+) {
 
   def isDefault: Boolean =
     versionConflictPolicy.isEmpty &&
@@ -1036,7 +1161,12 @@ case class Options(
     transitivity.isEmpty &&
     buildHeader.isEmpty &&
     resolverCache.isEmpty &&
-    namePrefix.isEmpty
+    namePrefix.isEmpty &&
+    licenses.isEmpty &&
+    resolverType.isEmpty
+
+  def getLicenses: Set[String] =
+    licenses.getOrElse(Set.empty)
 
   def getThirdPartyDirectory: DirectoryName =
     thirdPartyDirectory.getOrElse(DirectoryName.default)
@@ -1073,6 +1203,9 @@ case class Options(
   def getNamePrefix: NamePrefix =
     namePrefix.getOrElse(NamePrefix.default)
 
+  def getResolverType: ResolverType =
+    resolverType.getOrElse(ResolverType.default)
+
   def toDoc: Doc = {
     val items = List(
       ("versionConflictPolicy",
@@ -1090,7 +1223,10 @@ case class Options(
         buildHeader.map(list(_) { s => quoteDoc(s) })),
       ("transitivity", transitivity.map { t => Doc.text(t.asString) }),
       ("resolverCache", resolverCache.map { rc => Doc.text(rc.asString) }),
-      ("namePrefix", namePrefix.map { p => quoteDoc(p.asString) })
+      ("namePrefix", namePrefix.map { p => quoteDoc(p.asString) }),
+      ("licenses",
+        licenses.map { l => list(l.toList.sorted)(quoteDoc) }),
+      ("resolverType", resolverType.map(r => quoteDoc(r.asString)))
     ).sortBy(_._1)
      .collect { case (k, Some(v)) => (k, v) }
 
@@ -1100,13 +1236,19 @@ case class Options(
 }
 
 object Options {
+
   def default: Options = optionsMonoid.empty
+
+  def useRight: SemigroupK[Id] =
+    new SemigroupK[Id] {
+      def combineK[A](x: A, y: A): A = y
+    }
 
   /**
    * A monoid on options that is just the point-wise monoid
    */
   implicit val optionsMonoid: Monoid[Options] = new Monoid[Options] {
-    val empty = Options(None, None, None, None, None, None, None, None)
+    val empty = Options(None, None, None, None, None, None, None, None, None, None)
 
     def combine(a: Options, b: Options): Options = {
       val vcp = Monoid[Option[VersionConflictPolicy]].combine(a.versionConflictPolicy, b.versionConflictPolicy)
@@ -1117,8 +1259,9 @@ object Options {
       val headers = Monoid[Option[List[String]]].combine(a.buildHeader, b.buildHeader).map(_.distinct)
       val resolverCache = Monoid[Option[ResolverCache]].combine(a.resolverCache, b.resolverCache)
       val namePrefix = Monoid[Option[NamePrefix]].combine(a.namePrefix, b.namePrefix)
-
-      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix)
+      val licenses = Monoid[Option[Set[String]]].combine(a.licenses, b.licenses)
+      val resolverType = Monoid[Option[ResolverType]].combine(a.resolverType, b.resolverType)
+      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix, licenses, resolverType)
     }
   }
 }

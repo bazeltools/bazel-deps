@@ -8,6 +8,10 @@ git_repository(
     remote = "git://github.com/bazelbuild/rules_scala",
     commit = "861d4faab281a42f79922b087a026b88a22c20b3" # update this as needed
 )
+
+load("@io_bazel_rules_scala//scala:toolchains.bzl", "scala_register_toolchains")
+scala_register_toolchains()
+
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repositories")
 scala_repositories()
 load("@io_bazel_rules_scala//scala:toolchains.bzl", "scala_register_toolchains")
@@ -20,7 +24,7 @@ maven_dependencies()
 new_git_repository(
     name = "org_typelevel_paiges",
     remote = "git://github.com/typelevel/paiges",
-    commit = "0cdb92ac7f40cb251a76077cb0ac92b68a620c57",
+    commit = "8df2440d3bb4260b0772d6971e14c9d9322b077d",
     # inconsistency in how we refer to build paths in new_native/new git
     build_file = "@//3rdparty/manual:BUILD.paiges",
     # use target: "@org_typelevel_paiges//:paiges"

@@ -85,3 +85,15 @@ scala_test(name = "parsetestcases",
                "//src/scala/com/github/johnynek/bazel_deps:decoders",
                "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
                ])
+
+scala_test(name = "coursier_test",
+           srcs = ["CoursierTest.scala"],
+           deps = [
+               "//3rdparty/jvm/io/circe:circe_core",
+               "//src/scala/com/github/johnynek/bazel_deps:writer",
+               "//src/scala/com/github/johnynek/bazel_deps:circeyaml",
+               "//src/scala/com/github/johnynek/bazel_deps:decoders",
+               "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+               "//src/scala/com/github/johnynek/bazel_deps:makedeps",
+               "//src/scala/com/github/johnynek/bazel_deps:graph",
+               ])

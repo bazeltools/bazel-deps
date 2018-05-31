@@ -5,7 +5,7 @@ scala_library(
         "@scala//:scala-parser-combinators"
     ],
     visibility = [
-        "//visibility:public"
+        "//3rdparty/jvm:__subpackages__"
     ]
 )
 

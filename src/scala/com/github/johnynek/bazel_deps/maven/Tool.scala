@@ -41,7 +41,7 @@ object Tool {
     modules: Seq[String], //fixme
     dependencies: List[Dep] //fixme
   ) {
-    def toDep: Dep = Dep(groupId, artifactId, version, None)
+    def toDep: Dep = Dep(groupId, artifactId, version, None, Some(packaging), None)
 
     def dir: String = directoryFor(path).getOrElse(".")
 
@@ -61,11 +61,13 @@ object Tool {
     groupId: String,
     artifactId: String,
     version: String,
-    scope: Option[String]) {
+    scope: Option[String],
+    packaging: Option[String], // corresponds to "<type>"
+    classifier: Option[String]) {
 
     def unScalaVersion(s: Language.Scala): Option[Dep] =
       s.removeSuffix(artifactId)
-        .map(Dep(groupId, _, version, scope))
+        .map(Dep(groupId, _, version, scope, packaging, classifier))
 
     def hasScalaBinaryVersion: Boolean =
       artifactId.endsWith("${scala.binary.version}")
@@ -82,7 +84,7 @@ object Tool {
         })
       }
 
-      Dep(r(groupId), r(artifactId), r(version), scope)
+      Dep(r(groupId), r(artifactId), r(version), scope,packaging.map(r), classifier.map(r))
     }
   }
 
@@ -90,7 +92,9 @@ object Tool {
     Dep(singleText(e \ "groupId"),
       singleText(e \ "artifactId"),
       singleText(e \ "version"),
-      optionalText(e \ "scope"))
+      optionalText(e \ "scope"),
+      optionalText(e \ "type"), // aka "packaging"
+      optionalText(e \ "classifier"))
 
   private def directoryFor(path: String): Option[String] = {
     val f = new File(path)
@@ -158,7 +162,8 @@ object Tool {
     val parts: List[(MavenGroup, ArtifactOrProject, ProjectRecord)] =
       externalDeps.iterator.map { case (d, lang) =>
         (MavenGroup(d.groupId),
-          ArtifactOrProject(d.artifactId),
+          ArtifactOrProject(MavenArtifactId(
+            d.artifactId, d.packaging.getOrElse(MavenArtifactId.defaultPackaging), d.classifier)),
           ProjectRecord(lang,
             Some(Version(d.version)),
             None,
@@ -291,6 +296,7 @@ maven_dependencies(maven_load)
         labelFor(proj, "main").map { lab =>
           Target(scalaLang,
             lab,
+            visibility = Target.Visibility.Public,
             deps = labs.toSet,
             sources = Target.SourceList.Globs(List("src/main/**/*.scala", "src/main/**/*.java")))
         }

@@ -1,0 +1,13 @@
+directories:
+  .
+
+targets:
+  //src/...:all
+  //test/...:all
+  //3rdparty/...:all
+
+test_sources:
+  test/*
+
+additional_languages:
+  scala

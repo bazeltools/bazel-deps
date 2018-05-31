@@ -1,27 +1,28 @@
 load("@io_bazel_rules_scala//scala:scala_import.bzl", "scala_import")
 scala_import(
-    name = "jawn_parser",
+    name = "coursier",
     jars = [
-        "//external:jar/org/spire_math/jawn_parser_2_11"
+        "//external:jar/io/get_coursier/coursier_2_11"
     ],
     runtime_deps = [
+        "//3rdparty/jvm/org/scala_lang/modules:scala_xml",
         "//3rdparty/jvm/org/scala_lang:scala_library"
     ],
     visibility = [
-        "//3rdparty/jvm:__subpackages__"
+        "//visibility:public"
     ]
 )
 
 
 
 scala_import(
-    name = "kind_projector",
+    name = "coursier_cache",
     jars = [
-        "//external:jar/org/spire_math/kind_projector_2_11"
+        "//external:jar/io/get_coursier/coursier_cache_2_11"
     ],
     runtime_deps = [
-        "//3rdparty/jvm/org/scala_lang:scala_compiler",
-        "//3rdparty/jvm/org/scala_lang:scala_library"
+        "//3rdparty/jvm/org/scala_lang:scala_library",
+        ":coursier"
     ],
     visibility = [
         "//visibility:public"
