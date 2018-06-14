@@ -71,7 +71,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             None
           case Right(file) =>
             val serverId = serverFor(a).fold("")(_.id)
-            val o = Sha1Value.parseFile(file).map(s => ResolvedSha1Value(s, serverId)).toOption
+            val o = Sha1Value.parseFile(file).map(s => ResolvedSha1Value(s, serverId, a.url)).toOption
             o.foreach { r =>
               logger.info(s"SHA-1 for ${c.asString} downloaded from ${a.url} (${r.sha1Value.toHex})")
             }
@@ -87,7 +87,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
               Sha1Value.computeShaOf(file).map { sha =>
                 logger.info(s"SHA-1 for ${c.asString} computed from ${artifact.url} (${sha.toHex})")
                 val serverId = serverFor(artifact).fold("")(_.id)
-                ResolvedSha1Value(sha, serverId)
+                ResolvedSha1Value(sha, serverId, artifact.url)
               }
           })
         }
@@ -136,7 +136,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             downloadSha1s(artifacts.flatMap(_.extra.get("SHA-1"))).flatMap {
               case Some(s) => Task.point(s)
               case None => computeSha1s(artifacts)
-            }.map(Validated.valid(_))
+            }.map(_.copy(url = artifacts.head.url)).map(Validated.valid(_))
           }
       })
     }

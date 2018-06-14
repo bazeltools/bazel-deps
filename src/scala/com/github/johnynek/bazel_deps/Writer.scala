@@ -90,11 +90,12 @@ object Writer {
         def kv(key: String, value: String): String =
           s""""$key": "$value""""
 
-        val (shaStr, serverStr) = shas.get(coord) match {
+        val (shaStr, serverStr, remoteUrl) = shas.get(coord) match {
           case Some(sha) =>
             val hex = sha.sha1Value.toHex
+            val url = sha.url
             val serverUrl = servers.getOrElse(sha.serverId, "")
-            (s""", ${kv("sha1", hex)}""", s""", ${kv("repository", serverUrl)}""")
+            (s""", ${kv("sha1", hex)}""", s""", ${kv("repository", serverUrl)}""", s""", ${kv("url", url)}""")
           case None => ("", "")
         }
         val comment = duplicates.get(coord.unversioned) match {
@@ -114,7 +115,7 @@ object Writer {
         val l = lang(coord.unversioned)
         val actual = Label.externalJar(l, coord.unversioned, prefix)
         List(s"""$comment    {${kv("artifact", coord.asString)}""",
-             s"""${kv("lang", l.asString)}$shaStr$serverStr""",
+             s"""${kv("lang", l.asString)}$shaStr$serverStr$remoteUrl""",
              s"""${kv("name", coord.unversioned.toBazelRepoName(prefix))}""",
              s"""${kv("actual", actual.fromRoot)}""",
              s"""${kv("bind", coord.unversioned.toBindingName(prefix))}},""").mkString(", ")

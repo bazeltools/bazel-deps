@@ -119,7 +119,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
             .iterator
 
         ms.iterator.zip(resp).map { case (coord, r) =>
-          coord -> getFile(coord, ext, r).flatMap(f => toSha(f).map(sha1Value => ResolvedSha1Value(sha1Value, r.getRepository.getId)))
+          coord -> getFile(coord, ext, r).flatMap(f => toSha(f).map(sha1Value => ResolvedSha1Value(sha1Value, r.getRepository.getId, "unknown")))
         }.toMap
       })
 

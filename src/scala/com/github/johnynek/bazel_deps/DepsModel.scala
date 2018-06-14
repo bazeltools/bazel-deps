@@ -244,7 +244,7 @@ case class MavenServer(id: String, contentType: String, url: String) {
     packedYamlMap(
       List(("id", quoteDoc(id)), ("type", quoteDoc(contentType)), ("url", Doc.text(url))))
 }
-case class ResolvedSha1Value(sha1Value: Sha1Value, serverId: String)
+case class ResolvedSha1Value(sha1Value: Sha1Value, serverId: String, url: String)
 case class ProcessorClass(asString: String)
 
 object Version {
