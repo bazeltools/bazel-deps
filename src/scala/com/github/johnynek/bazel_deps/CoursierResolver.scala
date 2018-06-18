@@ -1,6 +1,6 @@
 package com.github.johnynek.bazel_deps
 
-import coursier.{Fetch, Cache, Resolution}
+import coursier.{Fetch, Cache, Resolution, Artifact, Dependency, Project}
 import coursier.util.Task
 import cats.{Monad, MonadError, Traverse}
 import cats.data.{Nested, NonEmptyList, Validated, ValidatedNel}
@@ -51,57 +51,96 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
   case class FileErrorException(error: coursier.FileError) extends Exception(error.describe)
   case class DownloadFailures(messages: NonEmptyList[String]) extends Exception("resolution errors:\n" + messages.toList.mkString("\n"))
 
-  def getShas(m: List[MavenCoordinate]): Task[SortedMap[MavenCoordinate, ResolvedSha1Value]] = {
+  def getShas(m: List[MavenCoordinate]): Task[SortedMap[MavenCoordinate, ResolvedShasValue]] = {
 
     type L[x] = ValidatedNel[String, x]
     type N[x] = Nested[Task, L, x]
 
-    def lookup(c: MavenCoordinate): N[ResolvedSha1Value] = {
+    def lookup(c: MavenCoordinate): N[ResolvedShasValue] = {
 
-      def downloadSha1s(as: List[coursier.Artifact]): Task[Option[ResolvedSha1Value]] =
-        as.foldM(Option.empty[ResolvedSha1Value]) {
+      def downloadShas(digestType: DigestType, as: List[coursier.Artifact]): Task[Option[ShaValue]] =
+        as.foldM(Option.empty[ShaValue]) {
           case (s @ Some(r), _) => Task.point(s)
-          case (None, a) => downloadSha1(a)
+          case (None, a) => downloadSha(digestType, a)
         }
 
-      def downloadSha1(a: coursier.Artifact): Task[Option[ResolvedSha1Value]] =
+      def downloadSha(digestType: DigestType, a: coursier.Artifact): Task[Option[ShaValue]] =
         Cache.file[Task](a).run.map {
           case Left(error) =>
             logger.info(s"failure to download ${a.url}, ${error.describe}")
             None
           case Right(file) =>
             val serverId = serverFor(a).fold("")(_.id)
-            val o = Sha1Value.parseFile(file).map(s => ResolvedSha1Value(s, serverId, a.url)).toOption
+            val o = ShaValue.parseFile(digestType, file).toOption
             o.foreach { r =>
-              logger.info(s"SHA-1 for ${c.asString} downloaded from ${a.url} (${r.sha1Value.toHex})")
+              logger.info(s"SHA-1 for ${c.asString} downloaded from ${a.url} (${r.toHex})")
             }
             o
         }
 
-      def computeSha1(artifact: coursier.Artifact): Task[ResolvedSha1Value] =
+      def computeSha(digestType: DigestType, artifact: coursier.Artifact): Task[ShaValue] =
         Cache.file[Task](artifact).run.flatMap { e =>
           resolverMonad.fromTry(e match {
             case Left(error) =>
               Failure(FileErrorException(error))
             case Right(file) =>
-              Sha1Value.computeShaOf(file).map { sha =>
-                logger.info(s"SHA-1 for ${c.asString} computed from ${artifact.url} (${sha.toHex})")
-                val serverId = serverFor(artifact).fold("")(_.id)
-                ResolvedSha1Value(sha, serverId, artifact.url)
-              }
+              ShaValue.computeShaOf(digestType, file)
           })
         }
 
-      def computeSha1s(as: List[coursier.Artifact]): Task[ResolvedSha1Value] =
+      def computeShas(digestType: DigestType, as: List[coursier.Artifact], errorMessage: Option[String] = None): Task[ShaValue] =
         as match {
-          case Nil => resolverMonad.raiseError(new RuntimeException(s"we could not download the artifact ${c.asString} to compute the hash"))
+          case Nil => resolverMonad.raiseError(new RuntimeException(s"we could not download the artifact ${c.asString} to compute the hash for digest type ${digestType} with error ${errorMessage.get}"))
           case head :: tail =>
-            resolverMonad.handleErrorWith(computeSha1(head))(_ => computeSha1s(tail))
+            resolverMonad.handleErrorWith(computeSha(digestType, head)){e => computeShas(digestType, tail, Some(e.getMessage))}
         }
+
+      def processArtifact(src: Artifact.Source, dep: Dependency, proj: Project): Task[Option[JarDescriptor]] = {
+      // TODO, this does not seem like the idea thing, but it seems to work.
+          val artifacts = src.artifacts(dep, proj, None)
+            .iterator
+            .filter(_.url.endsWith(".jar"))
+            .toList
+
+          if (artifacts.isEmpty) Task.point(None)
+          else {
+
+            val sha1 = downloadShas(DigestType.Sha1, artifacts.flatMap(_.extra.get("SHA-1"))).flatMap {
+              case Some(s) => Task.point(s)
+              case None => computeShas(DigestType.Sha1, artifacts)
+            }
+
+            // Coursier has some artifact data in extra for checksums, but has a far more complete
+            // checksumUrls attribute
+          val sha256Artifacts = artifacts.flatMap(_.extra.get("SHA-256")) match {
+            case Nil =>
+              artifacts.flatMap { a =>
+                a.checksumUrls.get("SHA-256").map{u => a.copy(url = u)}
+              }
+            case o =>
+              o
+          }
+
+            val sha256 = downloadShas(DigestType.Sha256, sha256Artifacts).flatMap {
+              case Some(s) => Task.point(s)
+              case None =>
+                computeShas(DigestType.Sha256, artifacts)
+            }
+
+            (for {
+              sha1 <- sha1
+              sha256 <- sha256
+            } yield {
+              val serverId = serverFor(artifacts.head).fold("")(_.id)
+
+              Some(JarDescriptor(sha1 = Some(sha1),sha256 = Some(sha256),serverId = serverId, url = Some(artifacts.head.url)))
+            })
+      }
+    }
 
       val module = coursier.Module(c.group.asString, c.artifact.artifactId, Map.empty)
       val version = c.version.asString
-      val f = Cache.fetch[Task]()
+      val f = Cache.fetch[Task](checksums = Seq(Some("SHA-1"), Some("SHA-256"), None))
       val task = Fetch.find[Task](repos, module, version, f).run
 
       /*
@@ -114,7 +153,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
        *
        * See cats.Parallel for this.
        */
-      Nested[Task, L, ResolvedSha1Value](task.flatMap {
+      Nested[Task, L, ResolvedShasValue](task.flatMap {
         case Left(errors) =>
           val nel = NonEmptyList.fromList(errors.toList)
             .getOrElse(NonEmptyList("<empty message>", Nil))
@@ -125,23 +164,27 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             c.artifact.classifier.getOrElse("")
           ))
 
-          // TODO, this does not seem like the idea thing, but it seems to work.
-          val artifacts = src.artifacts(dep, proj, None)
-            .iterator
-            .filter(_.url.endsWith(".jar"))
-            .toList
+          val srcDep = dep.copy(attributes = coursier.Attributes(
+            c.artifact.packaging,
+            "sources"
+          ))
 
-          if (artifacts.isEmpty) resolverMonad.raiseError(new RuntimeException(s"no artifacts for ${c.asString} found"))
-          else {
-            downloadSha1s(artifacts.flatMap(_.extra.get("SHA-1"))).flatMap {
-              case Some(s) => Task.point(s)
-              case None => computeSha1s(artifacts)
-            }.map(_.copy(url = artifacts.head.url)).map(Validated.valid(_))
-          }
+          processArtifact(src, dep, proj).flatMap { mainJarDescriptorOpt =>
+            resolverMonad.handleErrorWith(processArtifact(src, srcDep, proj)){_ => Task.point(None)}.flatMap { sourceJarDescriptorOpt =>
+                mainJarDescriptorOpt match {
+                case None => resolverMonad.raiseError(new RuntimeException(s"no artifacts for ${c.asString} found")) : Task[ResolvedShasValue]
+                case Some(mainJarDescriptor) =>
+                  Task.point(ResolvedShasValue(
+                    binaryJar = mainJarDescriptor,
+                    sourceJar = sourceJarDescriptorOpt
+                  ))
+                }
+            }
+          }.map(Validated.valid(_))
       })
     }
 
-    val g: MavenCoordinate => N[(MavenCoordinate, ResolvedSha1Value)] =
+    val g: MavenCoordinate => N[(MavenCoordinate, ResolvedShasValue)] =
       x => lookup(x).map(x -> _)
 
     Traverse[List].traverse(m)(g).value.flatMap {
