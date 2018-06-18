@@ -110,7 +110,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
       tmap: Try[Map[K, Try[V]]]): SortedMap[K, Try[V]] =
       ms.map { coord => coord -> tmap.flatMap(_(coord)) }(breakOut)
 
-    def getExt(ms: Seq[MavenCoordinate], ext: String): SortedMap[MavenCoordinate, Try[ResolvedShasValue]] =
+    def getExt(ms: Seq[MavenCoordinate], ext: String)(toSha: File => Try[ShaValue]): SortedMap[MavenCoordinate, Try[JarDescriptor]] =
       liftKeys(ms, Try {
         val resp =
           system.resolveArtifacts(session,
@@ -119,24 +119,25 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
             .iterator
 
         ms.iterator.zip(resp).map { case (coord, r) =>
-          coord -> getFile(coord, ext, r).flatMap { f =>
-            JarDescriptor.computeShasOf(f, r.getRepository.getId, None).map {binDescriptor =>
-            ResolvedShasValue(
-              binaryJar = binDescriptor,
-              sourceJar = None
-            )
-          }
-        }}.toMap
+          coord -> getFile(coord, ext, r).flatMap(f => toSha(f).map(sha1Value => JarDescriptor(
+              url=None,
+              sha1 = Some(sha1Value),
+              sha256 = None,
+              serverId = r.getRepository.getId
+            )))
+        }.toMap
       })
 
+    val shas = getExt(m.toList, "sha1")(readShaContents)
     val computes =
-      getExt(m, "" /* no suffix */)
+      getExt(shas.collect { case (m, Failure(_)) => m }.toList, "" /* no suffix */)(ShaValue.computeShaOf(DigestType.Sha1,_))
 
     // this is sequence but this version of cats does not have traverse on SortedMap
     Foldable[List].foldM(
-      (computes).toList,
+      (shas ++ computes).toList,
       SortedMap.empty[MavenCoordinate, ResolvedShasValue]) { case (m, (k, trySha)) =>
-        trySha.map { sha => m + (k -> sha) }
+        trySha.map { sha => m + (k ->
+          ResolvedShasValue(binaryJar = sha, sourceJar = None)) }
       }
   }
   private def getFile(m: MavenCoordinate, ext: String, a: ArtifactResult): Try[File] =
@@ -149,6 +150,9 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
         }
         else Success(f)
     }
+
+  private def readShaContents(f: File): Try[ShaValue] =
+    Model.readFile(f).flatMap(ShaValue.parseData(DigestType.Sha1, _))
 
   type Node = MavenCoordinate
 
