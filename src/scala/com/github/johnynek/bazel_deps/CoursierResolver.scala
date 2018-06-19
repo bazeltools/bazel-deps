@@ -70,7 +70,6 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             logger.info(s"failure to download ${a.url}, ${error.describe}")
             None
           case Right(file) =>
-            val serverId = serverFor(a).fold("")(_.id)
             val o = ShaValue.parseFile(digestType, file).toOption
             o.foreach { r =>
               logger.info(s"SHA-1 for ${c.asString} downloaded from ${a.url} (${r.toHex})")
@@ -88,38 +87,42 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
           })
         }
 
-      def computeShas(digestType: DigestType, as: List[coursier.Artifact], errorMessage: Option[String] = None): Task[ShaValue] =
-        as match {
-          case Nil => resolverMonad.raiseError(new RuntimeException(s"we could not download the artifact ${c.asString} to compute the hash for digest type ${digestType} with error ${errorMessage.get}"))
-          case head :: tail =>
-            resolverMonad.handleErrorWith(computeSha(digestType, head)){e => computeShas(digestType, tail, Some(e.getMessage))}
+      def computeShas(digestType: DigestType, as: NonEmptyList[coursier.Artifact], errorMessage: Option[String] = None): Task[ShaValue] = {
+        val errorFn: Throwable => Task[ShaValue] = as.tail match {
+          case Nil => {e: Throwable =>
+            resolverMonad.raiseError(new RuntimeException(s"we could not download the artifact ${c.asString} to compute the hash for digest type ${digestType} with error ${e}"))
+          }
+          case h :: t => {e: Throwable => computeShas(digestType, NonEmptyList(h, t))}
         }
+        resolverMonad.handleErrorWith(computeSha(digestType, as.head))(errorFn)
+      }
 
       def processArtifact(src: Artifact.Source, dep: Dependency, proj: Project): Task[Option[JarDescriptor]] = {
-      // TODO, this does not seem like the idea thing, but it seems to work.
-          val artifacts = src.artifacts(dep, proj, None)
+          // TODO, this does not seem like the idea thing, but it seems to work.
+          val maybeArtifacts = src.artifacts(dep, proj, None)
             .iterator
             .filter(_.url.endsWith(".jar"))
             .toList
 
-          if (artifacts.isEmpty) Task.point(None)
-          else {
+          NonEmptyList.fromList(maybeArtifacts).map { artifacts =>
 
-            val sha1 = downloadShas(DigestType.Sha1, artifacts.flatMap(_.extra.get("SHA-1"))).flatMap {
+            val sha1 = downloadShas(DigestType.Sha1, maybeArtifacts.flatMap(_.extra.get("SHA-1"))).flatMap {
               case Some(s) => Task.point(s)
               case None => computeShas(DigestType.Sha1, artifacts)
             }
 
             // Coursier has some artifact data in extra for checksums, but has a far more complete
             // checksumUrls attribute
-          val sha256Artifacts = artifacts.flatMap(_.extra.get("SHA-256")) match {
-            case Nil =>
-              artifacts.flatMap { a =>
-                a.checksumUrls.get("SHA-256").map{u => a.copy(url = u)}
-              }
-            case o =>
-              o
-          }
+            //
+            // The SHA-1 availability as an artifact appears to be far more complete, so we only do this
+            // for the SHA-256
+            val sha256Artifacts = maybeArtifacts.flatMap(_.extra.get("SHA-256")) match {
+              case Nil =>
+                maybeArtifacts.flatMap { a =>
+                  a.checksumUrls.get("SHA-256").map{u => a.copy(url = u)}
+                }
+              case o => o
+            }
 
             val sha256 = downloadShas(DigestType.Sha256, sha256Artifacts).flatMap {
               case Some(s) => Task.point(s)
@@ -133,9 +136,9 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             } yield {
               val serverId = serverFor(artifacts.head).fold("")(_.id)
 
-              Some(JarDescriptor(sha1 = Some(sha1),sha256 = Some(sha256),serverId = serverId, url = Some(artifacts.head.url)))
+              Some(JarDescriptor(sha1 = Some(sha1),sha256 = Some(sha256),serverId = serverId, url = Some(artifacts.head.url))) : Option[JarDescriptor]
             })
-      }
+      }.getOrElse(Task.point(Option.empty[JarDescriptor]))
     }
 
       val module = coursier.Module(c.group.asString, c.artifact.artifactId, Map.empty)

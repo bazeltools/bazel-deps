@@ -184,16 +184,19 @@ object ArtifactOrProject {
 
 sealed trait DigestType {
   def getDigestInstance: MessageDigest
-  def expectedLength: Int
+  def expectedHexLength: Int
+  def name: String
 }
 object DigestType {
   case object Sha1 extends DigestType {
     def getDigestInstance: MessageDigest = MessageDigest.getInstance("SHA-1")
-   def expectedLength: Int = 40
+    def expectedHexLength: Int = 40
+    def name = "SHA-1"
   }
   case object Sha256 extends DigestType {
     def getDigestInstance: MessageDigest = MessageDigest.getInstance("SHA-256")
-    def expectedLength: Int = 64
+    def expectedHexLength: Int = 64
+    def name = "SHA-256"
   }
 }
 
@@ -202,9 +205,9 @@ case class ShaValue(toHex: String, digestType: DigestType)
 object ShaValue {
 
   def computeShaOf(digestType: DigestType, f: File): Try[ShaValue] = Try {
-    val shaInstance = digestType.getDigestInstance
     val fis = new FileInputStream(f)
     try {
+      val shaInstance = digestType.getDigestInstance
       withContent(fis) { (buffer, n) =>
         if (n > 0) shaInstance.update(buffer, 0, n) else ()
       }
@@ -244,10 +247,10 @@ object ShaValue {
       .head
       .trim
       .toLowerCase
-    if (hexString.length == digestType.expectedLength && hexString.matches("[0-9A-Fa-f]*")) {
+    if (hexString.length == digestType.expectedHexLength && hexString.matches("[0-9A-Fa-f]*")) {
       Success(ShaValue(hexString, digestType))
     } else {
-      Failure(new Exception(s"string: $hexString, not a valid $digestType"))
+      Failure(new Exception(s"string: $hexString, not a valid ${digestType.name}"))
     }
   }
 }
