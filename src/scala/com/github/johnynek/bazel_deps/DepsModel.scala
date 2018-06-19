@@ -182,18 +182,36 @@ object ArtifactOrProject {
   }
 }
 
-case class Sha1Value(toHex: String)
+sealed trait DigestType {
+  def getDigestInstance: MessageDigest
+  def expectedHexLength: Int
+  def name: String
+}
+object DigestType {
+  case object Sha1 extends DigestType {
+    def getDigestInstance: MessageDigest = MessageDigest.getInstance("SHA-1")
+    def expectedHexLength: Int = 40
+    def name = "SHA-1"
+  }
+  case object Sha256 extends DigestType {
+    def getDigestInstance: MessageDigest = MessageDigest.getInstance("SHA-256")
+    def expectedHexLength: Int = 64
+    def name = "SHA-256"
+  }
+}
 
-object Sha1Value {
+case class ShaValue(toHex: String, digestType: DigestType)
 
-  def computeShaOf(f: File): Try[Sha1Value] = Try {
-    val sha = MessageDigest.getInstance("SHA-1")
+object ShaValue {
+
+  def computeShaOf(digestType: DigestType, f: File): Try[ShaValue] = Try {
     val fis = new FileInputStream(f)
     try {
+      val shaInstance = digestType.getDigestInstance
       withContent(fis) { (buffer, n) =>
-        if (n > 0) sha.update(buffer, 0, n) else ()
+        if (n > 0) shaInstance.update(buffer, 0, n) else ()
       }
-      Success(Sha1Value(sha.digest.map("%02X".format(_)).mkString.toLowerCase))
+      Success(ShaValue(shaInstance.digest.map("%02X".format(_)).mkString.toLowerCase, digestType))
     }
     catch {
       case NonFatal(err) => Failure(err)
@@ -203,7 +221,7 @@ object Sha1Value {
     }
   }.flatten
 
-  def withContent(is: InputStream)(f: (Array[Byte], Int) => Unit): Unit = {
+  private[this] def withContent(is: InputStream)(f: (Array[Byte], Int) => Unit): Unit = {
     val data = Array.ofDim[Byte](16384)
     var nRead = is.read(data, 0, data.length)
     while (nRead != -1) {
@@ -212,27 +230,27 @@ object Sha1Value {
     }
   }
 
-  def parseFile(file: File): Try[Sha1Value] = {
+  def parseFile(digestType: DigestType, file: File): Try[ShaValue] = {
     val fis = new FileInputStream(file)
     val baos = new ByteArrayOutputStream()
     withContent(fis) { (buffer, n) =>
       baos.write(buffer, 0, n)
     }
     val s = new String(baos.toByteArray, "UTF-8")
-    parseData(s)
+    parseData(digestType, s)
   }
 
-  def parseData(contents: String): Try[Sha1Value] = {
+  def parseData(digestType: DigestType, contents: String): Try[ShaValue] = {
     val hexString = contents
       .split("\\s") // some files have sha<whitespace>filename
       .dropWhile(_.isEmpty)
       .head
       .trim
       .toLowerCase
-    if (hexString.length == 40 && hexString.matches("[0-9A-Fa-f]*")) {
-      Success(Sha1Value(hexString))
+    if (hexString.length == digestType.expectedHexLength && hexString.matches("[0-9A-Fa-f]*")) {
+      Success(ShaValue(hexString, digestType))
     } else {
-      Failure(new Exception(s"string: $hexString, not a valid SHA1"))
+      Failure(new Exception(s"string: $hexString, not a valid ${digestType.name}"))
     }
   }
 }
@@ -244,7 +262,34 @@ case class MavenServer(id: String, contentType: String, url: String) {
     packedYamlMap(
       List(("id", quoteDoc(id)), ("type", quoteDoc(contentType)), ("url", Doc.text(url))))
 }
-case class ResolvedSha1Value(sha1Value: Sha1Value, serverId: String)
+
+object JarDescriptor {
+  def computeShasOf(f: File, serverId: String, url: Option[String]): Try[JarDescriptor] =
+    for {
+      sha1 <- ShaValue.computeShaOf(DigestType.Sha1, f)
+      sha256 <- ShaValue.computeShaOf(DigestType.Sha256, f)
+    } yield {
+      JarDescriptor(
+        url = url,
+        sha1 = Some(sha1),
+        sha256 = Some(sha256),
+        serverId = serverId
+      )
+    }
+}
+
+case class JarDescriptor(
+  url: Option[String],
+  sha1: Option[ShaValue],
+  sha256: Option[ShaValue],
+  serverId: String
+)
+
+case class ResolvedShasValue(
+  binaryJar: JarDescriptor,
+  sourceJar: Option[JarDescriptor]
+)
+
 case class ProcessorClass(asString: String)
 
 object Version {

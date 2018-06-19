@@ -72,7 +72,7 @@ object Writer {
 
   def workspace(depsFile: String, g: Graph[MavenCoordinate, Unit],
     duplicates: Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]],
-    shas: Map[MavenCoordinate, ResolvedSha1Value],
+    shas: Map[MavenCoordinate, ResolvedShasValue],
     model: Model): String = {
     val nodes = g.nodes
 
@@ -87,16 +87,39 @@ object Writer {
       .map { case coord@MavenCoordinate(g, a, v) =>
         val isRoot = model.dependencies.roots(coord)
 
-        def kv(key: String, value: String): String =
-          s""""$key": "$value""""
+        def kv(key: String, value: String, prefix: String = ""): String =
+          s"""$prefix"$key": "$value""""
 
-        val (shaStr, serverStr) = shas.get(coord) match {
-          case Some(sha) =>
-            val hex = sha.sha1Value.toHex
-            val serverUrl = servers.getOrElse(sha.serverId, "")
-            (s""", ${kv("sha1", hex)}""", s""", ${kv("repository", serverUrl)}""")
-          case None => ("", "")
+        def kvOpt(key: String, valueOpt: Option[String], prefix: String = ""): String = valueOpt match {
+          case Some(value) => kv(key, value, prefix)
+          case None => ""
         }
+
+        val (sha1Str, sha256Str, serverStr, remoteUrl) = shas.get(coord) match {
+          case Some(sha) =>
+            val sha1Str = kvOpt("sha1", sha.binaryJar.sha1.map(_.toHex), ", ")
+            val sha256Str = kvOpt("sha256", sha.binaryJar.sha256.map(_.toHex), ", ")
+            // val url = sha.url
+            val serverUrlStr = kvOpt("repository", servers.get(sha.binaryJar.serverId), ", ")
+            val urlStr = kvOpt("url", sha.binaryJar.url, ", ")
+
+            (sha1Str, sha256Str, serverUrlStr, urlStr)
+          case None => ("", "", "", "")
+        }
+
+        val sourceStr = shas.get(coord).flatMap(_.sourceJar) match {
+          case Some(sourceJar) =>
+            val sha1Str = kvOpt("sha1", sourceJar.sha1.map(_.toHex))
+            val sha256Str = kvOpt("sha256", sourceJar.sha256.map(_.toHex), ", ")
+            // val url = sha.url
+            val serverUrlStr = kvOpt("repository", servers.get(sourceJar.serverId), ", ")
+            val urlStr = kvOpt("url", sourceJar.url, ", ")
+
+            (sha1Str, sha256Str, serverUrlStr, urlStr)
+            s""", "source": {$sha1Str$sha256Str$serverUrlStr$urlStr} """
+          case None => ""
+        }
+
         val comment = duplicates.get(coord.unversioned) match {
           case Some(vs) =>
             val status =
@@ -114,7 +137,7 @@ object Writer {
         val l = lang(coord.unversioned)
         val actual = Label.externalJar(l, coord.unversioned, prefix)
         List(s"""$comment    {${kv("artifact", coord.asString)}""",
-             s"""${kv("lang", l.asString)}$shaStr$serverStr""",
+             s"""${kv("lang", l.asString)}$sha1Str$sha256Str$serverStr$remoteUrl$sourceStr""",
              s"""${kv("name", coord.unversioned.toBazelRepoName(prefix))}""",
              s"""${kv("actual", actual.fromRoot)}""",
              s"""${kv("bind", coord.unversioned.toBindingName(prefix))}},""").mkString(", ")

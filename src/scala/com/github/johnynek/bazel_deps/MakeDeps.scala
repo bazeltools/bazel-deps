@@ -99,7 +99,7 @@ object MakeDeps {
     .map(_.toAbsolutePath)
 
   private[bazel_deps] def runResolve(model: Model, resolverCachePath: Path): Try[(Graph[MavenCoordinate, Unit],
-    SortedMap[MavenCoordinate, ResolvedSha1Value],
+    SortedMap[MavenCoordinate, ResolvedShasValue],
     Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]])] =
 
     model.getOptions.getResolverType match {
@@ -115,7 +115,7 @@ object MakeDeps {
 
   private def resolve[F[_]](model: Model,
     resolver: Resolver[F]): F[(Graph[MavenCoordinate, Unit],
-    SortedMap[MavenCoordinate, ResolvedSha1Value],
+    SortedMap[MavenCoordinate, ResolvedShasValue],
     Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]])] = {
     import resolver.resolverMonad
 

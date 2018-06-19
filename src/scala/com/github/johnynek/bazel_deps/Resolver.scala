@@ -14,7 +14,7 @@ case class ResolveFailure(message: String,
 trait Resolver[F[_]] {
   implicit def resolverMonad: MonadError[F, Throwable]
 
-  def getShas(m: List[MavenCoordinate]): F[SortedMap[MavenCoordinate, ResolvedSha1Value]]
+  def getShas(m: List[MavenCoordinate]): F[SortedMap[MavenCoordinate, ResolvedShasValue]]
 
   // Build the entire transitive graph of a set of coordinates
   def buildGraph(coords: List[MavenCoordinate], m: Model): F[Graph[MavenCoordinate, Unit]]
