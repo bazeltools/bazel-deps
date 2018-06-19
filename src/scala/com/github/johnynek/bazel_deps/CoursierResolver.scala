@@ -87,7 +87,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
           })
         }
 
-      def computeShas(digestType: DigestType, as: NonEmptyList[coursier.Artifact], errorMessage: Option[String] = None): Task[ShaValue] = {
+      def computeShas(digestType: DigestType, as: NonEmptyList[coursier.Artifact]): Task[ShaValue] = {
         val errorFn: Throwable => Task[ShaValue] = as.tail match {
           case Nil => {e: Throwable =>
             resolverMonad.raiseError(new RuntimeException(s"we could not download the artifact ${c.asString} to compute the hash for digest type ${digestType} with error ${e}"))
