@@ -108,7 +108,10 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
             val sha1 = downloadShas(DigestType.Sha1, maybeArtifacts.flatMap(_.extra.get("SHA-1"))).flatMap {
               case Some(s) => Task.point(s)
-              case None => computeShas(DigestType.Sha1, artifacts)
+              case None => {
+                logger.info(s"Preforming cached fetch to execute SHA-1 calculation for ${artifacts.head}")
+                computeShas(DigestType.Sha1, artifacts)
+              }
             }
 
             // Coursier has some artifact data in extra for checksums, but has a far more complete
@@ -126,8 +129,10 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
             val sha256 = downloadShas(DigestType.Sha256, sha256Artifacts).flatMap {
               case Some(s) => Task.point(s)
-              case None =>
+              case None =>{
+                logger.info(s"Preforming cached fetch to execute SHA-256 calculation for ${artifacts.head}")
                 computeShas(DigestType.Sha256, artifacts)
+              }
             }
 
             (for {
