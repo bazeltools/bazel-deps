@@ -1,7 +1,7 @@
 package com.github.johnynek.bazel_deps
 
-import coursier.{Fetch, Cache, Resolution, Artifact, Dependency, Project}
-import coursier.util.Task
+import coursier.{Fetch, Cache, CachePolicy, Resolution, Artifact, Dependency, Project}
+import coursier.util.{Task, Schedulable}
 import cats.{Monad, MonadError, Traverse}
 import cats.data.{Nested, NonEmptyList, Validated, ValidatedNel}
 import cats.implicits._
@@ -11,11 +11,16 @@ import scala.util.{Failure, Try}
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 
+object CoursierResolver {
+  // 48 concurrent downloads
+  // most downloads are tiny sha downloads so try keep things alive
+  lazy val downloadPool = Schedulable.fixedThreadPool(48)
+}
 class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTimeout: Duration) extends Resolver[Task] {
   // TODO: add support for a local file cache other than ivy
   private[this] val repos = Cache.ivy2Local :: servers.map { ms => coursier.MavenRepository(ms.url) }
 
-  private[this] val fetch = Fetch.from(repos, Cache.fetch[Task]())
+  private[this] val fetch = Fetch.from(repos, Cache.fetch[Task](cachePolicy = CachePolicy.FetchMissing, pool = CoursierResolver.downloadPool))
 
   private[this] val logger = LoggerFactory.getLogger("bazel_deps.CoursierResolver")
 
@@ -65,7 +70,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
         }
 
       def downloadSha(digestType: DigestType, a: coursier.Artifact): Task[Option[ShaValue]] =
-        Cache.file[Task](a).run.map {
+        Cache.file[Task](a, cachePolicy = CachePolicy.FetchMissing, pool = CoursierResolver.downloadPool).run.map {
           case Left(error) =>
             logger.info(s"failure to download ${a.url}, ${error.describe}")
             None
@@ -78,7 +83,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
         }
 
       def computeSha(digestType: DigestType, artifact: coursier.Artifact): Task[ShaValue] =
-        Cache.file[Task](artifact).run.flatMap { e =>
+        Cache.file[Task](artifact, cachePolicy = CachePolicy.FetchMissing, pool = CoursierResolver.downloadPool).run.flatMap { e =>
           resolverMonad.fromTry(e match {
             case Left(error) =>
               Failure(FileErrorException(error))
@@ -148,7 +153,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
       val module = coursier.Module(c.group.asString, c.artifact.artifactId, Map.empty)
       val version = c.version.asString
-      val f = Cache.fetch[Task](checksums = Seq(Some("SHA-1"), Some("SHA-256"), None))
+      val f = Cache.fetch[Task](checksums = Seq(Some("SHA-1"), Some("SHA-256"), None), cachePolicy = CachePolicy.FetchMissing, pool = CoursierResolver.downloadPool)
       val task = Fetch.find[Task](repos, module, version, f).run
 
       /*
