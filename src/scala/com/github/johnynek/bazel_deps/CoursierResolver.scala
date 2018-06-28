@@ -12,9 +12,9 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 
 object CoursierResolver {
-  // 48 concurrent downloads
+  // 12 concurrent downloads
   // most downloads are tiny sha downloads so try keep things alive
-  lazy val downloadPool = Schedulable.fixedThreadPool(48)
+  lazy val downloadPool = Schedulable.fixedThreadPool(12)
 }
 class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTimeout: Duration) extends Resolver[Task] {
   // TODO: add support for a local file cache other than ivy
