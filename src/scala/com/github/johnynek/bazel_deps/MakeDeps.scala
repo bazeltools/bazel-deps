@@ -109,7 +109,7 @@ object MakeDeps {
       case ResolverType.Coursier =>
         val ec = scala.concurrent.ExecutionContext.Implicits.global
         import scala.concurrent.duration._
-        val resolver = new CoursierResolver(model.getOptions.getResolvers, ec, 600.seconds)
+        val resolver = new CoursierResolver(model.getOptions.getResolvers, ec, 3600.seconds)
         resolver.run(resolve(model, resolver))
     }
 
