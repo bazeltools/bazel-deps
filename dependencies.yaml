@@ -116,18 +116,18 @@ replacements:
   org.scala-lang:
     scala-compiler:
       lang: scala/unmangled
-      target: "@scala//:scala-compiler"
+      target: "@io_bazel_rules_scala_scala_compiler//:io_bazel_rules_scala_scala_compiler"
     scala-library:
       lang: scala/unmangled
-      target: "@scala//:scala-library"
+      target: "@io_bazel_rules_scala_scala_library//:io_bazel_rules_scala_scala_library"
     scala-reflect:
       lang: scala/unmangled
-      target: "@scala//:scala-reflect"
+      target: "@io_bazel_rules_scala_scala_reflect//:io_bazel_rules_scala_scala_reflect"
 
   org.scala-lang.modules:
     scala-parser-combinators:
       lang: scala
-      target: "@scala//:scala-parser-combinators"
+      target: "@io_bazel_rules_scala_scala_parser_combinators//:io_bazel_rules_scala_scala_parser_combinators"
     scala-xml:
       lang: scala
-      target: "@scala//:scala-xml"
+      target: "@io_bazel_rules_scala_scala_xml//:io_bazel_rules_scala_scala_xml"

@@ -2,7 +2,7 @@ load("@io_bazel_rules_scala//scala:scala_import.bzl", "scala_import")
 scala_library(
     name = "scala_parser_combinators",
     exports = [
-        "@scala//:scala-parser-combinators"
+        "@io_bazel_rules_scala_scala_parser_combinators//:io_bazel_rules_scala_scala_parser_combinators"
     ],
     visibility = [
         "//3rdparty/jvm:__subpackages__"
@@ -14,7 +14,7 @@ scala_library(
 scala_library(
     name = "scala_xml",
     exports = [
-        "@scala//:scala-xml"
+        "@io_bazel_rules_scala_scala_xml//:io_bazel_rules_scala_scala_xml"
     ],
     visibility = [
         "//visibility:public"
