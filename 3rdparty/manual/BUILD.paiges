@@ -1,8 +1,0 @@
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
-
-scala_library(
-  name = "paiges",
-  srcs = glob(["core/src/main/**/*.scala"]),
-  visibility = ["//visibility:public"],
-  scalacopts = [], # we don't own this code, so no need to lint/warn
-  )

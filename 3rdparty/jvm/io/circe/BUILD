@@ -87,20 +87,3 @@ scala_import(
 )
 
 
-
-scala_import(
-    name = "circe_parser",
-    jars = [
-        "//external:jar/io/circe/circe_parser_2_11"
-    ],
-    runtime_deps = [
-        "//3rdparty/jvm/org/scala_lang:scala_library",
-        ":circe_core",
-        ":circe_jawn"
-    ],
-    visibility = [
-        "//visibility:public"
-    ]
-)
-
-
