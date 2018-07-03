@@ -127,7 +127,8 @@ replacements:
   org.scala-lang.modules:
     scala-parser-combinators:
       lang: scala
-      target: "@io_bazel_rules_scala_scala_parser_combinators//:io_bazel_rules_scala_scala_parser_combinators"
+      target:
+        "@io_bazel_rules_scala_scala_parser_combinators//:io_bazel_rules_scala_scala_parser_combinators"
     scala-xml:
       lang: scala
       target: "@io_bazel_rules_scala_scala_xml//:io_bazel_rules_scala_scala_xml"
