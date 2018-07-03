@@ -8,7 +8,6 @@ scala_import(
         "//external:jar/org/typelevel/cats_core_2_11"
     ],
     runtime_deps = [
-        "//3rdparty/jvm/com/github/mpilquist:simulacrum",
         "//3rdparty/jvm/org/scala_lang:scala_library",
         ":cats_macros",
         ":machinist"
@@ -26,7 +25,6 @@ scala_import(
         "//external:jar/org/typelevel/cats_free_2_11"
     ],
     runtime_deps = [
-        "//3rdparty/jvm/com/github/mpilquist:simulacrum",
         "//3rdparty/jvm/org/scala_lang:scala_library",
         ":cats_core",
         ":cats_macros",
@@ -60,7 +58,6 @@ scala_import(
         "//external:jar/org/typelevel/cats_macros_2_11"
     ],
     runtime_deps = [
-        "//3rdparty/jvm/com/github/mpilquist:simulacrum",
         "//3rdparty/jvm/org/scala_lang:scala_library",
         ":machinist"
     ],
@@ -91,6 +88,21 @@ scala_import(
     name = "macro_compat",
     jars = [
         "//external:jar/org/typelevel/macro_compat_2_11"
+    ],
+    runtime_deps = [
+        "//3rdparty/jvm/org/scala_lang:scala_library"
+    ],
+    visibility = [
+        "//visibility:public"
+    ]
+)
+
+
+
+scala_import(
+    name = "paiges_core",
+    jars = [
+        "//external:jar/org/typelevel/paiges_core_2_11"
     ],
     runtime_deps = [
         "//3rdparty/jvm/org/scala_lang:scala_library"

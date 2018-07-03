@@ -8,7 +8,7 @@ import scala.util.control.NonFatal
 import org.typelevel.paiges.Doc
 import cats.kernel.{ CommutativeMonoid, Monoid, Semigroup }
 import cats.implicits._
-import cats.{ Applicative, Functor, Foldable, Id, SemigroupK, Traverse }
+import cats.{ Applicative, Functor, Foldable, Id, SemigroupK }
 import cats.data.{ Validated, ValidatedNel, Ior, NonEmptyList }
 
 /**
@@ -944,10 +944,10 @@ object Dependencies {
 
     type M1[T] = Map[MavenGroup, T]
 
-    val trav1 = Traverse[M1]
+    val functor1 = Functor[M1]
     def flatten(d: Dependencies): Dependencies = {
       val m: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]] =
-        trav1.map(d.toMap) { m: Map[ArtifactOrProject, ProjectRecord] =>
+        functor1.map(d.toMap) { m: Map[ArtifactOrProject, ProjectRecord] =>
           m.iterator.flatMap { case (ap, pr) => pr.flatten(ap) }.toMap
         }
       Dependencies(m)

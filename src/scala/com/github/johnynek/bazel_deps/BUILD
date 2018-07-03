@@ -1,26 +1,26 @@
 scala_library(name = "depsmodel",
               srcs = ["DepsModel.scala"],
               deps = [
-                  "@org_typelevel_paiges//:paiges",
                   "//3rdparty/jvm/org/typelevel:cats_core",
                   "//3rdparty/jvm/org/typelevel:cats_kernel",
+                  "//3rdparty/jvm/org/typelevel:paiges_core",
               ],
               exports = [
-                  "@org_typelevel_paiges//:paiges",
                   "//3rdparty/jvm/org/typelevel:cats_core",
+                  "//3rdparty/jvm/org/typelevel:paiges_core",
               ],
               visibility = ["//visibility:public"])
 
 scala_library(name = "commands",
               srcs = ["Commands.scala"],
-              deps = ["@com_monovore_decline//:decline", ":depsmodel"],
-              exports = ["@com_monovore_decline//:decline", ":depsmodel"],
+              deps = ["//3rdparty/jvm/com/monovore:decline", ":depsmodel"],
+              exports = ["//3rdparty/jvm/com/monovore:decline", ":depsmodel"],
               )
 
 scala_library(name = "graph",
               srcs = ["Graph.scala"],
-              deps = ["@org_typelevel_paiges//:paiges"],
-              exports = ["@org_typelevel_paiges//:paiges"],
+              deps = ["//3rdparty/jvm/org/typelevel:paiges_core"],
+              exports = ["//3rdparty/jvm/org/typelevel:paiges_core"],
               visibility = ["//visibility:public"])
 
 scala_repl(name = "repl",
@@ -83,7 +83,7 @@ scala_library(name = "normalizer",
               srcs = ["Normalizer.scala"],
               deps = [":depsmodel",
                       ":graph",
-                      "@org_typelevel_paiges//:paiges",
+                      "//3rdparty/jvm/org/typelevel:paiges_core",
                       ],
               visibility = ["//visibility:public"])
 
@@ -95,9 +95,10 @@ scala_library(name = "writer",
                       "//3rdparty/jvm/org/typelevel:cats_core",
                       "//3rdparty/jvm/org/typelevel:cats_free",
                       "//3rdparty/jvm/org/slf4j:slf4j_api",
-                      "@org_typelevel_paiges//:paiges",
+                      "//3rdparty/jvm/org/typelevel:paiges_core",
                       ],
-              visibility = ["//visibility:public"])
+              visibility = ["//visibility:public"],
+              scalacopts = ["-Ypartial-unification"])
 
 scala_library(name = "makedeps",
              srcs = ["MakeDeps.scala", "FormatDeps.scala", "MergeDeps.scala"],

@@ -24,17 +24,16 @@ dependencies:
       lang: java
       version: "2.5.3"
 
-  com.github.mpilquist:
-    simulacrum:
-      exports:
-        - "org.typelevel:macro-compat"
+  com.monovore:
+    decline:
       lang: scala
+      version: "0.4.2"
 
   io.circe:
     circe:
       lang: scala
-      modules: [ "core", "jackson25", "jawn", "parser" ]
-      version: "0.8.0"
+      modules: [ "core", "jawn" ]
+      version: "0.9.3"
     circe-generic:
       exports:
         - "com.chuusai:shapeless"
@@ -42,13 +41,16 @@ dependencies:
         - "org.typelevel:cats-kernel"
         - "org.typelevel:macro-compat"
       lang: scala
-      version: "0.8.0"
+      version: "0.9.3"
+    circe-jackson25:
+      lang: scala
+      version: "0.9.0"
 
   io.get-coursier:
     coursier:
       lang: scala
       modules: [ "", "cache" ]
-      version: "1.1.0-M1"
+      version: "1.1.0-M4"
 
   org.apache.maven:
     maven-aether-provider:
@@ -74,14 +76,14 @@ dependencies:
   org.scalactic:
     scalactic:
       lang: scala
-      version: "3.0.1"
+      version: "3.0.5"
 
   org.scalatest:
     scalatest:
       exports:
         - "org.scalactic:scalactic"
       lang: scala
-      version: "3.0.1"
+      version: "3.0.5"
 
   org.slf4j:
     slf4j:
@@ -92,37 +94,41 @@ dependencies:
   org.spire-math:
     kind-projector:
       lang: scala
-      version: "0.9.4"
+      version: "0.9.7"
 
   org.typelevel:
     cats:
       lang: scala
       modules: [ "free", "kernel", "macros" ]
-      version: "0.9.0"
+      version: "1.1.0"
     cats-core:
       exports:
         - "org.typelevel:cats-kernel"
       lang: scala
-      version: "0.9.0"
+      version: "1.1.0"
     macro-compat:
       lang: scala
+    paiges-core:
+      lang: scala
+      version: "0.2.1"
 
 replacements:
   org.scala-lang:
     scala-compiler:
       lang: scala/unmangled
-      target: "@scala//:scala-compiler"
+      target: "@io_bazel_rules_scala_scala_compiler//:io_bazel_rules_scala_scala_compiler"
     scala-library:
       lang: scala/unmangled
-      target: "@scala//:scala-library"
+      target: "@io_bazel_rules_scala_scala_library//:io_bazel_rules_scala_scala_library"
     scala-reflect:
       lang: scala/unmangled
-      target: "@scala//:scala-reflect"
+      target: "@io_bazel_rules_scala_scala_reflect//:io_bazel_rules_scala_scala_reflect"
 
   org.scala-lang.modules:
     scala-parser-combinators:
       lang: scala
-      target: "@scala//:scala-parser-combinators"
+      target:
+        "@io_bazel_rules_scala_scala_parser_combinators//:io_bazel_rules_scala_scala_parser_combinators"
     scala-xml:
       lang: scala
-      target: "@scala//:scala-xml"
+      target: "@io_bazel_rules_scala_scala_xml//:io_bazel_rules_scala_scala_xml"

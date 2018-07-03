@@ -46,7 +46,7 @@ object Writer {
   def createBuildFiles(buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): Result[Int] = {
     val pathGroups = ts.groupBy(_.name.path).toList
 
-    Traverse[List].traverseU(pathGroups) {
+    Traverse[List].traverse(pathGroups) {
       case (filePath, ts) =>
         def data(bf: IO.Path) = buildFileContents(bf, buildHeader, ts, formatter)
         for {
@@ -62,7 +62,7 @@ object Writer {
   def compareBuildFiles(buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): Result[List[IO.FileComparison]] = {
     val pathGroups = ts.groupBy(_.name.path).toList
 
-    Traverse[List].traverseU(pathGroups) {
+    Traverse[List].traverse(pathGroups) {
       case (filePath, ts) =>
         def data(bf: IO.Path) = buildFileContents(bf, buildHeader, ts, formatter)
         val bf = filePath.child(buildFileName)

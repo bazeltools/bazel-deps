@@ -196,23 +196,13 @@ replacements:
   org.scala-lang:
     scala-library:
       lang: scala/unmangled # scala-library is not mangled like sbt does with other jars
-      target: "//3rdparty/manual:scala_library_file"
+      target: "@io_bazel_rules_scala_scala_library"
     scala-reflect:
       lang: scala/unmangled
-      target: "//3rdparty/manual:scala_reflect_file"
+      target: "@io_bazel_rules_scala_scala_reflect"
 ```
 
-Where we have added:
-```python
-filegroup(name = "scala_reflect_file",
-          srcs = ["@scala//:lib/scala-reflect.jar"],
-          visibility = ["//visibility:public"])
-
-filegroup(name = "scala_library_file",
-          srcs = ["@scala//:lib/scala-library.jar"],
-          visibility = ["//visibility:public"])
-```
-to the `3rdparty/manual/BUILD` file. In this way, we redirect maven deps to those providers.
+In this way, we redirect maven deps to those providers.
 
 Note, we stop walking the graph when we see a replaced node, so the replacement target is now
 responsible for building correctly, and correctly exporting any dependencies that need to be

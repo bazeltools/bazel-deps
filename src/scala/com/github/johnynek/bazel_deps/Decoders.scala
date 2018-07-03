@@ -39,7 +39,7 @@ object Decoders {
       }
     }
   implicit val resolverDecoder: Decoder[MavenServer] =
-    Decoder.decodeMapLike[Map, String, String].emap { smap =>
+    Decoder[Map[String, String]].emap { smap =>
       def expect(k: String): Either[String, String] =
         smap.get(k) match {
           case None =>
@@ -118,13 +118,11 @@ object Decoders {
         }
 
       implicit val rrD = auto.exportDecoder[ReplacementRecord].instance
-      implicit val repD = Decoder
-        .decodeMapLike[Map, MavenGroup, Map[ArtifactOrProject , ReplacementRecord]]
+      implicit val repD = Decoder[Map[MavenGroup, Map[ArtifactOrProject , ReplacementRecord]]]
         .map(Replacements(_))
 
       implicit val prD = auto.exportDecoder[ProjectRecord].instance
-      implicit val deps = Decoder
-        .decodeMapLike[Map, MavenGroup, Map[ArtifactOrProject , ProjectRecord]]
+      implicit val deps = Decoder[Map[MavenGroup, Map[ArtifactOrProject , ProjectRecord]]]
         .map(Dependencies(_))
 
       (opts, auto.exportDecoder[Model].instance)

@@ -29,7 +29,7 @@ scala_test(name = "normalizertest",
 scala_library(name = "modelgen",
            srcs = ["ModelGenerators.scala"],
            deps = ["//src/scala/com/github/johnynek/bazel_deps:depsmodel",
-                   "@org_typelevel_paiges//:paiges",
+                   "//3rdparty/jvm/org/typelevel:paiges_core",
                    "//3rdparty/jvm/org/scalacheck"])
 
 
