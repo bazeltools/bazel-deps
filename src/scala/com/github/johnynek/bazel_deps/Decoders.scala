@@ -5,6 +5,7 @@ import io.circe.{ Decoder, KeyDecoder, Json, Error, Parser }
 import io.circe.generic.auto
 
 object Decoders {
+  implicit val strictVisibilityDecoder: Decoder[StrictVisibility] =  Decoder.decodeBoolean.map(x => StrictVisibility(x))
   implicit val versionDecoder: Decoder[Version] = stringWrapper(Version(_))
   implicit val processorClassDecoder: Decoder[ProcessorClass] = stringWrapper(ProcessorClass(_))
   implicit val subprojDecoder: Decoder[Subproject] = stringWrapper(Subproject(_))
