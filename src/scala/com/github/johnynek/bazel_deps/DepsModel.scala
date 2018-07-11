@@ -257,6 +257,10 @@ object ShaValue {
 
 case class Subproject(asString: String)
 case class Version(asString: String)
+case class StrictVisibility(enabled: Boolean)
+object StrictVisibility {
+  implicit val strictVisibilitySemiGroup: Semigroup[StrictVisibility] = Options.useRight.algebra[StrictVisibility]
+}
 case class MavenServer(id: String, contentType: String, url: String) {
   def toDoc: Doc =
     packedYamlMap(
@@ -1195,9 +1199,9 @@ case class Options(
   resolverCache: Option[ResolverCache],
   namePrefix: Option[NamePrefix],
   licenses: Option[Set[String]],
-  resolverType: Option[ResolverType]
+  resolverType: Option[ResolverType],
+  strictVisibility: Option[StrictVisibility]
 ) {
-
   def isDefault: Boolean =
     versionConflictPolicy.isEmpty &&
     thirdPartyDirectory.isEmpty &&
@@ -1208,7 +1212,8 @@ case class Options(
     resolverCache.isEmpty &&
     namePrefix.isEmpty &&
     licenses.isEmpty &&
-    resolverType.isEmpty
+    resolverType.isEmpty &&
+    strictVisibility.isEmpty
 
   def getLicenses: Set[String] =
     licenses.getOrElse(Set.empty)
@@ -1271,6 +1276,7 @@ case class Options(
       ("namePrefix", namePrefix.map { p => quoteDoc(p.asString) }),
       ("licenses",
         licenses.map { l => list(l.toList.sorted)(quoteDoc) }),
+      ("strictVisibility", strictVisibility.map { x => Doc.text(x.toString)}),
       ("resolverType", resolverType.map(r => quoteDoc(r.asString)))
     ).sortBy(_._1)
      .collect { case (k, Some(v)) => (k, v) }
@@ -1293,7 +1299,7 @@ object Options {
    * A monoid on options that is just the point-wise monoid
    */
   implicit val optionsMonoid: Monoid[Options] = new Monoid[Options] {
-    val empty = Options(None, None, None, None, None, None, None, None, None, None)
+    val empty = Options(None, None, None, None, None, None, None, None, None, None, None)
 
     def combine(a: Options, b: Options): Options = {
       val vcp = Monoid[Option[VersionConflictPolicy]].combine(a.versionConflictPolicy, b.versionConflictPolicy)
@@ -1306,7 +1312,8 @@ object Options {
       val namePrefix = Monoid[Option[NamePrefix]].combine(a.namePrefix, b.namePrefix)
       val licenses = Monoid[Option[Set[String]]].combine(a.licenses, b.licenses)
       val resolverType = Monoid[Option[ResolverType]].combine(a.resolverType, b.resolverType)
-      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix, licenses, resolverType)
+      val strictVisibility = Monoid[Option[StrictVisibility]].combine(a.strictVisibility, b.strictVisibility)
+      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix, licenses, resolverType, strictVisibility)
     }
   }
 }
