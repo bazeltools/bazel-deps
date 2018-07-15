@@ -3,7 +3,6 @@ options:
   languages: [ "java", "scala:2.11.8" ]
   resolverType: "coursier"
   strictVisibility: true
-  strictDeps: true
   resolvers:
     - id: "mavencentral"
       type: "default"
