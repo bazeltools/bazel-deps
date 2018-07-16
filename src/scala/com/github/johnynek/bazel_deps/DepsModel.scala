@@ -899,7 +899,13 @@ object Dependencies {
     val splitToOrig: List[(String, CandidateGraph)] = {
       val g0 = candidates.flatMap { case ap@(a, p) =>
         require(p.modules == None) // this is an invariant true of candidates
-        val subs = a.splitSubprojects1.toList
+
+        // Note that previously we allowed these splits to happen at any hyphen
+        // in the artifact name, which looked nice, but resulted in terrible
+        // runtime performance (literally hours to format the file) in cases
+        // with lots of subprojects. The `take(2)` here restricts the split to
+        // happening at the first hyphen (if at all).
+        val subs = a.splitSubprojects1.toList.take(2)
         val prefix = subs.map { case (ArtifactOrProject(MavenArtifactId(artifact, _, _)), _) => artifact }.min
         subs.map { case (a, sp) =>
           (prefix, (a, (p, (sp, ap))))
@@ -910,7 +916,7 @@ object Dependencies {
       }
     }
 
-    // For each prefix apply the expensive exponential algo
+    // For each prefix apply the algo
     splitToOrig.flatMap { case (_, cg) =>
       select(cg, apsIn(cg))
     }
