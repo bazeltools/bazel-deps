@@ -80,7 +80,8 @@ dependencies:
     roundTripsTo(input, output)
   }
 
-  test("maximize the project name") {
+  // See #183, which removes this guarantee.
+  ignore("maximize the project name") {
     val input = """
 dependencies:
    com.amazonaws:
