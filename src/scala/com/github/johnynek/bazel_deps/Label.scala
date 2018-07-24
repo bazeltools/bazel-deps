@@ -10,7 +10,9 @@ case class Label(workspace: Option[String], path: Path, name: String) {
   def fromRoot: String = {
     val ws = workspace.fold("") { nm => s"@$nm" }
     path.parts match {
-      case Nil => s"$ws//$nmPart"
+      case Nil =>
+        if (nmPart.isEmpty) ws
+        else s"$ws//$nmPart"
       case ps => ps.mkString(s"$ws//", "/", nmPart)
     }
   }
@@ -27,8 +29,13 @@ object Label {
     val wsLen = ws.fold(0)(_.length)
     val pathAndTarg = str.drop(1 + wsLen).dropWhile(_ == '/')
     val pathStr = pathAndTarg.takeWhile(_ != ':')
+
+    val path =
+      if (pathStr.isEmpty) Path(List())
+      else Path(pathStr.split('/').toList)
+
     val target = pathAndTarg.drop(1 + pathStr.length)
-    Label(ws, Path(pathStr.split('/').toList), target)
+    Label(ws, path, target)
   }
   def externalJar(lang: Language, u: UnversionedCoordinate, np: NamePrefix): Label = lang match {
     case Language.Java => Label(Some(u.toBazelRepoName(np)), Path(List("jar")), "")
