@@ -31,7 +31,7 @@ object Label {
     val pathStr = pathAndTarg.takeWhile(_ != ':')
 
     val path =
-      if (pathStr.isEmpty) Path(List())
+      if (pathStr.isEmpty) Path(Nil)
       else Path(pathStr.split('/').toList)
 
     val target = pathAndTarg.drop(1 + pathStr.length)
