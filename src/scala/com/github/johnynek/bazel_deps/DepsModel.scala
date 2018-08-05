@@ -1282,7 +1282,7 @@ case class Options(
       ("namePrefix", namePrefix.map { p => quoteDoc(p.asString) }),
       ("licenses",
         licenses.map { l => list(l.toList.sorted)(quoteDoc) }),
-      ("strictVisibility", strictVisibility.map { x => Doc.text(x.toString)}),
+      ("strictVisibility", strictVisibility.map { x => Doc.text(x.enabled.toString)}),
       ("resolverType", resolverType.map(r => quoteDoc(r.asString)))
     ).sortBy(_._1)
      .collect { case (k, Some(v)) => (k, v) }

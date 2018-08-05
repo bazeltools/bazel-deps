@@ -2,11 +2,11 @@ options:
   buildHeader: [ "load(\"@io_bazel_rules_scala//scala:scala_import.bzl\", \"scala_import\")" ]
   languages: [ "java", "scala:2.11.8" ]
   resolverType: "coursier"
-  strictVisibility: true
   resolvers:
     - id: "mavencentral"
       type: "default"
       url: https://repo.maven.apache.org/maven2/
+  strictVisibility: true
   transitivity: runtime_deps
   versionConflictPolicy: highest
 
