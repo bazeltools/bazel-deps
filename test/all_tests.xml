@@ -1,0 +1,5 @@
+<configuration name="All Tests" type="BlazeCommandRunConfigurationType" factoryName="Bazel Command" nameIsGenerated="false">
+    <blaze-settings handler-id="BlazeCommandGenericRunConfigurationHandlerProvider" blaze-command="test">
+        <blaze-target>//test/scala/com/github/johnynek/bazel_deps:all_tests</blaze-target>
+    </blaze-settings>
+</configuration>

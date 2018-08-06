@@ -11,3 +11,6 @@ test_sources:
 
 additional_languages:
   scala
+
+import_run_configurations:
+  test/all_tests.xml
