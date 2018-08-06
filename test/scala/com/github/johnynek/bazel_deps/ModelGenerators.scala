@@ -68,7 +68,8 @@ object ModelGenerators {
     prefix <- Gen.option(Gen.identifier.map(NamePrefix(_)))
     licenses <- Gen.option(Gen.someOf("unencumbered", "permissive", "restricted", "notice").map(_.toSet))
     resolverType <- Gen.option(Gen.oneOf(ResolverType.Aether, ResolverType.Coursier))
-  } yield Options(vcp, dir, langs, res, trans, heads, cache, prefix, licenses, resolverType)
+    strictVisibility <- Gen.option(Gen.oneOf(StrictVisibility(true), StrictVisibility(false)))
+  } yield Options(vcp, dir, langs, res, trans, heads, cache, prefix, licenses, resolverType, strictVisibility)
 
   val modelGen: Gen[Model] = for {
     o <- Gen.option(optionGen)
