@@ -234,6 +234,7 @@ object Writer {
       val allRootsUv = model.dependencies.roots.map(_.unversioned) | model.dependencies.unversionedRoots
       def visibility(uv: UnversionedCoordinate): Target.Visibility =
         if (allRootsUv(uv)) Target.Visibility.Public
+        else if( ! model.options.flatMap { _.strictVisibility.map(_.enabled) }.getOrElse(true)) Target.Visibility.Public
         else thirdPartyVis
 
       /**

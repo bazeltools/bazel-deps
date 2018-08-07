@@ -1,12 +1,11 @@
 package com.github.johnynek.bazel_deps
 
+import com.github.johnynek.bazel_deps.ParseTestUtil._
 import org.scalatest.FunSuite
-import org.scalatest.prop.PropertyChecks._
-import ParseTestUtil._
 class ParseTestCasesTest extends FunSuite {
 
   test("test regressions") {
-    import Language.{Java, Scala}
+    import Language.Java
 
     // This has a single sub-project, which we don't minimize into this form
     val model = Model(Dependencies(
@@ -20,7 +19,7 @@ class ParseTestCasesTest extends FunSuite {
     law(model)
 
     val model1 = Model(Dependencies.empty,Some(Replacements.empty),Some(Options(None,None,None,None,None,Some(List()),
-      Some(ResolverCache.Local),Some(NamePrefix("y")), None, None)))
+      Some(ResolverCache.Local),Some(NamePrefix("y")), None, None, None)))
     //println(model1.toDoc.render(70))
     law(model1)
   }

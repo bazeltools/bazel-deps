@@ -167,6 +167,9 @@ In the options we set:
   output_base`)
 * namePrefix: a string added to the generated workspace names, to avoid conflicts.  The external repository names and
   binding targets of each dependency are prefixed.
+* strictVisibility: this is enabled by default, when enabled a target must be explicitly declared in the 
+  `dependencies.yaml` file or it will not be visible to the rest of the workspace. If it is set to `false` all targets 
+  will be generated with `public` visibility.
 * licenses: a set of strings added a licenses rule to each generated bazel target.  Required by
   bazel if your build targets are under third_party/
 * resolverType: the string aether or coursier. `aether` is the default, but it is slower and seems

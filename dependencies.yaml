@@ -6,6 +6,7 @@ options:
     - id: "mavencentral"
       type: "default"
       url: https://repo.maven.apache.org/maven2/
+  strictVisibility: true
   transitivity: runtime_deps
   versionConflictPolicy: highest
 
