@@ -97,3 +97,5 @@ scala_test(name = "coursier_test",
                "//src/scala/com/github/johnynek/bazel_deps:makedeps",
                "//src/scala/com/github/johnynek/bazel_deps:graph",
                ])
+
+test_suite(name = "all_tests")
