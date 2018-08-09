@@ -117,7 +117,7 @@ case class Target(
 
     def renderPlugin(pcs: Set[ProcessorClass], pc: ProcessorClass, exports: Set[Label], licenses: Set[String]): Doc =
       sortKeys(Doc.text("java_plugin"), getPluginTargetName(pcs, pc), List(
-        "deps" -> labelList(exports ++ jars),
+        "deps" -> labelList(exports ++ jars ++ deps ++ runtimeDeps),
         "licenses" -> renderLicenses(licenses),
         "processor_class" -> quote(pc.asString),
         visibilityDoc
