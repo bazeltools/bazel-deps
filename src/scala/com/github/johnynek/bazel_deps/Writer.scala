@@ -257,14 +257,16 @@ object Writer {
                 name = Label.localTarget(pathInRoot, u, lang),
                 visibility = visibility(u),
                 exports = Set(lab),
-                jars = Set.empty)
+                jars = Set.empty,
+                licenses = licenses)
             case _: Language.Scala =>
               Target(lang,
                 kind = Target.Library,
                 name = Label.localTarget(pathInRoot, u, lang),
                 visibility = visibility(u),
                 exports = Set(lab),
-                jars = Set.empty)
+                jars = Set.empty,
+                licenses = licenses)
           }
 
         }
