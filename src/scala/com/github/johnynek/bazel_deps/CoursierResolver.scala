@@ -153,7 +153,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
       val module = coursier.Module(c.group.asString, c.artifact.artifactId, Map.empty)
       val version = c.version.asString
-      val f = Cache.fetch[Task](checksums = Seq(Some("SHA-1"), Some("SHA-256"), None), cachePolicy = CachePolicy.FetchMissing, pool = CoursierResolver.downloadPool)
+      val f = Cache.fetch[Task](checksums = Seq(Some("SHA-1"), None), cachePolicy = CachePolicy.FetchMissing, pool = CoursierResolver.downloadPool)
       val task = Fetch.find[Task](repos, module, version, f).run
 
       /*
