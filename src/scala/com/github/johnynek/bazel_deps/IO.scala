@@ -8,6 +8,7 @@ import java.io.{File, FileOutputStream, IOException}
 import java.nio.file.{Files, SimpleFileVisitor, FileVisitResult, Path => JPath}
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.Arrays
+import java.util.regex.Pattern
 import org.slf4j.LoggerFactory
 import scala.util.{ Failure, Success, Try }
 
@@ -31,7 +32,7 @@ object IO {
   }
 
   def path(s: String): Path =
-    Path(s.split(pathSeparator).toList match {
+    Path(s.split(Pattern.quote(pathSeparator)).toList match {
       case "" :: rest => rest
       case list => list
     })
