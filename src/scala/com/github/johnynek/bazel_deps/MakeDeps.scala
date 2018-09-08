@@ -203,10 +203,11 @@ object MakeDeps {
     // Build up the IO operations that need to run. Till now,
     // nothing was written
     val io = for {
+      originalBuildFile <- IO.readUtf8(workspacePath.sibling("BUILD"))
       _ <- IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts))
       _ <- IO.mkdirs(workspacePath.parent)
       _ <- IO.writeUtf8(workspacePath, workspaceContents)
-      _ <- IO.writeUtf8(workspacePath.sibling("BUILD"), "")
+      _ <- IO.writeUtf8(workspacePath.sibling("BUILD"), originalBuildFile.getOrElse(""))
       builds <- Writer.createBuildFiles(model.getOptions.getBuildHeader, targets, formatter)
     } yield builds
 
