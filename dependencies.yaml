@@ -51,7 +51,7 @@ dependencies:
     coursier:
       lang: scala
       modules: [ "", "cache" ]
-      version: "1.1.0-M4"
+      version: "1.1.0-M7"
 
   org.apache.maven:
     maven-aether-provider:
