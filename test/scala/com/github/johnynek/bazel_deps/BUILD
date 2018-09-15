@@ -28,7 +28,6 @@ scala_test(name = "normalizertest",
 
 scala_library(name = "modelgen",
            srcs = ["ModelGenerators.scala"],
-           scalacopts = ["-Xmax-classfile-name", "140"],
            deps = ["//src/scala/com/github/johnynek/bazel_deps:depsmodel",
                    "//3rdparty/jvm/org/typelevel:paiges_core",
                    "//3rdparty/jvm/org/scalacheck"])
