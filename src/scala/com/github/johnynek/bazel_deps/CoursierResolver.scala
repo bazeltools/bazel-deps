@@ -200,7 +200,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
     val g: MavenCoordinate => N[(MavenCoordinate, ResolvedShasValue)] =
       x => lookup(x).map(x -> _)
 
-    Traverse[List].traverse(m)(g).value.flatMap {
+    Task.gather.gather(m.map(x => g(x).value)).map(_.toList.sequence).flatMap {
       case Validated.Valid(xs) =>
         Task.point(SortedMap(xs: _*))
       case Validated.Invalid(errors) =>
