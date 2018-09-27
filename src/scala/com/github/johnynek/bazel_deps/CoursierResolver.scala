@@ -1,11 +1,12 @@
 package com.github.johnynek.bazel_deps
 
-import coursier.{Fetch, Cache, CachePolicy, Resolution, Artifact, Dependency, Project}
-import coursier.util.{Task, Schedulable}
-import cats.{Monad, MonadError, Traverse}
+import coursier.{Artifact, Cache, CachePolicy, Dependency, Fetch, Project, Resolution}
+import coursier.util.{Schedulable, Task}
+import cats.{MonadError}
 import cats.data.{Nested, NonEmptyList, Validated, ValidatedNel}
 import cats.implicits._
 import org.slf4j.LoggerFactory
+
 import scala.collection.immutable.SortedMap
 import scala.util.{Failure, Try}
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -69,18 +70,21 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
           case (None, a) => downloadSha(digestType, a)
         }
 
-      def downloadSha(digestType: DigestType, a: coursier.Artifact): Task[Option[ShaValue]] =
-        Cache.file[Task](a, cachePolicy = CachePolicy.FetchMissing, pool = CoursierResolver.downloadPool).run.map {
+      def downloadSha(digestType: DigestType, a: coursier.Artifact): Task[Option[ShaValue]] = {
+        // Because Cache.file is hijacked to download SHAs directly (rather than signed artifacts) checksum verification
+        // is turned off. Checksums don't themselves have checksum files.
+        Cache.file[Task](a, checksums = Seq(None), cachePolicy = CachePolicy.FetchMissing, pool = CoursierResolver.downloadPool).run.map {
           case Left(error) =>
             logger.info(s"failure to download ${a.url}, ${error.describe}")
             None
           case Right(file) =>
             val o = ShaValue.parseFile(digestType, file).toOption
             o.foreach { r =>
-              logger.info(s"SHA-1 for ${c.asString} downloaded from ${a.url} (${r.toHex})")
+              logger.info(s"$digestType for ${c.asString} downloaded from ${a.url} (${r.toHex})")
             }
             o
         }
+      }
 
       def computeSha(digestType: DigestType, artifact: coursier.Artifact): Task[ShaValue] =
         Cache.file[Task](artifact, cachePolicy = CachePolicy.FetchMissing, pool = CoursierResolver.downloadPool).run.flatMap { e =>
@@ -102,6 +106,20 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
         resolverMonad.handleErrorWith(computeSha(digestType, as.head))(errorFn)
       }
 
+      def fetchOrComputeShas(artifacts: NonEmptyList[Artifact], digestType: DigestType): Task[ShaValue] = {
+        val checksumArtifacts = artifacts.toList.flatMap { a =>
+          a.checksumUrls.get(digestType.name).map(url => Artifact(url, Map.empty, Map.empty, a.attributes, false, None))
+        }
+
+        downloadShas(digestType, checksumArtifacts).flatMap {
+          case Some(s) => Task.point(s)
+          case None => {
+            logger.info(s"Preforming cached fetch to execute $digestType calculation for ${artifacts.head.url}")
+            computeShas(digestType, artifacts)
+          }
+        }
+      }
+
       def processArtifact(src: Artifact.Source, dep: Dependency, proj: Project): Task[Option[JarDescriptor]] = {
           // TODO, this does not seem like the idea thing, but it seems to work.
           val maybeArtifacts = src.artifacts(dep, proj, None)
@@ -110,44 +128,20 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             .toList
 
           NonEmptyList.fromList(maybeArtifacts).map { artifacts =>
-
-            val sha1 = downloadShas(DigestType.Sha1, maybeArtifacts.flatMap(_.extra.get("SHA-1"))).flatMap {
-              case Some(s) => Task.point(s)
-              case None => {
-                logger.info(s"Preforming cached fetch to execute SHA-1 calculation for ${artifacts.head}")
-                computeShas(DigestType.Sha1, artifacts)
-              }
-            }
-
-            // Coursier has some artifact data in extra for checksums, but has a far more complete
-            // checksumUrls attribute
-            //
-            // The SHA-1 availability as an artifact appears to be far more complete, so we only do this
-            // for the SHA-256
-            val sha256Artifacts = maybeArtifacts.flatMap(_.extra.get("SHA-256")) match {
-              case Nil =>
-                maybeArtifacts.flatMap { a =>
-                  a.checksumUrls.get("SHA-256").map{u => a.copy(url = u)}
-                }
-              case o => o
-            }
-
-            val sha256 = downloadShas(DigestType.Sha256, sha256Artifacts).flatMap {
-              case Some(s) => Task.point(s)
-              case None =>{
-                logger.info(s"Preforming cached fetch to execute SHA-256 calculation for ${artifacts.head}")
-                computeShas(DigestType.Sha256, artifacts)
-              }
-            }
-
-            (for {
-              sha1 <- sha1
-              sha256 <- sha256
+            for {
+              sha1 <- fetchOrComputeShas(artifacts, DigestType.Sha1)
+              // I could not find any example of artifacts that actually have a SHA256 checksum, so don't bother
+              // trying to fetch them. Save on network latency and just calculate.
+              sha256 <- computeShas(DigestType.Sha256, artifacts)
             } yield {
               val serverId = serverFor(artifacts.head).fold("")(_.id)
 
-              Some(JarDescriptor(sha1 = Some(sha1),sha256 = Some(sha256),serverId = serverId, url = Some(artifacts.head.url))) : Option[JarDescriptor]
-            })
+              Some(JarDescriptor(
+                sha1 = Some(sha1),
+                sha256 = Some(sha256),
+                serverId = serverId,
+                url = Some(artifacts.head.url))) : Option[JarDescriptor]
+            }
       }.getOrElse(Task.point(Option.empty[JarDescriptor]))
     }
 
@@ -200,7 +194,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
     val g: MavenCoordinate => N[(MavenCoordinate, ResolvedShasValue)] =
       x => lookup(x).map(x -> _)
 
-    Traverse[List].traverse(m)(g).value.flatMap {
+    Task.gather.gather(m.map(x => g(x).value)).map(_.toList.sequence).flatMap {
       case Validated.Valid(xs) =>
         Task.point(SortedMap(xs: _*))
       case Validated.Invalid(errors) =>
