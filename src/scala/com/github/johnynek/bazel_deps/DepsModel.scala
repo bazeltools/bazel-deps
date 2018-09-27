@@ -916,7 +916,7 @@ object Dependencies {
         }
       }
       group(g0).map { case (p, as) =>
-        p -> (group(as).map { case (a, prsub) => a -> group(prsub) })
+        p -> (group(as).map { case (a, prsub) => a -> group(prsub) }.sortBy { case (_, prs) => -prs.size })
       }
     }
 
