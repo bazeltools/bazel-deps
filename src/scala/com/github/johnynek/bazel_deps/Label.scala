@@ -41,6 +41,8 @@ object Label {
     case Language.Java => Label(Some(u.toBazelRepoName(np)), Path(List("jar")), "")
     // If we know we have a scala jar, just use ":file" to be sure we can deal with macros
     case Language.Scala(_, _) => Label(Some(u.toBazelRepoName(np)), Path(List("jar")), "file")
+    // For kotlin ijar generation is prevented by kt_jvm_import
+    case Language.Kotlin => Label(Some(u.toBazelRepoName(np)), Path(List("jar")), "")
   }
 
   def replaced(u: UnversionedCoordinate, r: Replacements): Option[(Label, Language)] =
@@ -59,6 +61,7 @@ object Label {
 
     val artName = lang match {
       case Language.Java => m.toTargetName
+      case Language.Kotlin => m.toTargetName
       case s@Language.Scala(_, true) => {
         val uvWithRemoved = s.removeSuffix(m)
         if (m == uvWithRemoved) {

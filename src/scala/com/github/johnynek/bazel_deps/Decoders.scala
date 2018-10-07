@@ -103,6 +103,7 @@ object Decoders {
       implicit val lang: Decoder[Language] =
         Decoder.decodeString.emap {
           case "java" => Right(Language.Java : Language)
+          case "kotlin" => Right(Language.Kotlin : Language)
           case "scala" =>
             opts.getLanguages
               .collectFirst { case Language.Scala(v, _) => Language.Scala(v, true): Language } match {

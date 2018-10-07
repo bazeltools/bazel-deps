@@ -118,6 +118,7 @@ object Command {
     def defaultMetavar: String = "lang"
     def read(s: String) = s match {
       case "java" => Validated.valid(Language.Java)
+      case "kotlin" => Validated.valid(Language.Kotlin)
       case "scala" => Validated.valid(Language.Scala.default)
       case other => Validated.invalidNel(s"unknown language: $other")
     }

@@ -85,6 +85,8 @@ case class Target(
 
     val langName = lang match {
       case Language.Java => "java"
+      // kotlin is handled in jar_artifact_backend.bzl
+      case Language.Kotlin => "java"
       case Language.Scala(_, _) => "scala"
     }
 
