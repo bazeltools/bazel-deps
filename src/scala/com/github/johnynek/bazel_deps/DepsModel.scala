@@ -464,8 +464,8 @@ sealed abstract class Language {
 }
 
 object Language {
-  case object Java extends Language {
-    def asString = "java"
+  trait JavaLike {
+    def asString: String
     def asOptionsString = asString
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
       MavenCoordinate(g, MavenArtifactId(a), v)
@@ -482,22 +482,13 @@ object Language {
     def unmangle(m: MavenCoordinate) = m
   }
 
-  case object Kotlin extends Language {
+  case object Java extends Language with JavaLike {
+    def asString = "java"
+  }
+
+  case object Kotlin extends Language with JavaLike {
     def asString = "kotlin"
-    def asOptionsString: String = asString
-    def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
-      MavenCoordinate(g, MavenArtifactId(a), v)
 
-    def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate =
-      MavenCoordinate(g, MavenArtifactId(a, sp), v)
-
-    def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate =
-      UnversionedCoordinate(g, MavenArtifactId(a))
-
-    def unversioned(g: MavenGroup, a: ArtifactOrProject, sp: Subproject): UnversionedCoordinate =
-      UnversionedCoordinate(g, MavenArtifactId(a, sp))
-
-    def unmangle(m: MavenCoordinate) = m
   }
 
   case class Scala(v: Version, mangle: Boolean) extends Language {

@@ -38,11 +38,9 @@ object Label {
     Label(ws, path, target)
   }
   def externalJar(lang: Language, u: UnversionedCoordinate, np: NamePrefix): Label = lang match {
-    case Language.Java => Label(Some(u.toBazelRepoName(np)), Path(List("jar")), "")
+    case Language.Java | Language.Kotlin => Label(Some(u.toBazelRepoName(np)), Path(List("jar")), "")
     // If we know we have a scala jar, just use ":file" to be sure we can deal with macros
     case Language.Scala(_, _) => Label(Some(u.toBazelRepoName(np)), Path(List("jar")), "file")
-    // For kotlin ijar generation is prevented by kt_jvm_import
-    case Language.Kotlin => Label(Some(u.toBazelRepoName(np)), Path(List("jar")), "")
   }
 
   def replaced(u: UnversionedCoordinate, r: Replacements): Option[(Label, Language)] =

@@ -19,7 +19,17 @@ def _jar_artifact_impl(ctx):
         )
         srcjar_attr ='\n    srcjar = ":%s",' % src_name
 
-    build_file_contents = """
+    if ctx.attr.lang == "kotlin":
+        build_file_template = """
+load("@io_bazel_rules_kotlin//kotlin:kotlin.bzl", "kt_jvm_import")
+package(default_visibility = ['//visibility:public'])
+kt_jvm_import(
+    name = 'jar',
+    tags = ['maven_coordinates={artifact}'],
+    jars = ['{jar_name}'],{srcjar_attr}
+)\n"""
+    else:
+        build_file_template = """
 package(default_visibility = ['//visibility:public'])
 java_import(
     name = 'jar',
@@ -33,8 +43,9 @@ filegroup(
         '{src_name}'
     ],
     visibility = ['//visibility:public']
-)\n""".format(artifact = ctx.attr.artifact, jar_name = jar_name, src_name = src_name, srcjar_attr = srcjar_attr)
-    ctx.file(ctx.path("jar/BUILD"), build_file_contents, False)
+)\n"""
+    build_file_template = build_file_template.format(artifact = ctx.attr.artifact, jar_name = jar_name, src_name = src_name, srcjar_attr = srcjar_attr)
+    ctx.file(ctx.path("jar/BUILD"), build_file_template, False)
     return None
 
 jar_artifact = repository_rule(
@@ -44,6 +55,7 @@ jar_artifact = repository_rule(
         "urls": attr.string_list(mandatory = True),
         "src_sha256": attr.string(mandatory = False, default=""),
         "src_urls": attr.string_list(mandatory = False, default=[]),
+        "lang": attr.string(mandatory = True),
     },
     implementation = _jar_artifact_impl
 )
@@ -61,7 +73,8 @@ def jar_artifact_callback(hash):
         urls = [hash["url"]],
         sha256 = hash["sha256"],
         src_urls = src_urls,
-        src_sha256 = src_sha256
+        src_sha256 = src_sha256,
+        lang = hash["lang"]
     )
     native.bind(name = hash["bind"], actual = hash["actual"])
 

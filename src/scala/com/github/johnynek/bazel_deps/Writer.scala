@@ -251,15 +251,7 @@ object Writer {
           // TODO: converge on using java_import instead of java_library:
           // https://github.com/johnynek/bazel-deps/issues/102
           lang match {
-            case Language.Kotlin =>
-              Target(lang,
-                kind = Target.Library,
-                name = Label.localTarget(pathInRoot, u, lang),
-                visibility = visibility(u),
-                exports = Set(lab),
-                jars = Set.empty,
-                licenses = licenses)
-            case Language.Java =>
+            case Language.Java | Language.Kotlin =>
               Target(lang,
                 kind = Target.Library,
                 name = Label.localTarget(pathInRoot, u, lang),
@@ -314,17 +306,7 @@ object Writer {
                 // TODO: converge on using java_import instead of java_library:
                 // https://github.com/johnynek/bazel-deps/issues/102
                 lang match {
-                  case Language.Java =>
-                    Target(lang,
-                      kind = Target.Library,
-                      name = Label.localTarget(pathInRoot, u, lang),
-                      visibility = visibility(u),
-                      exports = (exports + lab) ++ uvexports,
-                      jars = Set.empty,
-                      runtimeDeps = runtime_deps -- uvexports,
-                      processorClasses = getProcessorClasses(u),
-                      licenses = licenses)
-                  case Language.Kotlin =>
+                  case Language.Java | Language.Kotlin =>
                     Target(lang,
                       kind = Target.Library,
                       name = Label.localTarget(pathInRoot, u, lang),
