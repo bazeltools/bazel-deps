@@ -85,6 +85,7 @@ case class Target(
 
     val langName = lang match {
       case Language.Java => "java"
+      case Language.Kotlin => "kt_jvm"
       case Language.Scala(_, _) => "scala"
     }
 
