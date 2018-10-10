@@ -251,9 +251,17 @@ object Writer {
           // TODO: converge on using java_import instead of java_library:
           // https://github.com/johnynek/bazel-deps/issues/102
           lang match {
-            case Language.Java | Language.Kotlin =>
+            case Language.Java =>
               Target(lang,
                 kind = Target.Library,
+                name = Label.localTarget(pathInRoot, u, lang),
+                visibility = visibility(u),
+                exports = Set(lab),
+                jars = Set.empty,
+                licenses = licenses)
+            case Language.Kotlin =>
+              Target(lang,
+                kind = Target.Import,
                 name = Label.localTarget(pathInRoot, u, lang),
                 visibility = visibility(u),
                 exports = Set(lab),
@@ -306,7 +314,7 @@ object Writer {
                 // TODO: converge on using java_import instead of java_library:
                 // https://github.com/johnynek/bazel-deps/issues/102
                 lang match {
-                  case Language.Java | Language.Kotlin =>
+                  case Language.Java =>
                     Target(lang,
                       kind = Target.Library,
                       name = Label.localTarget(pathInRoot, u, lang),
@@ -316,6 +324,15 @@ object Writer {
                       runtimeDeps = runtime_deps -- uvexports,
                       processorClasses = getProcessorClasses(u),
                       licenses = licenses)
+                  case Language.Kotlin =>
+                    Target(lang,
+                      kind = Target.Import,
+                      name = Label.localTarget(pathInRoot, u, lang),
+                      visibility = visibility(u),
+                      exports = exports ++ uvexports,
+                      jars = Set(lab),
+                      runtimeDeps = runtime_deps -- uvexports,
+                      processorClasses = getProcessorClasses(u))
                   case _: Language.Scala =>
                     Target(lang,
                       kind = Target.Import,

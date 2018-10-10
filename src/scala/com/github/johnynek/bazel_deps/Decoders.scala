@@ -79,6 +79,7 @@ object Decoders {
     implicit val versionLang: Decoder[Language] =
       Decoder.decodeString.emap {
         case "java" => Right(Language.Java)
+        case "kotlin" => Right(Language.Kotlin)
         case s if s.startsWith("scala:") =>
           s.split(':') match {
             case Array("scala", version) => Right(Language.Scala(Version(version), true))
