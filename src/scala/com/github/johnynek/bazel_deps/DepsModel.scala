@@ -464,7 +464,7 @@ sealed abstract class Language {
 }
 
 object Language {
-  trait JavaLike {
+  sealed trait JavaLike extends Language {
     def asString: String
     def asOptionsString = asString
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
@@ -482,11 +482,11 @@ object Language {
     def unmangle(m: MavenCoordinate) = m
   }
 
-  case object Java extends Language with JavaLike {
+  case object Java extends JavaLike {
     def asString = "java"
   }
 
-  case object Kotlin extends Language with JavaLike {
+  case object Kotlin extends JavaLike {
     def asString = "kotlin"
 
   }
