@@ -58,8 +58,7 @@ object Label {
     .toList))
 
     val artName = lang match {
-      case Language.Java => m.toTargetName
-      case Language.Kotlin => m.toTargetName
+      case Language.Java | Language.Kotlin => m.toTargetName
       case s@Language.Scala(_, true) => {
         val uvWithRemoved = s.removeSuffix(m)
         if (m == uvWithRemoved) {
