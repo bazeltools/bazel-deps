@@ -11,8 +11,7 @@ git_repository(
 
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repositories")
 scala_repositories()
-load("@io_bazel_rules_scala//scala:toolchains.bzl", "scala_register_toolchains")
-scala_register_toolchains()
+register_toolchains("//:scala_toolchain")
 
 load("//3rdparty:workspace.bzl", "maven_dependencies")
 
