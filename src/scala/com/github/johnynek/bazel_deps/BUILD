@@ -36,16 +36,29 @@ scala_library(name = "resolver",
               visibility = ["//visibility:public"])
 
 scala_library(
+    name = "settings_loader",
+    srcs = ["SettingsLoader.scala"],
+    deps = [
+        "//3rdparty/jvm/org/apache/maven:maven_settings",
+        "//3rdparty/jvm/org/apache/maven:maven_settings_builder",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        ],
+    exports = ["//3rdparty/jvm/org/apache/maven:maven_settings"],
+    visibility = ["//visibility:public"])
+
+
+scala_library(
     name = "coursier_resolver",
     srcs = ["CoursierResolver.scala"],
     deps = [
         "//3rdparty/jvm/io/get_coursier:coursier",
         "//3rdparty/jvm/io/get_coursier:coursier_cache",
-        "//3rdparty/jvm/org/typelevel:cats_core",
         "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "//3rdparty/jvm/org/typelevel:cats_core",
         ":resolver",
         ":depsmodel",
         ":graph",
+        ":settings_loader",
         ],
     visibility = ["//visibility:public"])
 
@@ -64,6 +77,7 @@ scala_library(name = "aether_resolver",
                   ":depsmodel",
                   ":graph",
                   ":resolver",
+                  ":settings_loader",
                   ],
               visibility = ["//visibility:public"])
 

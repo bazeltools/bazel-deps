@@ -5,6 +5,7 @@ import java.net.URI
 import java.nio.file.Path
 import java.util
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
+import org.apache.maven.settings.Server
 import org.eclipse.aether.RepositorySystem
 import org.eclipse.aether.artifact.DefaultArtifact
 import org.eclipse.aether.collection.{ CollectRequest, CollectResult }
@@ -18,10 +19,10 @@ import org.eclipse.aether.spi.connector.RepositoryConnectorFactory
 import org.eclipse.aether.spi.connector.transport.TransporterFactory
 import org.eclipse.aether.transport.file.FileTransporterFactory
 import org.eclipse.aether.transport.http.HttpTransporterFactory
+import org.eclipse.aether.util.repository.AuthenticationBuilder
 import org.slf4j.LoggerFactory
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
-import scala.util.control.NonFatal
 import scala.collection.immutable.SortedMap
 import scala.collection.breakOut
 import cats.{instances, MonadError, Foldable}
@@ -63,13 +64,27 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
     s
   }
 
-  private val repositories =
+  private val repositories = {
+    val settings = new SettingsLoader().settings
+
     servers.map { case MavenServer(id, t, u) =>
+      var server = settings.getServer(id)
+
+      // If there are no credentials for server present, we can just pass in nulls
+      if (server == null) {
+        server = new Server()
+      }
+
       new RemoteRepository.Builder(id, t, u)
         // Disable warnings from bazel-deps not passing checksums to Aether.  Use the default update policy.
         .setPolicy(new RepositoryPolicy(true, RepositoryPolicy.UPDATE_POLICY_DAILY, RepositoryPolicy.CHECKSUM_POLICY_IGNORE))
+        .setAuthentication(new AuthenticationBuilder()
+          .addUsername(server.getUsername)
+          .addPassword(server.getPassword)
+          .build())
         .build
     }.asJava
+  }
 
   /**
    * Here is where the IO happens
