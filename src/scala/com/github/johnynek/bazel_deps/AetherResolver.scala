@@ -86,7 +86,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
     }
     collectRequest.setRoot(new Dependency(new DefaultArtifact(m.asString), "", false, exclusions))
     collectRequest.setRepositories(repositories)
-    system.collectDependencies(session, collectRequest);
+    system.collectDependencies(session, collectRequest)
   }
 
   def getShas(m: List[MavenCoordinate]): Try[SortedMap[MavenCoordinate, ResolvedShasValue]] = {
