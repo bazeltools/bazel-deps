@@ -1,6 +1,6 @@
 # bazel-deps
 
-Generate [bazel](http://bazel.io/) dependencies transitively for maven artifacts, with scala
+Generate [bazel](https://bazel.build/) dependencies transitively for maven artifacts, with scala
 support.
 
 ## Usage
