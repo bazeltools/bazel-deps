@@ -131,10 +131,8 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
       }
 
       def processArtifact(src: Artifact.Source, dep: Dependency, proj: Project): Task[Option[JarDescriptor]] = {
-          // TODO, this does not seem like the idea thing, but it seems to work.
           val maybeArtifacts = src.artifacts(dep, proj, None)
             .iterator
-            .filter(_.url.endsWith(".jar"))
             .toList
 
           NonEmptyList.fromList(maybeArtifacts).map { artifacts =>
