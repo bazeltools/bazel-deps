@@ -135,6 +135,10 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             .iterator
             .toList
 
+          if (maybeArtifacts == Nil) {
+            logger.warn(s"Failed to process $dep")
+          }
+
           NonEmptyList.fromList(maybeArtifacts).map { artifacts =>
             for {
               sha1 <- fetchOrComputeShas(artifacts, DigestType.Sha1)
