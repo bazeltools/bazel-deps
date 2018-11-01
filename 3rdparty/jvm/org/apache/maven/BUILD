@@ -107,3 +107,39 @@ java_library(
 )
 
 
+
+java_library(
+    name = "maven_settings",
+    exports = [
+        "//external:jar/org/apache/maven/maven_settings"
+    ],
+    runtime_deps = [
+        "//3rdparty/jvm/org/codehaus/plexus:plexus_utils"
+    ],
+    visibility = [
+        "//visibility:public"
+    ]
+)
+
+
+
+java_library(
+    name = "maven_settings_builder",
+    exports = [
+        "//external:jar/org/apache/maven/maven_settings_builder"
+    ],
+    runtime_deps = [
+        "//3rdparty/jvm/org/apache/commons:commons_lang3",
+        "//3rdparty/jvm/org/codehaus/plexus:plexus_component_annotations",
+        "//3rdparty/jvm/org/codehaus/plexus:plexus_interpolation",
+        "//3rdparty/jvm/org/codehaus/plexus:plexus_utils",
+        "//3rdparty/jvm/org/sonatype/plexus:plexus_sec_dispatcher",
+        ":maven_builder_support",
+        ":maven_settings"
+    ],
+    visibility = [
+        "//visibility:public"
+    ]
+)
+
+

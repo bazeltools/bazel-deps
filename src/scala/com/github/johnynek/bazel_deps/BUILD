@@ -36,16 +36,29 @@ scala_library(name = "resolver",
               visibility = ["//visibility:public"])
 
 scala_library(
+    name = "settings_loader",
+    srcs = ["SettingsLoader.scala"],
+    deps = [
+        "//3rdparty/jvm/org/apache/maven:maven_settings",
+        "//3rdparty/jvm/org/apache/maven:maven_settings_builder",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        ],
+    exports = ["//3rdparty/jvm/org/apache/maven:maven_settings"],
+    visibility = ["//visibility:public"])
+
+
+scala_library(
     name = "coursier_resolver",
     srcs = ["CoursierResolver.scala"],
     deps = [
         "//3rdparty/jvm/io/get_coursier:coursier",
         "//3rdparty/jvm/io/get_coursier:coursier_cache",
-        "//3rdparty/jvm/org/typelevel:cats_core",
         "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "//3rdparty/jvm/org/typelevel:cats_core",
         ":resolver",
         ":depsmodel",
         ":graph",
+        ":settings_loader",
         ],
     visibility = ["//visibility:public"])
 
@@ -54,16 +67,27 @@ scala_library(name = "aether_resolver",
               deps = [
                   "//3rdparty/jvm/org/typelevel:cats_core",
                   "//3rdparty/jvm/org/apache/maven:maven_aether_provider",
+                  "//3rdparty/jvm/org/apache/maven:maven_settings",
+                  "//3rdparty/jvm/org/apache/maven:maven_settings_builder",
                   "//3rdparty/jvm/org/eclipse/aether:aether_api",
                   "//3rdparty/jvm/org/eclipse/aether:aether_spi",
                   "//3rdparty/jvm/org/eclipse/aether:aether_connector_basic",
                   "//3rdparty/jvm/org/eclipse/aether:aether_impl",
                   "//3rdparty/jvm/org/eclipse/aether:aether_transport_file",
                   "//3rdparty/jvm/org/eclipse/aether:aether_transport_http",
+                  "//3rdparty/jvm/org/eclipse/aether:aether_util",
                   "//3rdparty/jvm/org/slf4j:slf4j_api",
+                  "//3rdparty/jvm/org/sonatype/plexus:plexus_sec_dispatcher",
+                  "//3rdparty/jvm/org/sonatype/plexus:plexus_cipher",
+                  "//3rdparty/jvm/org/eclipse/sisu:org_eclipse_sisu_plexus",
                   ":depsmodel",
                   ":graph",
                   ":resolver",
+                  ":settings_loader",
+                  ],
+              exports = [
+                  "//3rdparty/jvm/org/apache/maven:maven_settings",
+                  "//3rdparty/jvm/org/eclipse/aether:aether_spi",
                   ],
               visibility = ["//visibility:public"])
 

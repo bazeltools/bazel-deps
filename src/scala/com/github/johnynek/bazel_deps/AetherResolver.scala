@@ -1,25 +1,28 @@
 package com.github.johnynek.bazel_deps
 
 import java.io.File
+import java.net.URI
 import java.nio.file.Path
 import java.util
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
+import org.apache.maven.settings.Server
 import org.eclipse.aether.RepositorySystem
 import org.eclipse.aether.artifact.DefaultArtifact
 import org.eclipse.aether.collection.{ CollectRequest, CollectResult }
 import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory
 import org.eclipse.aether.graph.{ Dependency, DependencyNode, DependencyVisitor, Exclusion }
 import org.eclipse.aether.impl.DefaultServiceLocator
+import org.eclipse.aether.internal.impl.Maven2RepositoryLayoutFactory
 import org.eclipse.aether.repository.{ LocalRepository, RemoteRepository, RepositoryPolicy }
 import org.eclipse.aether.resolution.{ ArtifactResult, ArtifactRequest }
 import org.eclipse.aether.spi.connector.RepositoryConnectorFactory
 import org.eclipse.aether.spi.connector.transport.TransporterFactory
 import org.eclipse.aether.transport.file.FileTransporterFactory
 import org.eclipse.aether.transport.http.HttpTransporterFactory
+import org.eclipse.aether.util.repository.AuthenticationBuilder
 import org.slf4j.LoggerFactory
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
-import scala.util.control.NonFatal
 import scala.collection.immutable.SortedMap
 import scala.collection.breakOut
 import cats.{instances, MonadError, Foldable}
@@ -61,13 +64,23 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
     s
   }
 
-  private val repositories =
+  private val repositories = {
+    val settings = SettingsLoader.settings
+
     servers.map { case MavenServer(id, t, u) =>
+      // If there are no credentials for server present, we can just pass in nulls
+      val server = Option(settings.getServer(id)).getOrElse(new Server)
+
       new RemoteRepository.Builder(id, t, u)
         // Disable warnings from bazel-deps not passing checksums to Aether.  Use the default update policy.
         .setPolicy(new RepositoryPolicy(true, RepositoryPolicy.UPDATE_POLICY_DAILY, RepositoryPolicy.CHECKSUM_POLICY_IGNORE))
+        .setAuthentication(new AuthenticationBuilder()
+          .addUsername(server.getUsername)
+          .addPassword(server.getPassword)
+          .build())
         .build
     }.asJava
+  }
 
   /**
    * Here is where the IO happens
@@ -118,14 +131,22 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
             .asScala
             .iterator
 
-        ms.iterator.zip(resp).map { case (coord, r) =>
-          coord -> getFile(coord, ext, r).flatMap(f => toSha(f).map(sha1Value => JarDescriptor(
-              url=None,
-              sha1 = Some(sha1Value),
-              sha256 = None,
+        ms.iterator.zip(resp).map { case (coord, r) => coord -> {
+          val remoteRepository = r.getRepository.asInstanceOf[RemoteRepository]
+          val repositoryLayout = new Maven2RepositoryLayoutFactory().newInstance(session, remoteRepository)
+
+          for {
+            f <- getFile(coord, ext, r)
+            sha1 <- ShaValue.computeShaOf(DigestType.Sha1, f)
+            sha256 <- ShaValue.computeShaOf(DigestType.Sha256, f)
+          } yield {
+            JarDescriptor(
+              url = Some(new URI(remoteRepository.getUrl).resolve(repositoryLayout.getLocation(r.getArtifact, false).toString).toString),
+              sha1 = Some(sha1),
+              sha256 = Some(sha256),
               serverId = r.getRepository.getId
-            )))
-        }.toMap
+            )
+          }}}.toMap
       })
 
     val shas = getExt(m.toList, "sha1")(readShaContents)

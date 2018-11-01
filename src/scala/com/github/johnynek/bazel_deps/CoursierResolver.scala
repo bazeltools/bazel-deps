@@ -2,9 +2,10 @@ package com.github.johnynek.bazel_deps
 
 import coursier.{Artifact, Cache, CachePolicy, Dependency, Fetch, Project, Resolution}
 import coursier.util.{Schedulable, Task}
-import cats.{MonadError}
+import cats.MonadError
 import cats.data.{Nested, NonEmptyList, Validated, ValidatedNel}
 import cats.implicits._
+import coursier.core.Authentication
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.SortedMap
@@ -19,7 +20,16 @@ object CoursierResolver {
 }
 class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTimeout: Duration) extends Resolver[Task] {
   // TODO: add support for a local file cache other than ivy
-  private[this] val repos = Cache.ivy2Local :: servers.map { ms => coursier.MavenRepository(ms.url) }
+  private[this] val repos = Cache.ivy2Local :: {
+    val settings = SettingsLoader.settings
+
+    servers.map { case MavenServer(id, _, url) =>
+      val authentication = Option(settings.getServer(id))
+        .map(server => Authentication(server.getUsername, server.getPassword))
+
+      coursier.MavenRepository(url, authentication = authentication)
+    }
+  }
 
   private[this] val fetch = Fetch.from(repos, Cache.fetch[Task](cachePolicy = CachePolicy.FetchMissing, pool = CoursierResolver.downloadPool))
 
@@ -108,7 +118,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
       def fetchOrComputeShas(artifacts: NonEmptyList[Artifact], digestType: DigestType): Task[ShaValue] = {
         val checksumArtifacts = artifacts.toList.flatMap { a =>
-          a.checksumUrls.get(digestType.name).map(url => Artifact(url, Map.empty, Map.empty, a.attributes, false, None))
+          a.checksumUrls.get(digestType.name).map(url => Artifact(url, Map.empty, Map.empty, a.attributes, false, a.authentication))
         }
 
         downloadShas(digestType, checksumArtifacts).flatMap {
@@ -121,11 +131,13 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
       }
 
       def processArtifact(src: Artifact.Source, dep: Dependency, proj: Project): Task[Option[JarDescriptor]] = {
-          // TODO, this does not seem like the idea thing, but it seems to work.
           val maybeArtifacts = src.artifacts(dep, proj, None)
             .iterator
-            .filter(_.url.endsWith(".jar"))
             .toList
+
+          if (maybeArtifacts == Nil) {
+            logger.warn(s"Failed to process $dep")
+          }
 
           NonEmptyList.fromList(maybeArtifacts).map { artifacts =>
             for {
@@ -237,6 +249,11 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
     Resolution(roots).process.run(fetch).map { res =>
       val depCache = res.finalDependenciesCache
+
+      if (res.errors.nonEmpty) {
+        res.errors.foreach{ case (_, msgs) => msgs.foreach(logger.error) }
+        throw new RuntimeException("Failed to resolve dependencies")
+      }
 
       depCache.foldLeft(Graph.empty[MavenCoordinate, Unit]) { case (g, (n, deps)) =>
         val cnode = toCoord(n)
