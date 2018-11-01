@@ -68,12 +68,8 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
     val settings = new SettingsLoader().settings
 
     servers.map { case MavenServer(id, t, u) =>
-      var server = settings.getServer(id)
-
       // If there are no credentials for server present, we can just pass in nulls
-      if (server == null) {
-        server = new Server()
-      }
+      val server = Option(settings.getServer(id)).getOrElse(new Server)
 
       new RemoteRepository.Builder(id, t, u)
         // Disable warnings from bazel-deps not passing checksums to Aether.  Use the default update policy.
