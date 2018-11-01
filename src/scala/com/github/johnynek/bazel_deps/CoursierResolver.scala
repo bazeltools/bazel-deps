@@ -21,7 +21,7 @@ object CoursierResolver {
 class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTimeout: Duration) extends Resolver[Task] {
   // TODO: add support for a local file cache other than ivy
   private[this] val repos = Cache.ivy2Local :: {
-    val settings = new SettingsLoader().settings
+    val settings = SettingsLoader.settings
 
     servers.map { case MavenServer(id, _, url) =>
       val authentication = Option(settings.getServer(id))

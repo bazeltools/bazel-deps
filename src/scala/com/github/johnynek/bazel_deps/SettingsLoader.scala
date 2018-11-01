@@ -6,7 +6,7 @@ import org.apache.maven.settings.building.{DefaultSettingsBuilderFactory, Defaul
 import org.slf4j.LoggerFactory
 import scala.collection.JavaConversions._
 
-class SettingsLoader {
+object SettingsLoader {
   private[this] val logger = LoggerFactory.getLogger(getClass)
   private val m2Home = new File(new File(System.getProperty("user.home")), "/.m2/")
 

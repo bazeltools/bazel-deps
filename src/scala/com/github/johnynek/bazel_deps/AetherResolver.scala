@@ -65,7 +65,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
   }
 
   private val repositories = {
-    val settings = new SettingsLoader().settings
+    val settings = SettingsLoader.settings
 
     servers.map { case MavenServer(id, t, u) =>
       // If there are no credentials for server present, we can just pass in nulls
