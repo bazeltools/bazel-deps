@@ -427,7 +427,7 @@ case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, version
   def toDependencies(l: Language): Dependencies =
     Dependencies(Map(group ->
       Map(ArtifactOrProject(artifact.asString) ->
-        ProjectRecord(l, Some(version), None, None, None, None))))
+        ProjectRecord(l, Some(version), None, None, None, None, None))))
 }
 
 object MavenCoordinate {
@@ -592,6 +592,7 @@ case class ProjectRecord(
   modules: Option[Set[Subproject]],
   exports: Option[Set[(MavenGroup, ArtifactOrProject)]],
   exclude: Option[Set[(MavenGroup, ArtifactOrProject)]],
+  generatesApi: Option[Boolean],
   processorClasses: Option[Set[ProcessorClass]]) {
 
 
