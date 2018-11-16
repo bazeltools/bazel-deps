@@ -1,6 +1,6 @@
 package com.github.johnynek.bazel_deps
 
-import org.scalacheck.{ Arbitrary, Gen }
+import org.scalacheck.Gen
 
 object ModelGenerators {
 
@@ -24,7 +24,7 @@ object ModelGenerators {
     exports <- Gen.option(Gen.listOfN(exp, join(mavenGroupGen, artifactOrProjGen)).map(_.toSet))
     exclude <- Gen.option(Gen.listOfN(exc, join(mavenGroupGen, artifactOrProjGen)).map(_.toSet))
     processorClasses <- Gen.option(Gen.listOfN(pcs, processorClassGen).map(_.toSet))
-  } yield ProjectRecord(lang, v, m, exports, exclude, processorClasses)
+  } yield ProjectRecord(lang, v, m, exports, exclude, None, processorClasses)
 
   def depGen(o: Options): Gen[Dependencies] = {
     val (l1, ls) = o.getLanguages match {

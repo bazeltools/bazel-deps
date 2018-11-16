@@ -13,6 +13,9 @@ object Target {
   def quote(s: String): Doc =
     Doc.text("\"%s\"".format(s))
 
+  def bool(b: Boolean): Doc =
+    Doc.text("%b".format(b).capitalize)
+
   def fqnToLabelFragment(fqn: String): String =
     fqn.toLowerCase.replaceAll("[^a-z0-9]", "_")
 
@@ -68,6 +71,7 @@ case class Target(
   exports: Set[Label] = Set.empty,
   runtimeDeps: Set[Label] = Set.empty,
   processorClasses: Set[ProcessorClass] = Set.empty,
+  generatesApi: Boolean = false,
   licenses: Set[String] = Set.empty) {
 
   def toDoc: Doc = {
@@ -112,14 +116,15 @@ case class Target(
       if (pcs.size == 1) s"${name.name}_plugin"
       else s"${name.name}_plugin_${fqnToLabelFragment(pc.asString)}"
 
-    def renderPlugins(pcs: Set[ProcessorClass], exports: Set[Label], licenses: Set[String]): Doc =
+    def renderPlugins(pcs: Set[ProcessorClass], exports: Set[Label], generatesApi: Boolean, licenses: Set[String]): Doc =
       if (pcs.isEmpty) Doc.empty
-      else processorClasses.toList.sortBy(_.asString).map(renderPlugin(pcs, _, exports, licenses)).reduce((d1, d2) => d1 + d2)
+      else processorClasses.toList.sortBy(_.asString).map(renderPlugin(pcs, _, exports, generatesApi, licenses)).reduce((d1, d2) => d1 + d2)
 
-    def renderPlugin(pcs: Set[ProcessorClass], pc: ProcessorClass, exports: Set[Label], licenses: Set[String]): Doc =
+    def renderPlugin(pcs: Set[ProcessorClass], pc: ProcessorClass,exports: Set[Label], generatesApi: Boolean, licenses: Set[String]): Doc =
       sortKeys(Doc.text("java_plugin"), getPluginTargetName(pcs, pc), List(
         "deps" -> labelList(exports ++ jars ++ deps ++ runtimeDeps),
         "licenses" -> renderLicenses(licenses),
+        "generates_api" -> bool(generatesApi),
         "processor_class" -> quote(pc.asString),
         visibilityDoc
       )) + Doc.line
@@ -140,6 +145,6 @@ case class Target(
       "exports" -> labelList(exports),
       "runtime_deps" -> labelList(runtimeDeps),
       "exported_plugins" -> renderExportedPlugins(processorClasses)
-    )) + renderPlugins(processorClasses, exports, licenses) + Doc.line
+    )) + renderPlugins(processorClasses, exports, generatesApi, licenses) + Doc.line
   }
 }
