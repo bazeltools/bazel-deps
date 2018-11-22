@@ -172,9 +172,8 @@ In the options we set:
   will be generated with `public` visibility.
 * licenses: a set of strings added a licenses rule to each generated bazel target.  Required by
   bazel if your build targets are under third_party/
-* resolverType: the string aether or coursier. `aether` is the default, but it is slower and seems
-  to silently miss some dependencies for reasons we don't yet understand. Coursier will likely be
-  the default in the future, but for now it is opt in.
+* resolverType: `aether` or `coursier`. Note that `aether` is slower and seems to silently miss some dependencies for 
+  reasons we don't yet understand.
 
 In the default case, with no options given, we use:
 - `highest` versionConflictPolicy
@@ -183,6 +182,7 @@ In the default case, with no options given, we use:
 - use maven central as the resolver
 - `local` resolverCache
 - empty namePrefix (`""`)
+- `coursier` resolverType
 
 ### <a name="replacements">Replacements</a>
 Some maven jars should not be used and instead are replaced by internal targets. Here are

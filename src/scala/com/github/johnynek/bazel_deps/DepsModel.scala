@@ -1198,7 +1198,7 @@ object ResolverType {
   case object Aether extends ResolverType("aether")
   case object Coursier extends ResolverType("coursier")
 
-  val default = Aether
+  val default = Coursier
 
   implicit val resolverSemigroup: Semigroup[ResolverType] =
     Options.useRight.algebra[ResolverType]
