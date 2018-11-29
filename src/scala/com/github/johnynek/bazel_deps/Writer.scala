@@ -319,7 +319,11 @@ object Writer {
                       kind = Target.Library,
                       name = Label.localTarget(pathInRoot, u, lang),
                       visibility = visibility(u),
-                      exports = (exports + lab) ++ uvexports,
+                      exports = if (u.artifact.packaging == "pom") {
+                          exports
+                      } else {
+                          (exports + lab)
+                      } ++ uvexports,
                       jars = Set.empty,
                       runtimeDeps = runtime_deps -- uvexports,
                       processorClasses = getProcessorClasses(u),
