@@ -157,7 +157,7 @@ scala_binary(name = "parseproject",
                  "//3rdparty/jvm/org/slf4j:slf4j_simple",
              ],
              resources = ["templates/jar_artifact_backend.bzl"],
-             resource_strip_prefix = PACKAGE_NAME,
+             resource_strip_prefix = package_name(),
              main_class = "com.github.johnynek.bazel_deps.ParseProject",
              visibility = ["//visibility:public"])
 
