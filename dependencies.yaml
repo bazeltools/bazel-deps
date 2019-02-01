@@ -50,8 +50,8 @@ dependencies:
   io.get-coursier:
     coursier:
       lang: scala
-      modules: [ "", "cache" ]
-      version: "1.1.0-M7"
+      modules: [ "cache", "core" ]
+      version: "1.1.0-M10"
 
   org.apache.maven:
     maven:

@@ -5,7 +5,8 @@ import coursier.util.{Schedulable, Task}
 import cats.MonadError
 import cats.data.{Nested, NonEmptyList, Validated, ValidatedNel}
 import cats.implicits._
-import coursier.core.Authentication
+import coursier.cache.LocalRepositories
+import coursier.core._
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.SortedMap
@@ -20,7 +21,7 @@ object CoursierResolver {
 }
 class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTimeout: Duration) extends Resolver[Task] {
   // TODO: add support for a local file cache other than ivy
-  private[this] val repos = Cache.ivy2Local :: {
+  private[this] val repos = LocalRepositories.ivy2Local :: {
     val settings = SettingsLoader.settings
 
     servers.map { case MavenServer(id, _, url) =>
@@ -118,7 +119,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
       def fetchOrComputeShas(artifacts: NonEmptyList[Artifact], digestType: DigestType): Task[ShaValue] = {
         val checksumArtifacts = artifacts.toList.flatMap { a =>
-          a.checksumUrls.get(digestType.name).map(url => Artifact(url, Map.empty, Map.empty, a.attributes, false, a.authentication))
+          a.checksumUrls.get(digestType.name).map(url => Artifact(url, Map.empty, Map.empty, a.changing, false, a.authentication))
         }
 
         downloadShas(digestType, checksumArtifacts).flatMap {
@@ -132,7 +133,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
       def processArtifact(src: Artifact.Source, dep: Dependency, proj: Project): Task[Option[JarDescriptor]] = {
           val maybeArtifacts = src.artifacts(dep, proj, None)
-            .iterator
+            .map { case (_, artifact: Artifact) => artifact }
             .toList
 
           if (maybeArtifacts == Nil) {
@@ -157,7 +158,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
       }.getOrElse(Task.point(Option.empty[JarDescriptor]))
     }
 
-      val module = coursier.Module(c.group.asString, c.artifact.artifactId, Map.empty)
+      val module = coursier.Module(Organization(c.group.asString), ModuleName(c.artifact.artifactId), Map.empty)
       val version = c.version.asString
       val f = Cache.fetch[Task](checksums = Seq(Some("SHA-1"), None), cachePolicy = CachePolicy.FetchMissing, pool = CoursierResolver.downloadPool)
       val task = Fetch.find[Task](repos, module, version, f).run
@@ -178,14 +179,14 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             .getOrElse(NonEmptyList("<empty message>", Nil))
           Task.point(Validated.invalid(nel))
         case Right((src, proj)) =>
-          val dep = coursier.Dependency(module, version, configuration = DefaultConfiguration, attributes = coursier.Attributes(
-            c.artifact.packaging,
-            c.artifact.classifier.getOrElse("")
+          val dep = coursier.Dependency(module, version, Configuration(DefaultConfiguration), coursier.Attributes(
+            Type(c.artifact.packaging),
+            Classifier(c.artifact.classifier.getOrElse(""))
           ))
 
           val srcDep = dep.copy(attributes = coursier.Attributes(
-            c.artifact.packaging,
-            "sources"
+            Type(c.artifact.packaging),
+            Classifier("sources")
           ))
 
           processArtifact(src, dep, proj).flatMap { mainJarDescriptorOpt =>
@@ -218,30 +219,30 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
   def buildGraph(coords: List[MavenCoordinate], m: Model): Task[Graph[MavenCoordinate, Unit]] = {
     def toDep(mc: MavenCoordinate): coursier.Dependency = {
       val exs = m.dependencies.excludes(mc.unversioned)
-      val exSet: Set[(String, String)] =
-        exs.map { elem => (elem.group.asString, elem.artifact.artifactId) }
+      val exSet: Set[(Organization, ModuleName)] =
+        exs.map { elem => (Organization(elem.group.asString), ModuleName(elem.artifact.artifactId)) }
       coursier.Dependency(
-        coursier.Module(mc.group.asString, mc.artifact.artifactId),
+        coursier.Module(Organization(mc.group.asString), ModuleName(mc.artifact.artifactId)),
         mc.version.asString,
-        configuration = DefaultConfiguration,
-        exclusions = exSet,
-        attributes = coursier.Attributes(
-          mc.artifact.packaging,
-          mc.artifact.classifier.getOrElse("")
-        ))
+        Configuration(DefaultConfiguration),
+        coursier.Attributes(
+          Type(mc.artifact.packaging),
+          Classifier(mc.artifact.classifier.getOrElse(""))
+        ),
+        exSet)
     }
 
     def artifactFromDep(cd: coursier.Dependency): MavenArtifactId = {
       val attrs = cd.attributes
       val packaging =
         if (attrs.`type`.isEmpty) "jar"
-        else attrs.`type`
-      MavenArtifactId(cd.module.name, packaging, attrs.classifier /* empty string OK */)
+        else attrs.`type`.value
+      MavenArtifactId(cd.module.name.value, packaging, attrs.classifier.value /* empty string OK */)
     }
 
     def toCoord(cd: coursier.Dependency): MavenCoordinate =
       MavenCoordinate(
-        MavenGroup(cd.module.organization),
+        MavenGroup(cd.module.organization.value),
         artifactFromDep(cd),
         Version(cd.version))
 
