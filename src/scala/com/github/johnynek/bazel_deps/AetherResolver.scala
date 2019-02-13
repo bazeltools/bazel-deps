@@ -61,6 +61,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path) extend
     val s = MavenRepositorySystemUtils.newSession()
     val localRepo = new LocalRepository(resolverCachePath.toString)
     s.setLocalRepositoryManager(system.newLocalRepositoryManager(s, localRepo))
+    s.setIgnoreArtifactDescriptorRepositories(true)
     s
   }
 
