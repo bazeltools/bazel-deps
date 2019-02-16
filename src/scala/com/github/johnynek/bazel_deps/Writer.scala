@@ -34,8 +34,6 @@ object Writer {
    */
   type BuildFileFormatter = ((IO.Path, String) => String)
 
-  private val buildFileName = "BUILD"
-
   private def buildFileContents(buildFilePath: IO.Path, buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): String = {
     def withNewline(s: String): String =
       if (s.isEmpty) ""
@@ -46,7 +44,7 @@ object Writer {
       .mkString(withNewline(buildHeader), "\n\n", "\n"))
   }
 
-  def createBuildFiles(buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): Result[Int] = {
+  def createBuildFiles(buildHeader: String, ts: List[Target], formatter: BuildFileFormatter, buildFileName: String): Result[Int] = {
     val pathGroups = ts.groupBy(_.name.path).toList
 
     Traverse[List].traverse(pathGroups) {
@@ -62,7 +60,7 @@ object Writer {
       .map(_.size)
   }
 
-  def compareBuildFiles(buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): Result[List[IO.FileComparison]] = {
+  def compareBuildFiles(buildHeader: String, ts: List[Target], formatter: BuildFileFormatter, buildFileName: String): Result[List[IO.FileComparison]] = {
     val pathGroups = ts.groupBy(_.name.path).toList
 
     Traverse[List].traverse(pathGroups) {

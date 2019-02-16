@@ -174,6 +174,7 @@ In the options we set:
   bazel if your build targets are under third_party/
 * resolverType: `aether` or `coursier`. Note that `aether` is slower and seems to silently miss some dependencies for 
   reasons we don't yet understand.
+* buildFileName: filename of the generated build files
 
 In the default case, with no options given, we use:
 - `highest` versionConflictPolicy
@@ -183,6 +184,7 @@ In the default case, with no options given, we use:
 - `local` resolverCache
 - empty namePrefix (`""`)
 - `coursier` resolverType
+- `BUILD` as build file name
 
 ### <a name="replacements">Replacements</a>
 Some maven jars should not be used and instead are replaced by internal targets. Here are
