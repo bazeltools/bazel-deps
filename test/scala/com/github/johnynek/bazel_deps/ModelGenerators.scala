@@ -69,7 +69,8 @@ object ModelGenerators {
     licenses <- Gen.option(Gen.someOf("unencumbered", "permissive", "restricted", "notice").map(_.toSet))
     resolverType <- Gen.option(Gen.oneOf(ResolverType.Aether, ResolverType.Coursier))
     strictVisibility <- Gen.option(Gen.oneOf(StrictVisibility(true), StrictVisibility(false)))
-  } yield Options(vcp, dir, langs, res, trans, heads, cache, prefix, licenses, resolverType, strictVisibility)
+    buildFileName <- Gen.option(Gen.oneOf("BUILD", "BUILD.bazel"))
+  } yield Options(vcp, dir, langs, res, trans, heads, cache, prefix, licenses, resolverType, strictVisibility, buildFileName)
 
   val modelGen: Gen[Model] = for {
     o <- Gen.option(optionGen)

@@ -1216,7 +1216,8 @@ case class Options(
   namePrefix: Option[NamePrefix],
   licenses: Option[Set[String]],
   resolverType: Option[ResolverType],
-  strictVisibility: Option[StrictVisibility]
+  strictVisibility: Option[StrictVisibility],
+  buildFileName: Option[String]
 ) {
   def isDefault: Boolean =
     versionConflictPolicy.isEmpty &&
@@ -1229,7 +1230,8 @@ case class Options(
     namePrefix.isEmpty &&
     licenses.isEmpty &&
     resolverType.isEmpty &&
-    strictVisibility.isEmpty
+    strictVisibility.isEmpty &&
+    buildFileName.isEmpty
 
   def getLicenses: Set[String] =
     licenses.getOrElse(Set.empty)
@@ -1273,6 +1275,9 @@ case class Options(
   def getResolverType: ResolverType =
     resolverType.getOrElse(ResolverType.default)
 
+  def getBuildFileName: String =
+    buildFileName.getOrElse("BUILD")
+
   def toDoc: Doc = {
     val items = List(
       ("versionConflictPolicy",
@@ -1294,7 +1299,8 @@ case class Options(
       ("licenses",
         licenses.map { l => list(l.toList.sorted)(quoteDoc) }),
       ("strictVisibility", strictVisibility.map { x => Doc.text(x.enabled.toString)}),
-      ("resolverType", resolverType.map(r => quoteDoc(r.asString)))
+      ("resolverType", resolverType.map(r => quoteDoc(r.asString))),
+      ("buildFileName", buildFileName.map(name => Doc.text(name)))
     ).sortBy(_._1)
      .collect { case (k, Some(v)) => (k, v) }
 
@@ -1316,7 +1322,7 @@ object Options {
    * A monoid on options that is just the point-wise monoid
    */
   implicit val optionsMonoid: Monoid[Options] = new Monoid[Options] {
-    val empty = Options(None, None, None, None, None, None, None, None, None, None, None)
+    val empty = Options(None, None, None, None, None, None, None, None, None, None, None, None)
 
     def combine(a: Options, b: Options): Options = {
       val vcp = Monoid[Option[VersionConflictPolicy]].combine(a.versionConflictPolicy, b.versionConflictPolicy)
@@ -1330,7 +1336,8 @@ object Options {
       val licenses = Monoid[Option[Set[String]]].combine(a.licenses, b.licenses)
       val resolverType = Monoid[Option[ResolverType]].combine(a.resolverType, b.resolverType)
       val strictVisibility = Monoid[Option[StrictVisibility]].combine(a.strictVisibility, b.strictVisibility)
-      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix, licenses, resolverType, strictVisibility)
+      val buildFileName = Monoid[Option[String]].combine(a.buildFileName, b.buildFileName)
+      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix, licenses, resolverType, strictVisibility, buildFileName)
     }
   }
 }

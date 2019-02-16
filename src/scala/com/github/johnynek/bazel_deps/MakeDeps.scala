@@ -180,7 +180,7 @@ object MakeDeps {
     val io = for {
       wsOK <- IO.compare(workspacePath, workspaceContents)
       wsbOK <- IO.compare(workspacePath.sibling("BUILD"), "")
-      buildsOK <- Writer.compareBuildFiles(model.getOptions.getBuildHeader, targets, formatter)
+      buildsOK <- Writer.compareBuildFiles(model.getOptions.getBuildHeader, targets, formatter, model.getOptions.getBuildFileName)
     } yield wsOK :: wsbOK :: buildsOK
 
     // Here we actually run the whole thing
@@ -202,13 +202,14 @@ object MakeDeps {
   private def executeGenerate(model: Model, projectRoot: File, workspacePath: IO.Path, workspaceContents: String, targets: List[Target], formatter: Writer.BuildFileFormatter): Unit = {
     // Build up the IO operations that need to run. Till now,
     // nothing was written
+    val buildFileName = model.getOptions.getBuildFileName
     val io = for {
-      originalBuildFile <- IO.readUtf8(workspacePath.sibling("BUILD"))
+      originalBuildFile <- IO.readUtf8(workspacePath.sibling(buildFileName))
       _ <- IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts))
       _ <- IO.mkdirs(workspacePath.parent)
       _ <- IO.writeUtf8(workspacePath, workspaceContents)
-      _ <- IO.writeUtf8(workspacePath.sibling("BUILD"), originalBuildFile.getOrElse(""))
-      builds <- Writer.createBuildFiles(model.getOptions.getBuildHeader, targets, formatter)
+      _ <- IO.writeUtf8(workspacePath.sibling(buildFileName), originalBuildFile.getOrElse(""))
+      builds <- Writer.createBuildFiles(model.getOptions.getBuildHeader, targets, formatter, buildFileName)
     } yield builds
 
     // Here we actually run the whole thing
