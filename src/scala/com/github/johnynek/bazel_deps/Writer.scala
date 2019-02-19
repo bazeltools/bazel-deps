@@ -9,8 +9,6 @@ import org.slf4j.LoggerFactory
 import scala.io.Source
 
 object Writer {
-  private lazy val jarArtifactBackend = Source.fromInputStream(
-    getClass.getResource("/templates/jar_artifact_backend.bzl").openStream()).mkString
 
   sealed abstract class TargetsError {
     def message: String
@@ -88,24 +86,17 @@ object Writer {
       .map { case coord@MavenCoordinate(g, a, v) =>
         val isRoot = model.dependencies.roots(coord)
 
-        def kv(key: String, value: String, prefix: String = ""): String =
-          s"""$prefix"$key": "$value""""
-
-        def kvOpt(key: String, valueOpt: Option[String], prefix: String = ""): String = valueOpt match {
-          case Some(value) => kv(key, value, prefix)
-          case None => ""
-        }
-
-        val (sha1Str, sha256Str, serverStr, remoteUrl) = shas.get(coord) match {
+        val (sha1Str, sha256Str, serverStr, serverIdStr, remoteUrl) = shas.get(coord) match {
           case Some(sha) =>
             val sha1Str = kvOpt("sha1", sha.binaryJar.sha1.map(_.toHex), ", ")
             val sha256Str = kvOpt("sha256", sha.binaryJar.sha256.map(_.toHex), ", ")
             // val url = sha.url
+            val serverIdStr =  kvOpt("server", Some(sha.binaryJar.serverId), ", ")
             val serverUrlStr = kvOpt("repository", servers.get(sha.binaryJar.serverId), ", ")
             val urlStr = kvOpt("url", sha.binaryJar.url, ", ")
 
-            (sha1Str, sha256Str, serverUrlStr, urlStr)
-          case None => ("", "", "", "")
+            (sha1Str, sha256Str, serverUrlStr, serverIdStr, urlStr)
+          case None => ("", "", "", "", "")
         }
 
         val sourceStr = shas.get(coord).flatMap(_.sourceJar) match {
@@ -113,11 +104,11 @@ object Writer {
             val sha1Str = kvOpt("sha1", sourceJar.sha1.map(_.toHex))
             val sha256Str = kvOpt("sha256", sourceJar.sha256.map(_.toHex), ", ")
             // val url = sha.url
+            val serverIdStr =  kvOpt("server", Some(sourceJar.serverId), ", ")
             val serverUrlStr = kvOpt("repository", servers.get(sourceJar.serverId), ", ")
             val urlStr = kvOpt("url", sourceJar.url, ", ")
 
-            (sha1Str, sha256Str, serverUrlStr, urlStr)
-            s""", "source": {$sha1Str$sha256Str$serverUrlStr$urlStr} """
+            s""", "source": {$sha1Str$sha256Str$serverUrlStr$serverIdStr$urlStr} """
           case None => ""
         }
 
@@ -138,25 +129,53 @@ object Writer {
         val l = lang(coord.unversioned)
         val actual = Label.externalJar(l, coord.unversioned, prefix)
         List(s"""$comment    {${kv("artifact", coord.asString)}""",
-             s"""${kv("lang", l.asString)}$sha1Str$sha256Str$serverStr$remoteUrl$sourceStr""",
+             s"""${kv("lang", l.asString)}$sha1Str$sha256Str$serverStr$serverIdStr$remoteUrl$sourceStr""",
              s"""${kv("name", coord.unversioned.toBazelRepoName(prefix))}""",
              s"""${kv("actual", actual.fromRoot)}""",
              s"""${kv("bind", coord.unversioned.toBindingName(prefix))}},""").mkString(", ")
       }
       .mkString("\n")
-
+    val repositories = servers.toList.sortBy(_._1).map(e => {
+      s"""    {${kv("name", e._1)}${kv("url", e._2, ", ")}},""".stripMargin
+    }).mkString("\n")
     s"""# Do not edit. bazel-deps autogenerates this file from $depsFile.
-        |$jarArtifactBackend
-        |
-        |def list_dependencies():
-        |    return [
-        |$lines
-        |    ]
-        |
-        |def maven_dependencies(callback = jar_artifact_callback):
-        |    for hash in list_dependencies():
-        |        callback(hash)
-        |""".stripMargin
+       |
+       |def _maven_server(hash):
+       |    native.maven_server(
+       |        name = hash["name"],
+       |        url = hash["url"]
+       |    )
+       |
+       |def _maven_jar(hash):
+       |    native.maven_jar(
+       |        name = hash["name"],
+       |        artifact = hash["artifact"],
+       |        sha1 = hash["sha1"],
+       |        server = hash["server"]
+       |    )
+       |    native.bind(
+       |        name = hash["bind"],
+       |        actual = hash["actual"]
+       |    )
+       |
+       |def list_servers():
+       |    return [
+       |$repositories
+       |    ]
+       |
+       |def list_dependencies():
+       |    return [
+       |$lines
+       |    ]
+       |
+       |def maven_servers(callback = _maven_server):
+       |    for hash in list_servers():
+       |        callback(hash)
+       |
+       |def maven_dependencies(callback = _maven_jar):
+       |    for hash in list_dependencies():
+       |        callback(hash)
+       |""".stripMargin
   }
 
   def language(g: Graph[MavenCoordinate, Unit],
@@ -385,5 +404,13 @@ object Writer {
 
       Traverse[List].traverse[E, UnversionedCoordinate, Target](allUnversioned.toList)(targetFor(_))
     }
+  }
+
+  private def kv(key: String, value: String, prefix: String = ""): String =
+    s"""$prefix"$key": "$value""""
+
+  private def kvOpt(key: String, valueOpt: Option[String], prefix: String = ""): String = valueOpt match {
+    case Some(value) => kv(key, value, prefix)
+    case None => ""
   }
 }

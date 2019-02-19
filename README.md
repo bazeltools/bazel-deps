@@ -20,8 +20,9 @@ for any exceptions that you manage along with [Replacements](#replacements).
 
 Then you should add
 ```
-load("//3rdparty:workspace.bzl", "maven_dependencies")
+load("//3rdparty:workspace.bzl", "maven_servers", "maven_dependencies")
 
+maven_servers()
 maven_dependencies()
 ```
 to your workspace to load the maven dependencies.
