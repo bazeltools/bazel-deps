@@ -30,6 +30,7 @@ class ParseTest extends FunSuite {
                 None,
                 None,
                 None,
+                None,
                 None))),
           None,
           None)))
@@ -59,6 +60,7 @@ class ParseTest extends FunSuite {
                 Language.Scala(Version("2.11.7"), true),
                 Some(Version("0.16.0")),
                 Some(Set("core", "args", "date").map(Subproject(_))),
+                None,
                 None,
                 None,
                 None,
@@ -101,6 +103,7 @@ class ParseTest extends FunSuite {
                 Language.Scala(Version("2.11.7"), true),
                 Some(Version("0.16.0")),
                 Some(Set("", "core", "args", "date").map(Subproject(_))),
+                None,
                 None,
                 None,
                 None,
@@ -147,7 +150,8 @@ class ParseTest extends FunSuite {
                 None,
                 None,
                 None,
-                Some(Set(ProcessorClass("com.google.auto.value.processor.AutoValueProcessor")))))),
+                Some(Set(ProcessorClass("com.google.auto.value.processor.AutoValueProcessor"))),
+                None))),
         None,
         None)))
   }
@@ -174,7 +178,8 @@ class ParseTest extends FunSuite {
                 None,
                 None,
                 Some(false),
-                Some(Set(ProcessorClass("com.google.auto.value.processor.AutoValueProcessor")))))),
+                Some(Set(ProcessorClass("com.google.auto.value.processor.AutoValueProcessor"))),
+                None))),
         None,
         None)))
   }
@@ -201,7 +206,8 @@ class ParseTest extends FunSuite {
                 None,
                 None,
                 Some(true),
-                Some(Set(ProcessorClass("com.google.auto.value.processor.AutoValueProcessor")))))),
+                Some(Set(ProcessorClass("com.google.auto.value.processor.AutoValueProcessor"))),
+                None))),
         None,
         None)))
   }
@@ -222,6 +228,7 @@ class ParseTest extends FunSuite {
               ProjectRecord(
                 Language.Java,
                 Some(Version("1.5")),
+                None,
                 None,
                 None,
                 None,
@@ -252,6 +259,7 @@ class ParseTest extends FunSuite {
                 None,
                 None,
                 None,
+                None,
                 None))),
         None,
         None)))
@@ -273,6 +281,7 @@ class ParseTest extends FunSuite {
               ProjectRecord(
                 Language.Java,
                 Some(Version("1.5")),
+                None,
                 None,
                 None,
                 None,
@@ -304,7 +313,62 @@ class ParseTest extends FunSuite {
                 None,
                 Some(Set((MavenGroup("foo"), ArtifactOrProject(MavenArtifactId("bar:so:fancy"))))),
                 None,
+                None,
                 None))),
+        None,
+        None)))
+  }
+
+  test("parse a file that has generateNeverlink set to true") {
+    val str = """dependencies:
+                |  org.apache.tomcat:
+                |    tomcat-catalina:
+                |      version: "7.0.57"
+                |      lang: java
+                |      generateNeverlink: true
+                |""".stripMargin('|')
+
+    assert(Decoders.decodeModel(Yaml, str) ==
+      Right(Model(
+        Dependencies(
+          MavenGroup("org.apache.tomcat") ->
+            Map(ArtifactOrProject("tomcat-catalina") ->
+              ProjectRecord(
+                Language.Java,
+                Some(Version("7.0.57")),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(true)))),
+        None,
+        None)))
+  }
+
+  test("parse a file that has generateNeverlink set to false") {
+    val str = """dependencies:
+                |  org.apache.tomcat:
+                |    tomcat-catalina:
+                |      version: "7.0.57"
+                |      lang: java
+                |      generateNeverlink: false
+                |""".stripMargin('|')
+
+    assert(Decoders.decodeModel(Yaml, str) ==
+      Right(Model(
+        Dependencies(
+          MavenGroup("org.apache.tomcat") ->
+            Map(ArtifactOrProject("tomcat-catalina") ->
+              ProjectRecord(
+                Language.Java,
+                Some(Version("7.0.57")),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(false)))),
         None,
         None)))
   }

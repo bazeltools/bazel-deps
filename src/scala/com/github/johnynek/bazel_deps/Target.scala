@@ -72,7 +72,8 @@ case class Target(
   runtimeDeps: Set[Label] = Set.empty,
   processorClasses: Set[ProcessorClass] = Set.empty,
   generatesApi: Boolean = false,
-  licenses: Set[String] = Set.empty) {
+  licenses: Set[String] = Set.empty,
+  generateNeverlink: Boolean = false) {
 
   def toDoc: Doc = {
     import Target._
@@ -136,15 +137,28 @@ case class Target(
       if (!licenses.isEmpty) renderList(Doc.text("["), licenses.toList, Doc.text("]"))(quote)
       else Doc.empty
 
-    sortKeys(targetType, name.name, List(
-      visibilityDoc,
-      "deps" -> labelList(deps),
-      "licenses" -> renderLicenses(licenses),
-      "srcs" -> sources.render,
-      "jars" -> labelList(jars),
-      "exports" -> labelList(exports),
-      "runtime_deps" -> labelList(runtimeDeps),
-      "exported_plugins" -> renderExportedPlugins(processorClasses)
-    )) + renderPlugins(processorClasses, exports, generatesApi, licenses) + Doc.line
+    def generateTarget(neverlink: Boolean): Doc = {
+      val defaultArgs = List(
+        visibilityDoc,
+        "deps" -> labelList(deps),
+        "licenses" -> renderLicenses(licenses),
+        "srcs" -> sources.render,
+        "jars" -> labelList(jars),
+        "exports" -> labelList(exports),
+        "runtime_deps" -> labelList(runtimeDeps),
+        "exported_plugins" -> renderExportedPlugins(processorClasses)
+      )
+      val (targetName, targetArgs) =
+        if (neverlink) (name.name + "_neverlink", defaultArgs :+ (("neverlink", Doc.text("1"))))
+        else (name.name, defaultArgs)
+
+      sortKeys(targetType, targetName, targetArgs) + renderPlugins(processorClasses, exports, generatesApi, licenses) + Doc.line
+    }
+
+    if (!generateNeverlink) {
+      generateTarget(neverlink = false)
+    } else {
+      generateTarget(neverlink = false) + generateTarget(neverlink = true)
+    }
   }
 }

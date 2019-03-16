@@ -75,6 +75,11 @@ A target may optionally add `exports` and `exclude` lists to a dependency. `expo
 artifact (such as: `com.twitter:scalding-core` in the above), and they should be listed in the dependencies. `exclude`
 list should also be only the group and artifact.
 
+It's possible to add `generateNeverlink` option to a dependency, which will make the generator to generate this dependency twice:
+1. With the normalized name as usual.
+2. With the name `${normalized}_neverlink` and neverlink is set as true.
+This option should be used only for java dependencies, it will be ignored in any other lang.
+
 Each group id can only appear once, so you should collocate dependencies by group. WARNING the parsing library
 we are using does not fail on duplicate keys, it just takes the last one, so watch out. It would be good
 to fix that, but writing a new yaml parser is out of scope.

@@ -24,7 +24,7 @@ object ModelGenerators {
     exports <- Gen.option(Gen.listOfN(exp, join(mavenGroupGen, artifactOrProjGen)).map(_.toSet))
     exclude <- Gen.option(Gen.listOfN(exc, join(mavenGroupGen, artifactOrProjGen)).map(_.toSet))
     processorClasses <- Gen.option(Gen.listOfN(pcs, processorClassGen).map(_.toSet))
-  } yield ProjectRecord(lang, v, m, exports, exclude, None, processorClasses)
+  } yield ProjectRecord(lang, v, m, exports, exclude, None, processorClasses, None)
 
   def depGen(o: Options): Gen[Dependencies] = {
     val (l1, ls) = o.getLanguages match {

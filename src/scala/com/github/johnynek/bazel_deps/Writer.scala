@@ -326,7 +326,8 @@ object Writer {
                       runtimeDeps = runtime_deps -- uvexports,
                       processorClasses = getProcessorClasses(u),
                       generatesApi = getGeneratesApi(u),
-                      licenses = licenses)
+                      licenses = licenses,
+                      generateNeverlink = getGenerateNeverlink(u))
                   case Language.Kotlin =>
                     Target(lang,
                       kind = Target.Import,
@@ -382,6 +383,12 @@ object Writer {
           m <- model.dependencies.toMap.get(u.group)
           projectRecord <- m.get(ArtifactOrProject(u.artifact.asString))
         } yield projectRecord.generatesApi.getOrElse(false)).getOrElse(false)
+
+      def getGenerateNeverlink(u: UnversionedCoordinate): Boolean =
+        (for {
+          m <- model.dependencies.toMap.get(u.group)
+          projectRecord <- m.get(ArtifactOrProject(u.artifact.asString))
+        } yield projectRecord.generateNeverlink.getOrElse(false)).getOrElse(false)
 
       Traverse[List].traverse[E, UnversionedCoordinate, Target](allUnversioned.toList)(targetFor(_))
     }
