@@ -319,6 +319,60 @@ class ParseTest extends FunSuite {
         None)))
   }
 
+  test("parse a file that has generateNeverlink set to true") {
+    val str = """dependencies:
+                |  org.apache.tomcat:
+                |    tomcat-catalina:
+                |      version: "7.0.57"
+                |      lang: java
+                |      generateNeverlink: true
+                |""".stripMargin('|')
+
+    assert(Decoders.decodeModel(Yaml, str) ==
+      Right(Model(
+        Dependencies(
+          MavenGroup("org.apache.tomcat") ->
+            Map(ArtifactOrProject("tomcat-catalina") ->
+              ProjectRecord(
+                Language.Java,
+                Some(Version("7.0.57")),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(true)))),
+        None,
+        None)))
+  }
+
+  test("parse a file that has generateNeverlink set to false") {
+    val str = """dependencies:
+                |  org.apache.tomcat:
+                |    tomcat-catalina:
+                |      version: "7.0.57"
+                |      lang: java
+                |      generateNeverlink: false
+                |""".stripMargin('|')
+
+    assert(Decoders.decodeModel(Yaml, str) ==
+      Right(Model(
+        Dependencies(
+          MavenGroup("org.apache.tomcat") ->
+            Map(ArtifactOrProject("tomcat-catalina") ->
+              ProjectRecord(
+                Language.Java,
+                Some(Version("7.0.57")),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(false)))),
+        None,
+        None)))
+  }
+
   /*
    * TODO make this test pass
    * see: https://github.com/johnynek/bazel-deps/issues/15
