@@ -137,9 +137,8 @@ case class Target(
       if (!licenses.isEmpty) renderList(Doc.text("["), licenses.toList, Doc.text("]"))(quote)
       else Doc.empty
 
-    def generateTarget(neverlink: Boolean = false): Doc = {
-      var targetName = name.name
-      var targetArgs = List(
+    def generateTarget(neverlink: Boolean): Doc = {
+      val defaultArgs = List(
         visibilityDoc,
         "deps" -> labelList(deps),
         "licenses" -> renderLicenses(licenses),
@@ -149,19 +148,17 @@ case class Target(
         "runtime_deps" -> labelList(runtimeDeps),
         "exported_plugins" -> renderExportedPlugins(processorClasses)
       )
-
-      if (neverlink) {
-        targetName += "_neverlink"
-        targetArgs = targetArgs :+ (("neverlink", Doc.text("1")))
-      }
+      val (targetName, targetArgs) =
+        if (neverlink) (name.name + "_neverlink", defaultArgs :+ (("neverlink", Doc.text("1"))))
+        else (name.name, defaultArgs)
 
       sortKeys(targetType, targetName, targetArgs) + renderPlugins(processorClasses, exports, generatesApi, licenses) + Doc.line
     }
 
     if (!generateNeverlink) {
-      generateTarget()
+      generateTarget(neverlink = false)
     } else {
-      generateTarget() + generateTarget(true)
+      generateTarget(neverlink = false) + generateTarget(neverlink = true)
     }
   }
 }
