@@ -5,7 +5,12 @@ support.
 
 ## Usage
 
-Run parseproject on your project yaml file. For instance, this project is setup with:
+First, list all of your maven artifact dependencies in a [Dependencies](#dependencies) file.
+
+Next, run parseproject on your project yaml file. This will create a tree of BUILD files that
+match the maven group id, and the artifact id will be a label in a BUILD file. You should not
+edit these by hand, and instead have a separate directory for any exceptions that you manage
+along with [Replacements](#replacements). For instance, this project is setup with:
 
 ```bash
 bazel run //:parse -- generate -r `pwd` -s 3rdparty/workspace.bzl -d dependencies.yaml
@@ -13,10 +18,6 @@ bazel run //:parse -- generate -r `pwd` -s 3rdparty/workspace.bzl -d dependencie
 
 We give three arguments: the path to the file we will include in our workspace. The path to the root
 of our bazel repo. The path to the dependencies file. You can also run with `--help`.
-
-This will create a tree of BUILD files that match the maven group id, and the artifact id will be
-a label in a BUILD file. You should not edit these by hand, and instead have a separate directory
-for any exceptions that you manage along with [Replacements](#replacements).
 
 Then you should add
 ```
@@ -27,7 +28,7 @@ maven_dependencies()
 to your workspace to load the maven dependencies.
 
 For example, if your project is located at `MY_PROJ_DIR`, your dependencies file is at
-`MY_PROJ_DIR/dependencies.yaml`, and your checkout of bazel-deps is at `BAZEL_DEPS` to generate the
+`MY_PROJ_DIR/dependencies.yaml`, and your checkout of bazel-deps is at `BAZEL_DEPS`, to generate the
 dependencies you need to do the following:
 
 ```bash
@@ -65,7 +66,7 @@ apply globally):
 
 In any case, we add a comment for any duplicates found in the workspace loading file.
 
-To declare dependencies, add items to the `dependencies` key in your declaration file. The format
+To declare dependencies, add items to the `dependencies` key in your yaml file. The format
 should be yaml or json. It should have [`dependencies`](#dependencies) and it may have [`replacements`](#replacements)
 and [`options`](#options). Important: only dependencies explicitly named have public visibility,
 transitive dependencies not listed in the dependencies file have visibility limited to the third
@@ -86,7 +87,7 @@ version, see the [Options section](#options). A common case are projects with ma
 the [scalding project](https://github.com/twitter/scalding) there are many modules: `-core, -date,
 -args, -db, -avro` to name a few. To reduce duplication you can do:
 
-```
+```yaml
 dependencies:
   com.twitter:
     scalding:
@@ -126,7 +127,7 @@ dependencies:
 ```
 
 **Note**: Currently, only `jar` packaging is supported for dependencies. More work is needed on the `bazel-deps` backend
-to ensure that non-jar dependencies are written as `data` attributes, instead of regular jar dependencies. 
+to ensure that non-jar dependencies are written as `data` attributes, instead of regular jar dependencies.
 
 Excluding artifacts with packaging or classifiers is similar to including dependencies. Non-jar packaging _is_ supported
 for `exclude`.
@@ -148,7 +149,7 @@ for `exclude`.
 
 A target may also optionally add `processorClasses` to a dependency. This is for [annotation processors](https://docs.oracle.com/javase/8/docs/api/javax/annotation/processing/Processor.html).
 `bazel-deps` will generate a `java_library` and a `java_plugin` for each annotation processor defined. For example, we can define Google's auto-value annotation processor via:
-```
+```yaml
 dependencies:
   com.google.auto.value:
     auto-value:
@@ -157,7 +158,7 @@ dependencies:
       processorClasses: ["com.google.auto.value.processor.AutoValueProcessor"]
 ```
 This will yield the following:
-```
+```python
 java_library(
     name = "auto_value",
     exported_plugins = [
@@ -183,18 +184,29 @@ If there is only a single `processorClasses` defined, the `java_plugin` rule is 
 `processorClasses` defined, each one is named `<java_library_name>_plugin_<processor_class_to_snake_case>`.
 
 ### <a name="options">Options</a>
-In the options we set:
+There are a number of ways to customize the generated build files. These are controlled
+by the `options` dictionary at the root-level of the dependencies file. This is a list of
+all of the supported options.
 
 * buildHeader: usually you will want to configure your scala support here:
-```
+```yaml
   buildHeader:
     - load("@io_bazel_rules_scala//scala:scala_import.bzl", "scala_import")
 ```
-* languages: java and scala
-* thirdPartyDirectory: path to where we write the BUILD files for thirdparty. The default is `3rdparty/jvm`.
+* languages: an array of languages to be supported either Java or a specific version of Scala, e.g. `[ "java", "scala:2.12.8" ]`.
+* thirdPartyDirectory: path to where we write the BUILD files for thirdparty. The default is `3rdparty/jvm`. If you choose the Google default of `third_party` you will need to configure the `licenses` option as well.
 * versionConflictPolicy: `fixed`, `fail` or `highest`
 * transitivity: `runtime_deps` or `exports`
-* resolvers: the maven servers to use.
+* resolvers: the maven servers to use. Each resolver is defined by three keys, an "id", a "type", and a "url".
+```yaml
+  resolvers:
+    - id: "mavencentral"
+      type: "default"
+      url: https://repo.maven.apache.org/maven2/
+    - id: "myserver"
+      type: "default"
+      url: https://my.private.maven.server.com/mvn/
+```
 * resolverCache: where bazel-deps should cache resolved packages.  `local` (`target/local-repo` in the repository root)
   or `bazel_output_base` (`bazel-deps/local-repo` inside the repository's Bazel output base -- from `bazel info
   output_base`)
@@ -204,15 +216,16 @@ In the options we set:
   `dependencies.yaml` file or it will not be visible to the rest of the workspace. If it is set to `false` all targets 
   will be generated with `public` visibility.
 * licenses: a set of strings added a licenses rule to each generated bazel target.  Required by
-  bazel if your build targets are under third_party/
+  bazel if your build targets are under `third_party/`. See the [licenses](https://docs.bazel.build/versions/master/be/functions.html#licenses) function in Bazel.
 * resolverType: `aether` or `coursier`. Note that `aether` is slower and seems to silently miss some dependencies for 
   reasons we don't yet understand.
 * buildFileName: filename of the generated build files
 
 In the default case, with no options given, we use:
+- allow java and scala `2.11`
+- `3rdparty/jvm` as the `thirdPartyDirectory`.
 - `highest` versionConflictPolicy
 - `exports` transitivity
-- allow java and scala `2.11`
 - use maven central as the resolver
 - `local` resolverCache
 - empty namePrefix (`""`)
