@@ -21,6 +21,9 @@ before_install:
   - chmod +x bazel-0.23.1-installer-linux-x86_64.sh
   - ./bazel-0.23.1-installer-linux-x86_64.sh --user
   - cp .bazelrc.travis .bazelrc
+  - wget 'https://github.com/tcnksm/ghr/releases/download/v0.12.0/ghr_v0.12.0_linux_amd64.tar.gz'
+  - tar -xf ghr_v0.12.0_linux_amd64.tar.gz
+  - cp ghr_v0.12.0_linux_amd64/ghr $HOME/bin/
 
 script:
   - bazel build //...
@@ -29,3 +32,5 @@ script:
   - ./gen_maven_deps.sh generate -r `pwd` -s 3rdparty/workspace.bzl -d dependencies.yaml
   - bazel run //:parse -- format-deps --overwrite --deps $PWD/dependencies.yaml
   - git diff --exit-code
+  - bazel build //src/scala/com/github/johnynek/bazel_deps:parseproject_deploy.jar
+  - tmp=$(mktemp -d) && cp bazel-bin/src/scala/com/github/johnynek/bazel_deps/parseproject_deploy.jar $tmp && ghr -c $TRAVIS_COMMIT $(echo $TRAVIS_COMMIT | cut -b 1-8) $tmp
