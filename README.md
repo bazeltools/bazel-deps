@@ -33,7 +33,7 @@ dependencies you need to do the following:
 
 ```bash
 cd $BAZEL_DEPS
-bazel run ://parse generate --repo-root "$MY_PROJ_DIR" --sha-file 3rdparty/workspace.bzl --deps dependencies.yaml
+bazel run //:parse generate -- --repo-root "$MY_PROJ_DIR" --sha-file 3rdparty/workspace.bzl --deps dependencies.yaml
 ```
 
 The final result in `MY_PROJ_DIR` will look like this
