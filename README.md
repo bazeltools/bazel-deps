@@ -203,9 +203,9 @@ all of the supported options.
       type: "default"
       url: https://my.private.maven.server.com/mvn/
 ```
-* resolverCache: where bazel-deps should cache resolved packages.  `local` (`target/local-repo` in the repository root)
+* resolverCache: (with `resolverType: aether`) where bazel-deps should cache resolved packages.  `local` (`target/local-repo` in the repository root)
   or `bazel_output_base` (`bazel-deps/local-repo` inside the repository's Bazel output base -- from `bazel info
-  output_base`)
+  output_base`).  Coursier ignores this option and uses `~/.cache/coursier`.
 * namePrefix: a string added to the generated workspace names, to avoid conflicts.  The external repository names and
   binding targets of each dependency are prefixed.
 * strictVisibility: this is enabled by default, when enabled a target must be explicitly declared in the 
