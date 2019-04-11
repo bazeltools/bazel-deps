@@ -32,12 +32,8 @@ For example, if your project is located at `MY_PROJ_DIR`, your dependencies file
 dependencies you need to do the following:
 
 ```bash
-# Build the ParseProject binary
 cd $BAZEL_DEPS
-bazel build //:parse
-# Run parseproject on the dependencies.yaml in MY_PROJ_DIR, generating the 3rdparty/ dir.
-cd $MY_PROJ_DIR
-$BAZEL_DEPS/gen_maven_deps.sh generate --repo-root "$MY_PROJ_DIR" --sha-file 3rdparty/workspace.bzl --deps dependencies.yaml
+bazel run //:parse generate -- --repo-root "$MY_PROJ_DIR" --sha-file 3rdparty/workspace.bzl --deps dependencies.yaml
 ```
 
 The final result in `MY_PROJ_DIR` will look like this
