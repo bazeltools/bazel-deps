@@ -11,7 +11,7 @@ case class Label(workspace: Option[String], path: Path, name: String) {
     val ws = workspace.fold("") { nm => s"@$nm" }
     path.parts match {
       case Nil =>
-        if (nmPart.isEmpty) ws
+        if (nmPart.isEmpty) s"$ws//"
         else s"$ws//$nmPart"
       case ps => ps.mkString(s"$ws//", "/", nmPart)
     }
