@@ -21,8 +21,9 @@ of our bazel repo. The path to the dependencies file. You can also run with `--h
 
 Then you should add
 ```
-load("//3rdparty:workspace.bzl", "maven_dependencies")
+load("//3rdparty:workspace.bzl", "maven_servers", "maven_dependencies")
 
+maven_servers()
 maven_dependencies()
 ```
 to your workspace to load the maven dependencies.

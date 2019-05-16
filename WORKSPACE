@@ -21,8 +21,9 @@ load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repositories")
 scala_repositories()
 register_toolchains("//:scala_toolchain")
 
-load("//3rdparty:workspace.bzl", "maven_dependencies")
+load("//3rdparty:workspace.bzl", "maven_servers", "maven_dependencies")
 
+maven_servers()
 maven_dependencies()
 
 bind(name = 'io_bazel_rules_scala/dependency/scalatest/scalatest', actual = '//3rdparty/jvm/org/scalatest')
