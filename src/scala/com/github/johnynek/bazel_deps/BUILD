@@ -108,6 +108,7 @@ scala_library(name = "normalizer",
               deps = [":depsmodel",
                       ":graph",
                       "//3rdparty/jvm/org/typelevel:paiges_core",
+                      "//3rdparty/jvm/org/slf4j:slf4j_api",
                       ],
               visibility = ["//visibility:public"])
 

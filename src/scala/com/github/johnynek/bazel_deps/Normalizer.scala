@@ -2,11 +2,14 @@ package com.github.johnynek.bazel_deps
 
 import cats.data.{ Validated, ValidatedNel }
 import org.typelevel.paiges.Doc
+import org.slf4j.LoggerFactory
 
 object Normalizer {
   type Candidate = Either[Set[Version], Version]
   type Node = UnversionedCoordinate
   type Table = Map[Node, List[(Option[MavenCoordinate], Candidate)]]
+
+  private[this] val logger = LoggerFactory.getLogger("Normalizer")
 
   def tableToDoc(t: Table): Doc = {
     val pairs = t.map { case (n, versions) =>
@@ -84,6 +87,14 @@ object Normalizer {
         val rootVersion = dups.iterator.find { v =>
           roots.contains(MavenCoordinate(node, v))
         }
+        if (rootVersion.isEmpty) {
+          logger.error(s"Please, resolve versions conflicts for ${node.asString}")
+          items
+            .filter(_._1.isDefined)
+            .map(x => s"   -> [${x._1.get.asString}] asks for ${x._2.right.toSeq.mkString(", ")}")
+            .foreach(logger.error(_))
+        }
+
         pickCanonical(node, rootVersion, dups, vcf) match {
           case Validated.Valid(m) =>
             val newItems = items.map { case (p, _) => (p, Right(m.version)) }
