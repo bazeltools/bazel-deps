@@ -36,6 +36,7 @@ java_library(
 build_external_workspace = repository_rule(
     attrs = {
         "target_configs": attr.string_list_dict(mandatory = True),
+        "separator": attr.string(mandatory = True),
     },
     implementation = _build_external_workspace_impl
 )
