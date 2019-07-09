@@ -4,6 +4,9 @@ java_library(
   exports = [
       {exports}
   ],
+  runtime_deps = [
+    {runtime_deps}
+  ],
   visibility = [
       "{visibility}"
   ]
@@ -73,19 +76,19 @@ def _build_external_workspace_from_opts_impl(ctx):
 
         exports_str = ""
         for e in entry_map.get("exports", []):
-          exports_str += "\"" + e + "\","
+          exports_str += "\"" + e + "\",\n"
 
         jars_str = ""
         for e in entry_map.get("jars", []):
-          jars_str += "\"" + e + "\","
+          jars_str += "\"" + e + "\",\n"
 
         runtime_deps_str = ""
         for e in entry_map.get("runtimeDeps", []):
-          runtime_deps_str += "\"" + e + "\","
+          runtime_deps_str += "\"" + e + "\",\n"
 
         name = entry_map["name"].split(":")[1]
         if entry_map["lang"] == "java":
-            build_file_contents += _JAVA_LIBRARY_TEMPLATE.format(name = name, exports=exports_str, visibility=entry_map["visibility"])
+            build_file_contents += _JAVA_LIBRARY_TEMPLATE.format(name = name, exports=exports_str, runtime_deps=runtime_deps_str, visibility=entry_map["visibility"])
         elif entry_map["lang"].startswith("scala") and entry_map["kind"] == "import":
             build_file_contents += _SCALA_IMPORT_TEMPLATE.format(name = name, exports=exports_str, jars=jars_str, runtime_deps=runtime_deps_str, visibility=entry_map["visibility"])
         elif entry_map["lang"].startswith("scala") and entry_map["kind"] == "library":
