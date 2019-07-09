@@ -7,6 +7,7 @@ import com.github.johnynek.bazel_deps.IO.{Path, Result}
 import org.slf4j.LoggerFactory
 
 import scala.io.Source
+import scala.util.{Failure, Success}
 
 object Writer {
   private lazy val jarArtifactBackend = Source.fromInputStream(
@@ -90,17 +91,17 @@ object Writer {
     (for {
           b <- IO.exists(tfp.parent)
           _ <- if (b) IO.const(false) else IO.mkdirs(tfp.parent)
-          _ <- IO.writeUtf8(tfp, createBuildTargetFileContents(buildHeader, ts, thirdPartyDirectory))
+          buildFileContent <- createBuildTargetFileContents(buildHeader, ts, thirdPartyDirectory)
+          _ <- IO.writeUtf8(tfp, buildFileContent)
         } yield ())
       .map(_ => ts.size)
   }
 
-  def createBuildTargetFileContents(buildHeader: String, ts: List[Target], thirdPartyDirectory: DirectoryName): String = {
+  def createBuildTargetFileContents(buildHeader: String, ts: List[Target], thirdPartyDirectory: DirectoryName): Result[String] = {
     val separator = "|||"
     val encodingVersion = 1
-      val lines = ts
-      .sortBy(_.toString)
-      .map { target =>
+      Traverse[List].traverse(ts
+      .sortBy(_.toString)) { target =>
         def kv(key: String, value: String, prefix: String = ""): String =
           s"""$prefix"$key": "$value""""
 
@@ -110,29 +111,32 @@ object Writer {
         }
 
         def kListV(key: String, values: List[String], prefix: String = ""): String = {
-          val v = values.map { e => "\"" + e + "\""}.mkString(",")
+          val v = values.map { e => "\"" + e + "\"" }.mkString(",")
           s"""$prefix"$key": [$v]"""
         }
 
         val targetName = target.name
-        kListV(s"${targetName.path.asString.replace(thirdPartyDirectory.asString, "").stripSuffix("/")}:${targetName.name}", target.listStringEncoding(separator))
-      }
-      .mkString(",\n")
+        for {
+          targetEncoding <- target.listStringEncoding(separator)
+        } yield kListV(s"${targetName.path.asString.replace(thirdPartyDirectory.asString, "").stripSuffix("/")}:${targetName.name}", targetEncoding)
+      }.map { lines: List[String] =>
 
-    s"""# Do not edit. bazel-deps autogenerates this file from.
-       |
+        s"""# Do not edit. bazel-deps autogenerates this file from.
+           |
        |def build_header():
-       | return ""${"\"" + buildHeader + "\""}""
-       |
+           | return ""${"\"" + buildHeader + "\""}""
+           |
        |def list_target_data_separator():
-       | return "${separator}"
-       |
+           | return "${separator}"
+           |
        |def list_target_data():
-       |    return {
-       |$lines
-       |    }
-       |
+           |    return {
+           |${lines.mkString("\n")}
+
+
+           |
        |""".stripMargin
+        }
   }
   def workspace(depsFile: String, g: Graph[MavenCoordinate, Unit],
     duplicates: Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]],

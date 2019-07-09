@@ -1,6 +1,10 @@
 package com.github.johnynek.bazel_deps
 
+import cats.Traverse
+import com.github.johnynek.bazel_deps.IO.Result
 import org.typelevel.paiges.Doc
+import cats.implicits._
+import scala.util.Try
 
 object Target {
   def renderList[T](front: Doc, l: List[T], back: Doc)(show: T => Doc): Doc =
@@ -75,28 +79,43 @@ case class Target(
   licenses: Set[String] = Set.empty,
   generateNeverlink: Boolean = false) {
 
-  def listStringEncoding(separator: String): List[String] = {
-    def withName(name: String, v: String): String =
-      s"${name}${separator}${separator}$v"
-    def withNameL(name: String, v: String): String =
-      s"${name}${separator}L${separator}$v"
-    def withNameB(name: String, v: String): String =
-      s"${name}${separator}B${separator}$v"
+  def listStringEncoding(separator: String): Result[List[String]] = {
+    def validate(strV: String): Result[Unit] = {
+      if(strV.contains("|")) {
+        IO.failed(new Exception(s"Unable to encode ${strV} contains a | which isn't supported for bzl file encoding."))
+      } else IO.unit
+    }
 
-    List[String](
+    def withName(name: String, v: String): Result[String] = {
+      validate(v).map {_ => s"${name}${separator}${separator}$v"}
+    }
+    def withNameL(name: String, v: Iterable[String]): Result[String] = {
+      v.foreach(validate)
+      Traverse[List].traverse(v.toList) { e =>
+        validate(e)
+      }.map { _ =>
+        val strV = v.mkString(separator)
+        s"${name}${separator}L${separator}$strV"
+      }
+    }
+    def withNameB(name: String, v: Boolean): Result[String] = {
+      IO.const(s"${name}${separator}B${separator}$v")
+    }
+
+    Traverse[List].traverse(List[Result[String]](
       withName("lang", lang.asString),
       withName("name", name.name),
       withName("visibility", visibility.asString),
       withName("kind", kind.toString),
-      withNameL("deps", deps.map(_.fromRoot).mkString(separator)),
-      withNameL("jars", jars.map(_.fromRoot).mkString(separator)),
-      withNameL("exports", exports.map(_.fromRoot).mkString(separator)),
-      withNameL("runtimeDeps", runtimeDeps.map(_.fromRoot).mkString(separator)),
-      withNameL("processorClasses", processorClasses.map(_.asString).mkString(separator)),
-      withNameB("generatesApi", generatesApi.toString),
-      withNameL("licenses", licenses.mkString(separator)),
-      withNameB("generateNeverlink", generateNeverlink.toString)
-    )
+      withNameL("deps", deps.map(_.fromRoot)),
+      withNameL("jars", jars.map(_.fromRoot)),
+      withNameL("exports", exports.map(_.fromRoot)),
+      withNameL("runtimeDeps", runtimeDeps.map(_.fromRoot)),
+      withNameL("processorClasses", processorClasses.map(_.asString)),
+      withNameB("generatesApi", generatesApi),
+      withNameL("licenses", licenses),
+      withNameB("generateNeverlink", generateNeverlink)
+    ))(identity)
   }
 
   def toDoc: Doc = {
