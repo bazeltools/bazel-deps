@@ -1,9 +1,12 @@
 package com.github.johnynek.bazel_deps
 
+import java.util.regex.Pattern
+
 import cats.Traverse
 import com.github.johnynek.bazel_deps.IO.Result
 import org.typelevel.paiges.Doc
 import cats.implicits._
+
 import scala.util.Try
 
 object Target {
@@ -24,6 +27,14 @@ object Target {
     fqn.toLowerCase.replaceAll("[^a-z0-9]", "_")
 
   sealed abstract class Kind(override val toString: String)
+  object Kind {
+    def parse(str: String): Result[Kind] = str match {
+      case "library" => IO.const(Library)
+      case "import" => IO.const(Import)
+      case "test" => IO.const(Test)
+      case "binary" => IO.const(Binary)
+    }
+  }
   case object Library extends Kind("library")
   case object Import extends Kind("import")
   case object Test extends Kind("test")
@@ -31,11 +42,19 @@ object Target {
 
   sealed abstract class SourceList {
     def render: Doc
-
+    def asStringList: List[String]
   }
   object SourceList {
+    def parseStringList(l: List[String]): Result[SourceList] = l match {
+      case Nil => IO.const(SourceList.Empty)
+      case "E" :: t => IO.const(SourceList.Explicit(t.toSet))
+      case "G" :: t => IO.const(SourceList.Globs(t))
+      case o => IO.failed(new Exception(s"Unable to parse $o as a Source list."))
+    }
+
     case object Empty extends SourceList {
       def render: Doc = Doc.empty
+      def asStringList: List[String] = Nil
     }
 
     case class Explicit(srcs: Set[String]) extends SourceList {
@@ -45,8 +64,12 @@ object Target {
           renderList(Doc.text("["), srcs.toList.sorted, Doc.text("]"))(quote)
             .grouped
         }
+
+      def asStringList: List[String] = "E" :: srcs.toList
     }
     case class Globs(globs: List[String]) extends SourceList {
+      def asStringList: List[String] = "G" :: globs.toList
+
       def render: Doc =
         if (globs.isEmpty) Doc.empty
         else {
@@ -61,6 +84,82 @@ object Target {
   object Visibility {
     case object Public extends Visibility("//visibility:public")
     case class SubPackages(of: Label) extends Visibility(s"${of.packageLabel.fromRoot}:__subpackages__")
+    def parse(str: String): Result[Visibility] =
+      str match {
+        case "//visibility:public" => IO.const(Public)
+        case e if e.endsWith(":__subpackages__") => IO.const(SubPackages(Label.parse(e.dropRight(":__subpackages__".size))))
+        case o => IO.failed(new Exception(s"Unable to parse visibility: $o"))
+      }
+  }
+
+  private[this] def parseLanguage(language: String): Result[Language] = language match {
+    case "kotlin" => IO.const(Language.Kotlin)
+    case "java" => IO.const(Language.Java)
+    case e if e.startsWith("scala") =>
+      e.split(":").toList match {
+        case "scala" :: "true" :: v :: Nil => IO.const(Language.Scala(Version.apply(v), true))
+        case "scala" :: "false" :: v :: Nil => IO.const(Language.Scala(Version.apply(v), true))
+        case o => IO.failed(new Exception(s"Unable to parse scala configuration string: $e"))
+      }
+    case o => IO.failed(new Exception(s"Unable to parse language for $o"))
+  }
+
+  def fromListStringEncoding(rawSep: String, encodedContent: List[String]): Result[Target] = {
+    val seperator = Pattern.quote(rawSep)
+    val resultV: Result[Map[String, List[String]]] = Traverse[List].traverse(encodedContent) { ln: String =>
+      val res: Result[(String, List[String])] = ln.split(seperator).toList match {
+        case Nil => IO.failed(new Exception("Got empty content"))
+        case h :: "" :: e :: Nil => IO.const((h, List(e)))
+        case h :: "B" :: e :: Nil => IO.const((h, List(e)))
+        case h :: "L" :: t => IO.const((h, t))
+        case o => IO.failed(new Exception(s"Unable to parse passed input: $o"))
+      }
+      res
+    }.map(_.toMap)
+    resultV.flatMap { entries =>
+      def get(name: String): Result[List[String]] =
+        entries.get(name) match {
+          case Some(e) => IO.const(e)
+          case None => IO.failed(new Exception(s"Unable to find $name in input map, likely invalid data"))
+        }
+
+
+      def optionToResult[T](opt: Option[T]): Result[T] = opt match {
+        case Some(e) => IO.const(e)
+        case None => IO.failed(new Exception("Error accessing empty option"))
+      }
+
+      def getS(name: String): Result[String] =
+        get(name).flatMap(e => optionToResult(e.headOption))
+
+      def getBoolean(name: String): Result[Boolean] =
+        getS(name).flatMap {
+          case "true" => IO.const(true)
+          case "false" => IO.const(false)
+          case o => IO.failed(new Exception(s"unable to parse boolean as value $o"))
+        }
+
+      for {
+          rawLang <- getS("lang")
+          lang <- parseLanguage(rawLang)
+          rawName <- getS("name")
+          name = Label.parse(rawName)
+          visibility <- getS("visibility").flatMap(Visibility.parse)
+          kind <- getS("kind").flatMap(Kind.parse)
+          deps <- get("deps").map(_.map(Label.parse).toSet)
+          jars <- get("jars").map(_.map(Label.parse).toSet)
+          sources <-  get("sources").flatMap(SourceList.parseStringList)
+          exports <- get("exports").map(_.map(Label.parse).toSet)
+          runtimeDeps <- get("runtimeDeps").map(_.map(Label.parse).toSet)
+          processorClasses <- get("processorClasses").map(_.map(ProcessorClass).toSet)
+          licenses <- get("licenses").map(_.toSet)
+          generatesApi <- getBoolean("generatesApi")
+          generateNeverlink <- getBoolean("generateNeverlink")
+      } yield {
+        Target(
+          lang, name, visibility, kind, deps, jars, sources, exports, runtimeDeps, processorClasses, generatesApi, licenses, generateNeverlink)
+      }
+    }
   }
 }
 
@@ -115,12 +214,13 @@ case class Target(
       IO.const(s"${name}${separator}B${separator}$v")
 
     Traverse[List].sequence(List[Result[String]](
-      withName("lang", lang.asString),
-      withName("name", name.name),
+      withName("lang", lang.asReversableString),
+      withName("name", name.fromRoot),
       withName("visibility", visibility.asString),
       withName("kind", kind.toString),
       withNameL("deps", deps.map(_.fromRoot)),
       withNameL("jars", jars.map(_.fromRoot)),
+      withNameL("sources", sources.asStringList),
       withNameL("exports", exports.map(_.fromRoot)),
       withNameL("runtimeDeps", runtimeDeps.map(_.fromRoot)),
       withNameL("processorClasses", processorClasses.map(_.asString)),

@@ -454,6 +454,7 @@ object MavenCoordinate {
 
 sealed abstract class Language {
   def asString: String
+  def asReversableString: String
   def asOptionsString: String
   def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate
   def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate
@@ -466,6 +467,7 @@ sealed abstract class Language {
 object Language {
   sealed trait JavaLike extends Language {
     def asString: String
+    def asReversableString: String
     def asOptionsString = asString
     def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
       MavenCoordinate(g, MavenArtifactId(a), v)
@@ -484,16 +486,18 @@ object Language {
 
   case object Java extends JavaLike {
     def asString = "java"
+    def asReversableString = asString
   }
 
   case object Kotlin extends JavaLike {
     def asString = "kotlin"
-
+    def asReversableString = asString
   }
 
   case class Scala(v: Version, mangle: Boolean) extends Language {
     def asString = if (mangle) "scala" else "scala/unmangled"
     def asOptionsString: String = s"scala:${v.asString}"
+    def asReversableString = s"scala:$mangle:${v.asString}"
 
     val major = v.asString.split('.') match {
       case Array("2", x) if (x.toInt >= 10) => s"2.$x"
