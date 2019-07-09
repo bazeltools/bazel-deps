@@ -87,9 +87,9 @@ def _build_external_workspace_impl(ctx):
         name = entry_map["name"].split(":")[1]
         if entry_map["lang"] == "java":
             build_file_contents += _JAVA_LIBRARY_TEMPLATE.format(name = name, exports=exports_str, visibility=entry_map["visibility"])
-        elif (entry_map["lang"] == "scala" or entry_map["lang"] == "scala/unmangled") and entry_map["kind"] == "import":
+        elif entry_map["lang"].startswith("scala") and entry_map["kind"] == "import":
             build_file_contents += _SCALA_IMPORT_TEMPLATE.format(name = name, exports=exports_str, jars=jars_str, runtime_deps=runtime_deps_str, visibility=entry_map["visibility"])
-        elif (entry_map["lang"] == "scala" or entry_map["lang"] == "scala/unmangled") and entry_map["kind"] == "library":
+        elif entry_map["lang"].startswith("scala") and entry_map["kind"] == "library":
             build_file_contents += _SCALA_LIBRARY_TEMPLATE.format(name = name, exports=exports_str, runtime_deps=runtime_deps_str, visibility=entry_map["visibility"])
         else:
             print(entry_map)

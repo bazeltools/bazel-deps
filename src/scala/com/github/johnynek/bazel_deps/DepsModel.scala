@@ -1210,19 +1210,6 @@ object ResolverType {
 }
 
 
-sealed abstract class OutputMode(val asString: String)
-
-object OutputMode {
-  case object InRepo extends OutputMode("in_repo")
-  case object ExternalRepo extends OutputMode("external_repo")
-
-  val default = InRepo
-
-  implicit val resolverSemigroup: Semigroup[OutputMode] =
-    Options.useRight.algebra[OutputMode]
-}
-
-
 case class Options(
   versionConflictPolicy: Option[VersionConflictPolicy],
   thirdPartyDirectory: Option[DirectoryName],
