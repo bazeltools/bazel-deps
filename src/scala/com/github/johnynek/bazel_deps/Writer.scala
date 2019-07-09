@@ -115,7 +115,7 @@ object Writer {
         }
 
         val targetName = target.name
-        kListV(s"${targetName.path.asString.replace(thirdPartyDirectory.asString, "")}:${targetName.name}", target.listStringEncoding(separator))
+        kListV(s"${targetName.path.asString.replace(thirdPartyDirectory.asString, "").stripSuffix("/")}:${targetName.name}", target.listStringEncoding(separator))
       }
       .mkString(",\n")
 
