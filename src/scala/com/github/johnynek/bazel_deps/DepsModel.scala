@@ -1206,6 +1206,19 @@ object ResolverType {
 }
 
 
+sealed abstract class OutputMode(val asString: String)
+
+object OutputMode {
+  case object InRepo extends OutputMode("in_repo")
+  case object ExternalRepo extends OutputMode("external_repo")
+
+  val default = InRepo
+
+  implicit val resolverSemigroup: Semigroup[OutputMode] =
+    Options.useRight.algebra[OutputMode]
+}
+
+
 case class Options(
   versionConflictPolicy: Option[VersionConflictPolicy],
   thirdPartyDirectory: Option[DirectoryName],
@@ -1217,6 +1230,7 @@ case class Options(
   namePrefix: Option[NamePrefix],
   licenses: Option[Set[String]],
   resolverType: Option[ResolverType],
+  outputMode: Option[OutputMode],
   strictVisibility: Option[StrictVisibility],
   buildFileName: Option[String]
 ) {
@@ -1231,6 +1245,7 @@ case class Options(
     namePrefix.isEmpty &&
     licenses.isEmpty &&
     resolverType.isEmpty &&
+    outputMode.isEmpty &&
     strictVisibility.isEmpty &&
     buildFileName.isEmpty
 
@@ -1276,6 +1291,9 @@ case class Options(
   def getResolverType: ResolverType =
     resolverType.getOrElse(ResolverType.default)
 
+  def getOutputMode: OutputMode =
+    outputMode.getOrElse(OutputMode.default)
+
   def getBuildFileName: String =
     buildFileName.getOrElse("BUILD")
 
@@ -1296,6 +1314,7 @@ case class Options(
         buildHeader.map(list(_) { s => quoteDoc(s) })),
       ("transitivity", transitivity.map { t => Doc.text(t.asString) }),
       ("resolverCache", resolverCache.map { rc => Doc.text(rc.asString) }),
+      ("outputMode", outputMode.map { om => Doc.text(om.asString) }),
       ("namePrefix", namePrefix.map { p => quoteDoc(p.asString) }),
       ("licenses",
         licenses.map { l => list(l.toList.sorted)(quoteDoc) }),
@@ -1323,7 +1342,7 @@ object Options {
    * A monoid on options that is just the point-wise monoid
    */
   implicit val optionsMonoid: Monoid[Options] = new Monoid[Options] {
-    val empty = Options(None, None, None, None, None, None, None, None, None, None, None, None)
+    val empty = Options(None, None, None, None, None, None, None, None, None, None, None, None, None)
 
     def combine(a: Options, b: Options): Options = {
       val vcp = Monoid[Option[VersionConflictPolicy]].combine(a.versionConflictPolicy, b.versionConflictPolicy)
@@ -1333,12 +1352,13 @@ object Options {
       val trans = Monoid[Option[Transitivity]].combine(a.transitivity, b.transitivity)
       val headers = Monoid[Option[List[String]]].combine(a.buildHeader, b.buildHeader).map(_.distinct)
       val resolverCache = Monoid[Option[ResolverCache]].combine(a.resolverCache, b.resolverCache)
+      val outputMode = Monoid[Option[OutputMode]].combine(a.outputMode, b.outputMode)
       val namePrefix = Monoid[Option[NamePrefix]].combine(a.namePrefix, b.namePrefix)
       val licenses = Monoid[Option[Set[String]]].combine(a.licenses, b.licenses)
       val resolverType = Monoid[Option[ResolverType]].combine(a.resolverType, b.resolverType)
       val strictVisibility = Monoid[Option[StrictVisibility]].combine(a.strictVisibility, b.strictVisibility)
       val buildFileName = Monoid[Option[String]].combine(a.buildFileName, b.buildFileName)
-      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix, licenses, resolverType, strictVisibility, buildFileName)
+      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix, licenses, resolverType, outputMode, strictVisibility, buildFileName)
     }
   }
 }

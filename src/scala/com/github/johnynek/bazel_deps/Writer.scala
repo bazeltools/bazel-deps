@@ -44,6 +44,20 @@ object Writer {
       .mkString(withNewline(buildHeader), "\n\n", "\n"))
   }
 
+  def createBuildTargetFile(buildHeader: String, ts: List[Target], tfp: Path): Result[Int] = ???
+
+  def createBuildFilesOrTargetFile(buildHeader: String, ts: List[Target], outputMode: OutputMode, targetFileOpt: Option[IO.Path], formatter: BuildFileFormatter, buildFileName: String): Result[Int] = {
+    outputMode match {
+      case OutputMode.InRepo => createBuildFiles(buildHeader, ts, formatter,  buildFileName)
+      case OutputMode.ExternalRepo =>
+        targetFileOpt match {
+          case Some(tfp) => createBuildTargetFile(buildHeader, ts, tfp)
+          case None => IO.failed(new Exception("Didn't specify the target file opt arg, but we are set to use an external repo as the output"))
+        }
+    }
+  }
+
+
   def createBuildFiles(buildHeader: String, ts: List[Target], formatter: BuildFileFormatter, buildFileName: String): Result[Int] = {
     val pathGroups = ts.groupBy(_.name.path).toList
 

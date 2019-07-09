@@ -57,6 +57,7 @@ object Command {
     repoRoot: Path,
     depsFile: String,
     shaFile: String,
+    targetFile: Option[String],
     buildifier: Option[String],
     checkOnly: Boolean,
     verbosity: Verbosity
@@ -86,6 +87,14 @@ object Command {
       metavar = "sha-file",
       help = "relative path to the sha lock file (usually called workspace.bzl).")
 
+
+    val targetFile = Opts.option[String](
+      "target-file",
+      short = "t",
+      metavar = "target-file",
+      help = "relative path to the file to emit target info into (usually called target_file.bzl).").orNone
+
+
     val buildifier = Opts.option[String](
       "buildifier",
       metavar = "buildifier",
@@ -95,7 +104,7 @@ object Command {
       "check-only",
       help = "if set, the generated files are checked against the existing files but are not written; exits 0 if the files match").orFalse
 
-    (repoRoot |@| depsFile |@| shaFile |@| buildifier |@| checkOnly |@| Verbosity.opt).map(Generate(_, _, _, _, _, _))
+    (repoRoot |@| depsFile |@| shaFile |@| targetFile |@| buildifier |@| checkOnly |@| Verbosity.opt).map(Generate(_, _, _, _, _, _, _))
   }
 
   case class FormatDeps(deps: Path, overwrite: Boolean, verbosity: Verbosity) extends Command
