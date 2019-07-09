@@ -75,24 +75,27 @@ case class Target(
   licenses: Set[String] = Set.empty,
   generateNeverlink: Boolean = false) {
 
-  def listStringEncoding: List[String] = {
-    val separator = "|||"
+  def listStringEncoding(separator: String): List[String] = {
+    def withName(name: String, v: String): String =
+      s"${name}${separator}${separator}$v"
+    def withNameL(name: String, v: String): String =
+      s"${name}${separator}L${separator}$v"
+    def withNameB(name: String, v: String): String =
+      s"${name}${separator}B${separator}$v"
+
     List[String](
-      "1", // Encoding version! if you change this layout, change this value so the bzl code can error sensibly.
-      separator, // separator for lists.
-      lang.asString,
-      name.path.asString,
-      name.name,
-      visibility.asString,
-      kind.toString,
-      deps.map(_.fromRoot).mkString(separator),
-      jars.map(_.fromRoot).mkString(separator),
-      exports.map(_.fromRoot).mkString(separator),
-      runtimeDeps.map(_.fromRoot).mkString(separator),
-      processorClasses.map(_.asString).mkString(separator),
-      generatesApi.toString,
-      licenses.mkString(separator),
-      generateNeverlink.toString
+      withName("lang", lang.asString),
+      withName("name", name.name),
+      withName("visibility", visibility.asString),
+      withName("kind", kind.toString),
+      withNameL("deps", deps.map(_.fromRoot).mkString(separator)),
+      withNameL("jars", jars.map(_.fromRoot).mkString(separator)),
+      withNameL("exports", exports.map(_.fromRoot).mkString(separator)),
+      withNameL("runtimeDeps", runtimeDeps.map(_.fromRoot).mkString(separator)),
+      withNameL("processorClasses", processorClasses.map(_.asString).mkString(separator)),
+      withNameB("generatesApi", generatesApi.toString),
+      withNameL("licenses", licenses.mkString(separator)),
+      withNameB("generateNeverlink", generateNeverlink.toString)
     )
   }
 

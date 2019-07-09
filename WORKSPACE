@@ -37,4 +37,10 @@ load("//3rdparty:workspace.bzl", "maven_dependencies")
 
 maven_dependencies()
 
+
+load("//3rdparty:external_workspace.bzl", "build_external_workspace")
+load("//3rdparty:target_file.bzl", "list_target_data", "list_target_data_separator")
+
+build_external_workspace(name = "third_party", target_configs = list_target_data(), separator = list_target_data_separator())
+
 bind(name = 'io_bazel_rules_scala/dependency/scalatest/scalatest', actual = '//3rdparty/jvm/org/scalatest')

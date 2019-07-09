@@ -96,6 +96,8 @@ object Writer {
   }
 
   def createBuildTargetFileContents(buildHeader: String, ts: List[Target]): String = {
+    val separator = "|||"
+    val encodingVersion = 1
       val lines = ts
       .sortBy(_.toString)
       .map { target =>
@@ -109,24 +111,27 @@ object Writer {
 
         def kListV(key: String, values: List[String], prefix: String = ""): String = {
           val v = values.map { e => "\"" + e + "\""}.mkString(",")
-          s"""$prefix"$key": $v"""
+          s"""$prefix"$key": [$v]"""
         }
 
         val targetName = target.name
-        kListV(s"${targetName.path.asString}:${targetName.name}", target.listStringEncoding)
+        kListV(s"${targetName.path.asString}:${targetName.name}", target.listStringEncoding(separator))
       }
       .mkString(",\n")
 
     s"""# Do not edit. bazel-deps autogenerates this file from.
        |
-        |def list_dependencies():
+       |def build_header():
+       | return ""${"\"" + buildHeader + "\""}""
+       |
+       |def list_target_data_separator():
+       | return "${separator}"
+       |
+       |def list_target_data():
        |    return {
        |$lines
        |    }
        |
-        |def maven_dependencies(callback = jar_artifact_callback):
-       |    for hash in list_dependencies():
-       |        callback(hash)
        |""".stripMargin
   }
   def workspace(depsFile: String, g: Graph[MavenCoordinate, Unit],

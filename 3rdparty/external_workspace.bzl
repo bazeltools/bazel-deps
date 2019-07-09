@@ -1,6 +1,17 @@
 # Do not edit. bazel-deps autogenerates this file from dependencies.yaml.
-def _build_external_workspace_impl(ctx):
+_JAVA_LIBRARY_TEMPLATE = """
+java_library(
+  name = "{name}",
+  exports = [
+      {exports}
+  ],
+  visibility = [
+      "{visibility}"
+  ]
+)\n"""
 
+def _build_external_workspace_impl(ctx):
+    separator = ctx.attr.separator
     target_configs = ctx.attr.target_configs
 
     result_dict = {}
@@ -12,24 +23,29 @@ def _build_external_workspace_impl(ctx):
         result_dict[build_file] = []
       result_dict[build_file].append(cfg)
 
-    for key, cfg in result_dict.items():
+    for key, file_entries in result_dict.items():
       build_file_contents = 'load("@io_bazel_rules_scala//scala:scala_import.bzl", "scala_import")\n\n'
-      for entry in cfg:
-        if entry[2] == "java":
+      for build_target in file_entries:
+        entry_map = {}
+        for entry in build_target:
+          elements = entry.split(separator)
+          build_entry_key = elements[0]
+          if elements[1] == "L":
+            entry_map[build_entry_key] = elements[2::]
+          elif elements[1] == "B":
+            entry_map[build_entry_key] = (elements[2] == "true" or elements[2] == "True")
+          else:
+            entry_map[build_entry_key] = elements[2]
+        if "name" not in entry_map:
+          print(file_entries)
+          print(entry_map)
+          print(entry)
+          print(key)
+        if entry_map["lang"] == "java":
             exports = ""
-            for e in entry[4].split("|||"):
+            for e in entry_map.get("exports", []):
               exports += "\"" + e + "\","
-            build_file_contents += """
-java_library(
-    name = "{name}",
-    exports = [
-        {exports}
-    ],
-    visibility = [
-        "{visibility}"
-    ]
-)
-\n""".format(name = entry[0], exports=exports, visibility=entry[7])
+            build_file_contents += _JAVA_LIBRARY_TEMPLATE.format(name = entry_map["name"], exports=exports, visibility=entry_map["visibility"])
       ctx.file(ctx.path(key + "/BUILD"), build_file_contents, False)
     return None
 
