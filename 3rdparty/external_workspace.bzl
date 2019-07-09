@@ -28,6 +28,22 @@ scala_import(
 )
 """
 
+_SCALA_LIBRARY_TEMPLATE = """
+scala_library(
+    name = "{name}",
+    exports = [
+        {exports}
+    ],
+    runtime_deps = [
+        {runtime_deps}
+    ],
+    visibility = [
+        "{visibility}"
+    ]
+)
+"""
+
+
 def _build_external_workspace_impl(ctx):
     build_header = ctx.attr.build_header
     separator = ctx.attr.separator
@@ -70,8 +86,12 @@ def _build_external_workspace_impl(ctx):
 
         if entry_map["lang"] == "java":
             build_file_contents += _JAVA_LIBRARY_TEMPLATE.format(name = entry_map["name"], exports=exports_str, visibility=entry_map["visibility"])
-        elif entry_map["lang"] == "scala":
+        elif (entry_map["lang"] == "scala" or entry_map["lang"] == "scala/unmangled") and entry_map["kind"] == "import":
             build_file_contents += _SCALA_IMPORT_TEMPLATE.format(name = entry_map["name"], exports=exports_str, jars=jars_str, runtime_deps=runtime_deps_str, visibility=entry_map["visibility"])
+        elif (entry_map["lang"] == "scala" or entry_map["lang"] == "scala/unmangled") and entry_map["kind"] == "library":
+            build_file_contents += _SCALA_LIBRARY_TEMPLATE.format(name = entry_map["name"], exports=exports_str, runtime_deps=runtime_deps_str, visibility=entry_map["visibility"])
+        else:
+            print(entry_map)
 
       ctx.file(ctx.path(key + "/BUILD"), build_file_contents, False)
     return None

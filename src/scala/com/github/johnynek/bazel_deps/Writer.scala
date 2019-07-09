@@ -87,15 +87,13 @@ object Writer {
     }
   }
 
-  def createBuildTargetFile(buildHeader: String, ts: List[Target], tfp: Path, thirdPartyDirectory: DirectoryName): Result[Int] = {
-    (for {
+  def createBuildTargetFile(buildHeader: String, ts: List[Target], tfp: Path, thirdPartyDirectory: DirectoryName): Result[Int] =
+    for {
           b <- IO.exists(tfp.parent)
           _ <- if (b) IO.const(false) else IO.mkdirs(tfp.parent)
           buildFileContent <- createBuildTargetFileContents(buildHeader, ts, thirdPartyDirectory)
           _ <- IO.writeUtf8(tfp, buildFileContent)
-        } yield ())
-      .map(_ => ts.size)
-  }
+        } yield ts.size
 
   def createBuildTargetFileContents(buildHeader: String, ts: List[Target], thirdPartyDirectory: DirectoryName): Result[String] = {
     val separator = "|||"
@@ -116,9 +114,10 @@ object Writer {
         }
 
         val targetName = target.name
+        val key = s"${targetName.path.asString}:${targetName.name}"
         for {
           targetEncoding <- target.listStringEncoding(separator)
-        } yield kListV(s"${targetName.path.asString.replace(thirdPartyDirectory.asString, "").stripSuffix("/")}:${targetName.name}", targetEncoding)
+        } yield kListV(s"$key", targetEncoding)
       }.map { lines: List[String] =>
 
         s"""# Do not edit. bazel-deps autogenerates this file from.
@@ -131,9 +130,8 @@ object Writer {
            |
        |def list_target_data():
            |    return {
-           |${lines.mkString("\n")}
-
-
+           |${lines.mkString(",\n")}
+           | }
            |
        |""".stripMargin
         }
