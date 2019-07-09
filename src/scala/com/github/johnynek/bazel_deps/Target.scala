@@ -95,29 +95,26 @@ case class Target(
     * @return List of entries that describe this target encoded
     */
   def listStringEncoding(separator: String): Result[List[String]] = {
-    def validate(strV: String): Result[Unit] = {
+    def validate(strV: String): Result[Unit] =
       if(strV.contains("|")) {
         IO.failed(new Exception(s"Unable to encode ${strV} contains a | which isn't supported for bzl file encoding."))
       } else IO.unit
-    }
 
-    def withName(name: String, v: String): Result[String] = {
+    def withName(name: String, v: String): Result[String] =
       validate(v).map {_ => s"${name}${separator}${separator}$v"}
-    }
-    def withNameL(name: String, v: Iterable[String]): Result[String] = {
-      v.foreach(validate)
+
+    def withNameL(name: String, v: Iterable[String]): Result[String] =
       Traverse[List].traverse(v.toList) { e =>
         validate(e)
       }.map { _ =>
         val strV = v.mkString(separator)
         s"${name}${separator}L${separator}$strV"
       }
-    }
-    def withNameB(name: String, v: Boolean): Result[String] = {
-      IO.const(s"${name}${separator}B${separator}$v")
-    }
 
-    Traverse[List].traverse(List[Result[String]](
+    def withNameB(name: String, v: Boolean): Result[String] =
+      IO.const(s"${name}${separator}B${separator}$v")
+
+    Traverse[List].sequence(List[Result[String]](
       withName("lang", lang.asString),
       withName("name", name.name),
       withName("visibility", visibility.asString),
@@ -130,7 +127,7 @@ case class Target(
       withNameB("generatesApi", generatesApi),
       withNameL("licenses", licenses),
       withNameB("generateNeverlink", generateNeverlink)
-    ))(identity)
+    ))
   }
 
   def toDoc: Doc = {
