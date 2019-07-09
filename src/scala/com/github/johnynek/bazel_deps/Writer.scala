@@ -44,17 +44,18 @@ object Writer {
       .mkString(withNewline(buildHeader), "\n\n", "\n"))
   }
 
-  def createBuildTargetFile(buildHeader: String, ts: List[Target], tfp: Path): Result[Int] = ???
 
-  def createBuildFilesOrTargetFile(buildHeader: String, ts: List[Target], outputMode: OutputMode, targetFileOpt: Option[IO.Path], formatter: BuildFileFormatter, buildFileName: String): Result[Int] = {
-    outputMode match {
-      case OutputMode.InRepo => createBuildFiles(buildHeader, ts, formatter,  buildFileName)
-      case OutputMode.ExternalRepo =>
-        targetFileOpt match {
+  def createBuildFilesAndTargetFile(buildHeader: String, ts: List[Target], targetFileOpt: Option[IO.Path], enable3rdPartyInRepo: Boolean, formatter: BuildFileFormatter, buildFileName: String): Result[Int] = {
+    val with3rdpartyPrinted = if(enable3rdPartyInRepo) {
+      createBuildFiles(buildHeader, ts, formatter, buildFileName)
+    } else IO.const(0)
+
+    val withTargetFilePrinted = targetFileOpt match {
           case Some(tfp) => createBuildTargetFile(buildHeader, ts, tfp)
-          case None => IO.failed(new Exception("Didn't specify the target file opt arg, but we are set to use an external repo as the output"))
+          case None => IO.const(0)
         }
-    }
+
+    with3rdpartyPrinted.flatMap(e => withTargetFilePrinted.map { u => u + e})
   }
 
 
@@ -85,6 +86,49 @@ object Writer {
     }
   }
 
+  def createBuildTargetFile(buildHeader: String, ts: List[Target], tfp: Path): Result[Int] = {
+    (for {
+          b <- IO.exists(tfp.parent)
+          _ <- if (b) IO.const(false) else IO.mkdirs(tfp.parent)
+          _ <- IO.writeUtf8(tfp, createBuildTargetFileContents(buildHeader, ts))
+        } yield ())
+      .map(_ => ts.size)
+  }
+
+  def createBuildTargetFileContents(buildHeader: String, ts: List[Target]): String = {
+      val lines = ts
+      .sortBy(_.toString)
+      .map { target =>
+        def kv(key: String, value: String, prefix: String = ""): String =
+          s"""$prefix"$key": "$value""""
+
+        def kvOpt(key: String, valueOpt: Option[String], prefix: String = ""): String = valueOpt match {
+          case Some(value) => kv(key, value, prefix)
+          case None => ""
+        }
+
+        def kListV(key: String, values: List[String], prefix: String = ""): String = {
+          val v = values.map { e => "\"" + e + "\""}.mkString(",")
+          s"""$prefix"$key": $v"""
+        }
+
+        val targetName = target.name
+        kListV(s"${targetName.path.asString}:${targetName.name}", target.listStringEncoding)
+      }
+      .mkString(",\n")
+
+    s"""# Do not edit. bazel-deps autogenerates this file from.
+       |
+        |def list_dependencies():
+       |    return {
+       |$lines
+       |    }
+       |
+        |def maven_dependencies(callback = jar_artifact_callback):
+       |    for hash in list_dependencies():
+       |        callback(hash)
+       |""".stripMargin
+  }
   def workspace(depsFile: String, g: Graph[MavenCoordinate, Unit],
     duplicates: Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]],
     shas: Map[MavenCoordinate, ResolvedShasValue],

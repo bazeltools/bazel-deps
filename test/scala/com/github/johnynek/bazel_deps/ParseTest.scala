@@ -79,7 +79,6 @@ class ParseTest extends FunSuite {
               Some(Set("unencumbered", "permissive")),
               None,
               None,
-              None,
               Some("BUILD.bazel"))))))
   }
   test("parse empty subproject version") {
@@ -115,7 +114,6 @@ class ParseTest extends FunSuite {
               None,
               Some(DirectoryName("3rdparty/jvm")),
               Some(Set(Language.Scala(Version("2.11.7"), true), Language.Java)),
-              None,
               None,
               None,
               None,

@@ -75,6 +75,27 @@ case class Target(
   licenses: Set[String] = Set.empty,
   generateNeverlink: Boolean = false) {
 
+  def listStringEncoding: List[String] = {
+    val separator = "|||"
+    List[String](
+      "1", // Encoding version! if you change this layout, change this value so the bzl code can error sensibly.
+      separator, // separator for lists.
+      lang.asString,
+      name.path.asString,
+      name.name,
+      visibility.asString,
+      kind.toString,
+      deps.map(_.fromRoot).mkString(separator),
+      jars.map(_.fromRoot).mkString(separator),
+      exports.map(_.fromRoot).mkString(separator),
+      runtimeDeps.map(_.fromRoot).mkString(separator),
+      processorClasses.map(_.asString).mkString(separator),
+      generatesApi.toString,
+      licenses.mkString(separator),
+      generateNeverlink.toString
+    )
+  }
+
   def toDoc: Doc = {
     import Target._
     /**
