@@ -3,7 +3,6 @@ options:
   languages: [ "java", "scala:2.11.8" ]
   outputMode: "external_repo"
   resolverType: "coursier"
-  thirdPartyDirectory: ""
   resolvers:
     - id: "mavencentral"
       type: "default"

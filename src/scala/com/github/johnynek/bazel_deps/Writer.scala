@@ -45,13 +45,13 @@ object Writer {
   }
 
 
-  def createBuildFilesAndTargetFile(buildHeader: String, ts: List[Target], targetFileOpt: Option[IO.Path], enable3rdPartyInRepo: Boolean, formatter: BuildFileFormatter, buildFileName: String): Result[Int] = {
+  def createBuildFilesAndTargetFile(buildHeader: String, ts: List[Target], targetFileOpt: Option[IO.Path], enable3rdPartyInRepo: Boolean, thirdPartyDirectory: DirectoryName, formatter: BuildFileFormatter, buildFileName: String): Result[Int] = {
     val with3rdpartyPrinted = if(enable3rdPartyInRepo) {
       createBuildFiles(buildHeader, ts, formatter, buildFileName)
     } else IO.const(0)
 
     val withTargetFilePrinted = targetFileOpt match {
-          case Some(tfp) => createBuildTargetFile(buildHeader, ts, tfp)
+          case Some(tfp) => createBuildTargetFile(buildHeader, ts, tfp, thirdPartyDirectory)
           case None => IO.const(0)
         }
 
@@ -86,16 +86,16 @@ object Writer {
     }
   }
 
-  def createBuildTargetFile(buildHeader: String, ts: List[Target], tfp: Path): Result[Int] = {
+  def createBuildTargetFile(buildHeader: String, ts: List[Target], tfp: Path, thirdPartyDirectory: DirectoryName): Result[Int] = {
     (for {
           b <- IO.exists(tfp.parent)
           _ <- if (b) IO.const(false) else IO.mkdirs(tfp.parent)
-          _ <- IO.writeUtf8(tfp, createBuildTargetFileContents(buildHeader, ts))
+          _ <- IO.writeUtf8(tfp, createBuildTargetFileContents(buildHeader, ts, thirdPartyDirectory))
         } yield ())
       .map(_ => ts.size)
   }
 
-  def createBuildTargetFileContents(buildHeader: String, ts: List[Target]): String = {
+  def createBuildTargetFileContents(buildHeader: String, ts: List[Target], thirdPartyDirectory: DirectoryName): String = {
     val separator = "|||"
     val encodingVersion = 1
       val lines = ts
@@ -115,7 +115,7 @@ object Writer {
         }
 
         val targetName = target.name
-        kListV(s"${targetName.path.asString}:${targetName.name}", target.listStringEncoding(separator))
+        kListV(s"${targetName.path.asString.replace(thirdPartyDirectory.asString, "")}:${targetName.name}", target.listStringEncoding(separator))
       }
       .mkString(",\n")
 

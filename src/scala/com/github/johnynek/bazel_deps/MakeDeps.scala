@@ -212,7 +212,7 @@ object MakeDeps {
       _ <- IO.mkdirs(workspacePath.parent)
       _ <- IO.writeUtf8(workspacePath, workspaceContents)
       _ <- IO.writeUtf8(workspacePath.sibling(buildFileName), originalBuildFile.getOrElse(""))
-      builds <- Writer.createBuildFilesAndTargetFile(model.getOptions.getBuildHeader, targets, targetFileOpt, enable3rdPartyInRepo, formatter, buildFileName)
+      builds <- Writer.createBuildFilesAndTargetFile(model.getOptions.getBuildHeader, targets, targetFileOpt, enable3rdPartyInRepo, model.getOptions.getThirdPartyDirectory, formatter, buildFileName)
     } yield builds
 
     // Here we actually run the whole thing
