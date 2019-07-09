@@ -1,4 +1,3 @@
-# Do not edit. bazel-deps autogenerates this file from dependencies.yaml.
 _JAVA_LIBRARY_TEMPLATE = """
 java_library(
   name = "{name}",
