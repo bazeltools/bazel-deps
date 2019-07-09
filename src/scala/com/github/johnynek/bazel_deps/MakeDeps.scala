@@ -208,7 +208,7 @@ object MakeDeps {
     val io = for {
       originalBuildFile <- IO.readUtf8(workspacePath.sibling(buildFileName))
       // If the 3rdparty directory is empty we shouldn't wipe out the current working directory.
-      _ <- if(enable3rdPartyInRepo && model.getOptions.getThirdPartyDirectory.parts.nonEmpty) IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts), false) else IO.const(1)
+      _ <- if(enable3rdPartyInRepo && model.getOptions.getThirdPartyDirectory.parts.nonEmpty) IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts), false) else IO.const(0)
       _ <- IO.mkdirs(workspacePath.parent)
       _ <- IO.writeUtf8(workspacePath, workspaceContents)
       _ <- IO.writeUtf8(workspacePath.sibling(buildFileName), originalBuildFile.getOrElse(""))

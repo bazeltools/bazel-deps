@@ -79,6 +79,21 @@ case class Target(
   licenses: Set[String] = Set.empty,
   generateNeverlink: Boolean = false) {
 
+  /**
+    * This method is for encoding the target such that it can be represented in bazel as a list
+    * of strings.
+    * Across the repository rule boundary we cannot pass complex types and we don't want an external binary
+    * to be required to do parsing/handling of a better format.
+    *
+    * Spec: <name>|||<type>|||<values>
+    * Where ||| is standing in for the separator passed in
+    * Name is the field name as specified in the list below
+    * Type is L for list of elements, B for a boolean or empty for a normal string type
+    * Values are 0 or more strings that have no separator field in them separated by the separator.
+    *
+    * @param separator this is the entry separator we've been passed in.
+    * @return List of entries that describe this target encoded
+    */
   def listStringEncoding(separator: String): Result[List[String]] = {
     def validate(strV: String): Result[Unit] = {
       if(strV.contains("|")) {
