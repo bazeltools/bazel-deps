@@ -13,6 +13,10 @@ object Writer {
   private lazy val jarArtifactBackend = Source.fromInputStream(
     getClass.getResource("/templates/jar_artifact_backend.bzl").openStream()).mkString
 
+
+  private lazy val externalWorkspaceBackend = Source.fromInputStream(
+    getClass.getResource("/templates/external_workspace_backend.bzl").openStream()).mkString
+
   sealed abstract class TargetsError {
     def message: String
   }
@@ -121,7 +125,8 @@ object Writer {
       }.map { lines: List[String] =>
 
         s"""# Do not edit. bazel-deps autogenerates this file from.
-           |
+       |$externalWorkspaceBackend
+       |
        |def build_header():
            | return ""${"\"" + buildHeader + "\""}""
            |
@@ -129,10 +134,14 @@ object Writer {
            | return "${separator}"
            |
        |def list_target_data():
-           |    return {
-           |${lines.mkString(",\n")}
-           | }
-           |
+       |    return {
+       |${lines.mkString(",\n")}
+       | }
+       |
+       |
+       |def build_external_workspace(name):
+       |  return build_external_workspace_from_opts(name = name, target_configs = list_target_data(), separator = list_target_data_separator(), build_header = build_header())
+       |
        |""".stripMargin
         }
   }

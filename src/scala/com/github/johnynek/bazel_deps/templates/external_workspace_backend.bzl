@@ -43,7 +43,7 @@ scala_library(
 """
 
 
-def _build_external_workspace_impl(ctx):
+def _build_external_workspace_from_opts_impl(ctx):
     build_header = ctx.attr.build_header
     separator = ctx.attr.separator
     target_configs = ctx.attr.target_configs
@@ -96,13 +96,13 @@ def _build_external_workspace_impl(ctx):
       ctx.file(ctx.path(key + "/BUILD"), build_file_contents, False)
     return None
 
-build_external_workspace = repository_rule(
+build_external_workspace_from_opts = repository_rule(
     attrs = {
         "target_configs": attr.string_list_dict(mandatory = True),
         "separator": attr.string(mandatory = True),
         "build_header": attr.string(mandatory = True),
     },
-    implementation = _build_external_workspace_impl
+    implementation = _build_external_workspace_from_opts_impl
 )
 
 

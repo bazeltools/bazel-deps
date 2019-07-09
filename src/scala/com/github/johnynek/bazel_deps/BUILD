@@ -156,7 +156,10 @@ scala_binary(name = "parseproject",
                  ":commands",
                  "//3rdparty/jvm/org/slf4j:slf4j_simple",
              ],
-             resources = ["templates/jar_artifact_backend.bzl"],
+             resources = [
+                 "templates/jar_artifact_backend.bzl",
+                 "templates/external_workspace_backend.bzl",
+             ],
              resource_strip_prefix = package_name(),
              main_class = "com.github.johnynek.bazel_deps.ParseProject",
              visibility = ["//visibility:public"])
