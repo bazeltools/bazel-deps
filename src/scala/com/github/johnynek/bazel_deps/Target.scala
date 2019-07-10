@@ -98,8 +98,8 @@ object Target {
     case "java" => IO.const(Language.Java)
     case e if e.startsWith("scala") =>
       e.split(":").toList match {
-        case "scala" :: "true" :: v :: Nil => IO.const(Language.Scala(Version.apply(v), true))
-        case "scala" :: "false" :: v :: Nil => IO.const(Language.Scala(Version.apply(v), true))
+        case "scala" :: v :: Nil => IO.const(Language.Scala(Version.apply(v), true))
+        case "scala/unmangled" :: v :: Nil => IO.const(Language.Scala(Version.apply(v), true))
         case o => IO.failed(new Exception(s"Unable to parse scala configuration string: $e"))
       }
     case o => IO.failed(new Exception(s"Unable to parse language for $o"))
