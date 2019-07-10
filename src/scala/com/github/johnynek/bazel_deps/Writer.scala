@@ -93,11 +93,11 @@ object Writer {
 
   def createBuildTargetFile(buildHeader: String, ts: List[Target], tfp: Path, thirdPartyDirectory: DirectoryName): Result[Int] =
     for {
-          b <- IO.exists(tfp.parent)
-          _ <- if (b) IO.const(false) else IO.mkdirs(tfp.parent)
-          buildFileContent <- createBuildTargetFileContents(buildHeader, ts, thirdPartyDirectory)
-          _ <- IO.writeUtf8(tfp, buildFileContent)
-        } yield ts.size
+      b <- IO.exists(tfp.parent)
+      _ <- if (b) IO.const(false) else IO.mkdirs(tfp.parent)
+      buildFileContent <- createBuildTargetFileContents(buildHeader, ts, thirdPartyDirectory)
+      _ <- IO.writeUtf8(tfp, buildFileContent)
+    } yield ts.size
 
   def createBuildTargetFileContents(buildHeader: String, ts: List[Target], thirdPartyDirectory: DirectoryName): Result[String] = {
     val separator = "|||"

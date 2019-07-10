@@ -33,6 +33,7 @@ object Target {
       case "import" => IO.const(Import)
       case "test" => IO.const(Test)
       case "binary" => IO.const(Binary)
+      case other => IO.failed(new IllegalArgumentException(s"unexpected library kind: $other"))
     }
   }
   case object Library extends Kind("library")

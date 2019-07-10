@@ -497,7 +497,7 @@ object Language {
   case class Scala(v: Version, mangle: Boolean) extends Language {
     def asString = if (mangle) "scala" else "scala/unmangled"
     def asOptionsString: String = s"scala:${v.asString}"
-    def asReversableString = s"scala:$mangle:${v.asString}"
+    def asReversableString = s"${asString}:${v.asString}"
 
     val major = v.asString.split('.') match {
       case Array("2", x) if (x.toInt >= 10) => s"2.$x"
