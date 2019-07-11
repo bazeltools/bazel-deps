@@ -85,4 +85,5 @@ object ModelGenerators {
       numParts <- Gen.choose(1,6)
       s <- Gen.listOfN(numParts, Gen.listOfN(partLen, Gen.alphaChar).map(_.mkString)).map(_.mkString("", ".", ""))
     } yield ProcessorClass(s)
+
 }

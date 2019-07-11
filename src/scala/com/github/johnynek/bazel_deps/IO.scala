@@ -42,7 +42,7 @@ object IO {
   sealed abstract class Ops[+T]
   case class Exists(path: Path) extends Ops[Boolean]
   case class MkDirs(path: Path) extends Ops[Boolean]
-  case class RmRf(path: Path) extends Ops[Unit]
+  case class RmRf(path: Path, removeHidden: Boolean) extends Ops[Unit]
   /*
    * Since we generally only write data once, use Eval
    * here so by using `always` we can avoid holding
@@ -69,12 +69,12 @@ object IO {
   def mkdirs(f: Path): Result[Boolean] =
     liftF[Ops, Boolean](MkDirs(f))
 
-  def recursiveRm(path: Path): Result[Unit] =
-    liftF[Ops, Unit](RmRf(path))
+  def recursiveRm(path: Path, removeHidden: Boolean = true): Result[Unit] =
+    liftF[Ops, Unit](RmRf(path, removeHidden))
 
-  def recursiveRmF(path: Path): Result[Unit] =
+  def recursiveRmF(path: Path, removeHidden: Boolean = true): Result[Unit] =
     exists(path).flatMap {
-      case true => recursiveRm(path)
+      case true => recursiveRm(path, removeHidden)
       case false => unit
     }
 
@@ -108,11 +108,22 @@ object IO {
     def apply[A](o: Ops[A]): Try[A] = o match {
       case Exists(f) => Try(fileFor(f).exists())
       case MkDirs(f) => Try(fileFor(f).mkdirs())
-      case RmRf(f) => Try {
+      case RmRf(f, removeHidden) => Try {
         // get the java path
         val file = fileFor(f)
         //require(file.isDirectory, s"$f is not a directory")
         val path = file.toPath
+        if(!removeHidden) {
+          Files.walkFileTree(path, new SimpleFileVisitor[JPath] {
+            override def visitFile(file: JPath, attrs: BasicFileAttributes) = {
+              if (file.getFileName.startsWith(".") && !removeHidden) { // Hidden!
+                throw new Exception(s"Encountered hidden file ${file.getFileName}, and should not remove hidden files/folders. Aborting.")
+              }
+              FileVisitResult.CONTINUE
+            }
+          })
+        }
+
         Files.walkFileTree(path, new SimpleFileVisitor[JPath] {
           override def visitFile(file: JPath, attrs: BasicFileAttributes) = {
             Files.delete(file)

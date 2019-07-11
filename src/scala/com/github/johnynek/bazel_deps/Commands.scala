@@ -57,10 +57,15 @@ object Command {
     repoRoot: Path,
     depsFile: String,
     shaFile: String,
+    targetFile: Option[String],
     buildifier: Option[String],
     checkOnly: Boolean,
-    verbosity: Verbosity
+    verbosity: Verbosity,
+    disable3rdPartyInRepo: Boolean
   ) extends Command {
+
+    def enable3rdPartyInRepo: Boolean = !disable3rdPartyInRepo
+
     def absDepsFile: File =
       new File(repoRoot.toFile, depsFile)
 
@@ -86,6 +91,14 @@ object Command {
       metavar = "sha-file",
       help = "relative path to the sha lock file (usually called workspace.bzl).")
 
+
+    val targetFile = Opts.option[String](
+      "target-file",
+      short = "t",
+      metavar = "target-file",
+      help = "relative path to the file to emit target info into (usually called target_file.bzl).").orNone
+
+
     val buildifier = Opts.option[String](
       "buildifier",
       metavar = "buildifier",
@@ -95,7 +108,12 @@ object Command {
       "check-only",
       help = "if set, the generated files are checked against the existing files but are not written; exits 0 if the files match").orFalse
 
-    (repoRoot |@| depsFile |@| shaFile |@| buildifier |@| checkOnly |@| Verbosity.opt).map(Generate(_, _, _, _, _, _))
+
+    val disable3rdPartyInRepos = Opts.flag(
+      "disable-3rdparty-in-repo",
+      help = "If set it controls if we should print out the 3rdparty source tree in the repo or not.").orFalse
+
+    (repoRoot |@| depsFile |@| shaFile |@| targetFile |@| buildifier |@| checkOnly |@| Verbosity.opt |@| disable3rdPartyInRepos).map(Generate(_, _, _, _, _, _, _, _))
   }
 
   case class FormatDeps(deps: Path, overwrite: Boolean, verbosity: Verbosity) extends Command

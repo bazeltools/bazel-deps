@@ -51,6 +51,33 @@ MY_PROJ_DIR
 Whenever you update the dependencies declared in dependencies.yaml you will need to regenerate the
 contents of the `3rdparty` directory by re-running `$BAZEL_DEPS/gen_maven_deps.sh generate`.
 
+### Alternate outputs, external repo
+Bazel-deps can also prepare the outputs, not as a file tree but an external repo. With this one would refer to targets as
+`@third_party//foo:bar` rather than `//3rdparty/jvm/foo/bar`. This is useful if you do not want to check in generated code to your
+repo. Also if multiple repos are depending upon one another and using bazel deps this can avoid broken transitive dependencies.
+That is if there are two repos `A` and `B` where `B` depends on `A`:
+where A has `Foo 1.0 dependson Jackson27`
+and B has `Foo 2.0 depends on circe`
+with the checked in version both will compile from source against the local copy of Foo, but transitively on the classpath
+in the repo `B` `Jackson27` will be on the classpath rather than `circe`.
+
+To use this option you would execute bazel-deps like:
+ ```bash
+ cd $BAZEL_DEPS
+ bazel run //:parse generate -- --repo-root "$MY_PROJ_DIR" --sha-file 3rdparty/workspace.bzl --deps dependencies.yaml --target-file 3rdparty/target_file.bzl --disable-3rdparty-in-repo
+```
+
+In your `dependencies.yaml` file you will likely want:
+`thirdPartyDirectory: ""`
+to avoid prefixing the remote repo path with `3rdparty/jvm`.
+
+And finally to load it from your `WORKSPACE` you would use:
+```
+load("//3rdparty:target_file.bzl", "build_external_workspace")
+
+build_external_workspace(name = "third_party")
+```
+
 ## Assumptions and usage
 This tool will generate one canonical version for every jar in the transitive dependencies of
 the root dependencies declared. You have three conflict resolution modes currently (which currently

@@ -26,6 +26,17 @@ scala_test(name = "normalizertest",
                "//src/scala/com/github/johnynek/bazel_deps:normalizer",
                "//3rdparty/jvm/org/scalacheck"])
 
+
+scala_library(name = "writergen",
+           srcs = ["WriterGenerators.scala"],
+           deps = ["//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+                   "//src/scala/com/github/johnynek/bazel_deps:writer",
+                   "//src/scala/com/github/johnynek/bazel_deps:io",
+                   "//3rdparty/jvm/org/typelevel:paiges_core",
+                   "//3rdparty/jvm/org/scalacheck",
+                   ":modelgen"])
+
+
 scala_library(name = "modelgen",
            srcs = ["ModelGenerators.scala"],
            deps = ["//src/scala/com/github/johnynek/bazel_deps:depsmodel",
@@ -45,6 +56,8 @@ scala_library(name = "parsetestutil",
                "//src/scala/com/github/johnynek/bazel_deps:decoders",
                "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
                ])
+
+
 
 scala_test(name = "parsetest",
            srcs = ["ParseTest.scala"],
@@ -96,6 +109,19 @@ scala_test(name = "coursier_test",
                "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
                "//src/scala/com/github/johnynek/bazel_deps:makedeps",
                "//src/scala/com/github/johnynek/bazel_deps:graph",
+               ])
+
+scala_test(name = "target_test",
+           srcs = ["TargetTest.scala"],
+           deps = [
+               ":modelgen",
+               ":writergen",
+               "//3rdparty/jvm/org/scalacheck",
+               "//3rdparty/jvm/org/typelevel:cats_core",
+               "//3rdparty/jvm/io/circe:circe_core",
+               "//src/scala/com/github/johnynek/bazel_deps:io",
+               "//src/scala/com/github/johnynek/bazel_deps:writer",
+               "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
                ])
 
 test_suite(name = "all_tests")

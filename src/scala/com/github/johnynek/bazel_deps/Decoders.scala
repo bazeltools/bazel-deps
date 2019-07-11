@@ -29,6 +29,7 @@ object Decoders {
       case "bazel_output_base" => Right(ResolverCache.BazelOutputBase)
       case other => Left(s"unrecogized resolverCache: $other")
     }
+
   implicit val namePrefixDecoder: Decoder[NamePrefix] = stringWrapper(NamePrefix(_))
   implicit val groupArtDecoder: Decoder[(MavenGroup, ArtifactOrProject)] =
     Decoder.decodeString.emap { s =>

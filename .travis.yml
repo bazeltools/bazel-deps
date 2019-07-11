@@ -24,8 +24,9 @@ before_install:
 
 script:
   - bazel build //...
+  - bazel build @third_party//...
   - bazel test --test_output errors //...
   - bazel build src/scala/com/github/johnynek/bazel_deps/parseproject_deploy.jar
-  - ./gen_maven_deps.sh generate -r `pwd` -s 3rdparty/workspace.bzl -d dependencies.yaml
+  - ./gen_maven_deps.sh generate -r `pwd` -s 3rdparty/workspace.bzl -d dependencies.yaml --target-file 3rdparty/target_file.bzl
   - bazel run //:parse -- format-deps --overwrite --deps $PWD/dependencies.yaml
   - git diff --exit-code

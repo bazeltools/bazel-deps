@@ -7,10 +7,15 @@ import com.github.johnynek.bazel_deps.IO.{Path, Result}
 import org.slf4j.LoggerFactory
 
 import scala.io.Source
+import scala.util.{Failure, Success}
 
 object Writer {
   private lazy val jarArtifactBackend = Source.fromInputStream(
     getClass.getResource("/templates/jar_artifact_backend.bzl").openStream()).mkString
+
+
+  private lazy val externalWorkspaceBackend = Source.fromInputStream(
+    getClass.getResource("/templates/external_workspace_backend.bzl").openStream()).mkString
 
   sealed abstract class TargetsError {
     def message: String
@@ -44,6 +49,21 @@ object Writer {
       .mkString(withNewline(buildHeader), "\n\n", "\n"))
   }
 
+
+  def createBuildFilesAndTargetFile(buildHeader: String, ts: List[Target], targetFileOpt: Option[IO.Path], enable3rdPartyInRepo: Boolean, thirdPartyDirectory: DirectoryName, formatter: BuildFileFormatter, buildFileName: String): Result[Int] = {
+    val with3rdpartyPrinted = if(enable3rdPartyInRepo) {
+      createBuildFiles(buildHeader, ts, formatter, buildFileName)
+    } else IO.const(0)
+
+    val withTargetFilePrinted = targetFileOpt match {
+          case Some(tfp) => createBuildTargetFile(buildHeader, ts, tfp, thirdPartyDirectory)
+          case None => IO.const(0)
+        }
+
+    with3rdpartyPrinted.flatMap(e => withTargetFilePrinted.map { u => u + e})
+  }
+
+
   def createBuildFiles(buildHeader: String, ts: List[Target], formatter: BuildFileFormatter, buildFileName: String): Result[Int] = {
     val pathGroups = ts.groupBy(_.name.path).toList
 
@@ -71,6 +91,60 @@ object Writer {
     }
   }
 
+  def createBuildTargetFile(buildHeader: String, ts: List[Target], tfp: Path, thirdPartyDirectory: DirectoryName): Result[Int] =
+    for {
+      b <- IO.exists(tfp.parent)
+      _ <- if (b) IO.const(false) else IO.mkdirs(tfp.parent)
+      buildFileContent <- createBuildTargetFileContents(buildHeader, ts, thirdPartyDirectory)
+      _ <- IO.writeUtf8(tfp, buildFileContent)
+    } yield ts.size
+
+  def createBuildTargetFileContents(buildHeader: String, ts: List[Target], thirdPartyDirectory: DirectoryName): Result[String] = {
+    val separator = "|||"
+    val encodingVersion = 1
+      Traverse[List].traverse(ts
+      .sortBy(_.toString)) { target =>
+        def kv(key: String, value: String, prefix: String = ""): String =
+          s"""$prefix"$key": "$value""""
+
+        def kvOpt(key: String, valueOpt: Option[String], prefix: String = ""): String = valueOpt match {
+          case Some(value) => kv(key, value, prefix)
+          case None => ""
+        }
+
+        def kListV(key: String, values: List[String], prefix: String = ""): String = {
+          val v = values.map { e => "\"" + e + "\"" }.mkString(",")
+          s"""$prefix"$key": [$v]"""
+        }
+
+        val targetName = target.name
+        val key = s"${targetName.path.asString}:${targetName.name}"
+        for {
+          targetEncoding <- target.listStringEncoding(separator)
+        } yield kListV(s"$key", targetEncoding)
+      }.map { lines: List[String] =>
+
+        s"""# Do not edit. bazel-deps autogenerates this file from.
+       |$externalWorkspaceBackend
+       |
+       |def build_header():
+           | return ""${"\"" + buildHeader + "\""}""
+           |
+       |def list_target_data_separator():
+           | return "${separator}"
+           |
+       |def list_target_data():
+       |    return {
+       |${lines.mkString(",\n")}
+       | }
+       |
+       |
+       |def build_external_workspace(name):
+       |  return build_external_workspace_from_opts(name = name, target_configs = list_target_data(), separator = list_target_data_separator(), build_header = build_header())
+       |
+       |""".stripMargin
+        }
+  }
   def workspace(depsFile: String, g: Graph[MavenCoordinate, Unit],
     duplicates: Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]],
     shas: Map[MavenCoordinate, ResolvedShasValue],

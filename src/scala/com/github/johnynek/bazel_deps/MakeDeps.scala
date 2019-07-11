@@ -32,7 +32,9 @@ object MakeDeps {
         sys.error("unreachable")
     }
     val workspacePath = g.shaFilePath
+    val targetFilePathOpt = g.targetFile
     val projectRoot = g.repoRoot.toFile
+    val enable3rdPartyInRepo = g.enable3rdPartyInRepo
 
     resolverCachePath(model, projectRoot).flatMap(runResolve(model, _)) match {
       case Failure(err) =>
@@ -78,9 +80,9 @@ object MakeDeps {
         // build the workspace
         val ws = Writer.workspace(g.depsFile, normalized, duplicates, shas, model)
         if (g.checkOnly) {
-          executeCheckOnly(model, projectRoot, IO.path(workspacePath), ws, targets, formatter)
+          executeCheckOnly(model, projectRoot, IO.path(workspacePath),targetFilePathOpt.map(e => IO.path(e)),  enable3rdPartyInRepo, ws, targets, formatter)
         } else {
-          executeGenerate(model, projectRoot, IO.path(workspacePath), ws, targets, formatter)
+          executeGenerate(model, projectRoot, IO.path(workspacePath), targetFilePathOpt.map(e => IO.path(e)), enable3rdPartyInRepo, ws, targets, formatter)
         }
     }
   }
@@ -175,7 +177,7 @@ object MakeDeps {
       }
   }
 
-  private def executeCheckOnly(model: Model, projectRoot: File, workspacePath: IO.Path, workspaceContents: String, targets: List[Target], formatter: Writer.BuildFileFormatter): Unit = {
+  private def executeCheckOnly(model: Model, projectRoot: File, workspacePath: IO.Path, targetFileOpt: Option[IO.Path], enable3rdPartyInRepo: Boolean, workspaceContents: String, targets: List[Target], formatter: Writer.BuildFileFormatter): Unit = {
     // Build up the IO operations that need to run.
     val io = for {
       wsOK <- IO.compare(workspacePath, workspaceContents)
@@ -199,17 +201,18 @@ object MakeDeps {
     }
   }
 
-  private def executeGenerate(model: Model, projectRoot: File, workspacePath: IO.Path, workspaceContents: String, targets: List[Target], formatter: Writer.BuildFileFormatter): Unit = {
+  private def executeGenerate(model: Model, projectRoot: File, workspacePath: IO.Path, targetFileOpt: Option[IO.Path], enable3rdPartyInRepo: Boolean, workspaceContents: String, targets: List[Target], formatter: Writer.BuildFileFormatter): Unit = {
     // Build up the IO operations that need to run. Till now,
     // nothing was written
     val buildFileName = model.getOptions.getBuildFileName
     val io = for {
       originalBuildFile <- IO.readUtf8(workspacePath.sibling(buildFileName))
-      _ <- IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts))
+      // If the 3rdparty directory is empty we shouldn't wipe out the current working directory.
+      _ <- if(enable3rdPartyInRepo && model.getOptions.getThirdPartyDirectory.parts.nonEmpty) IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts), false) else IO.const(0)
       _ <- IO.mkdirs(workspacePath.parent)
       _ <- IO.writeUtf8(workspacePath, workspaceContents)
       _ <- IO.writeUtf8(workspacePath.sibling(buildFileName), originalBuildFile.getOrElse(""))
-      builds <- Writer.createBuildFiles(model.getOptions.getBuildHeader, targets, formatter, buildFileName)
+      builds <- Writer.createBuildFilesAndTargetFile(model.getOptions.getBuildHeader, targets, targetFileOpt, enable3rdPartyInRepo, model.getOptions.getThirdPartyDirectory, formatter, buildFileName)
     } yield builds
 
     // Here we actually run the whole thing

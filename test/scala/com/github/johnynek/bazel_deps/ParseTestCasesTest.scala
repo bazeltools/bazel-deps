@@ -19,7 +19,7 @@ class ParseTestCasesTest extends FunSuite {
     law(model)
 
     val model1 = Model(Dependencies.empty,Some(Replacements.empty),Some(Options(None,None,None,None,None,Some(List()),
-      Some(ResolverCache.Local),Some(NamePrefix("y")), None, None, None, None)))
+      Some(ResolverCache.Local), Some(NamePrefix("y")), None, None, None, None)))
     //println(model1.toDoc.render(70))
     law(model1)
   }
