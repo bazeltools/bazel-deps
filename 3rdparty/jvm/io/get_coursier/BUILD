@@ -24,6 +24,8 @@ scala_import(
         "//external:jar/io/get_coursier/coursier_cache_2_11"
     ],
     runtime_deps = [
+        "//3rdparty/jvm/org/fusesource/jansi:jansi",
+        "//3rdparty/jvm/org/jline:jline_terminal_jansi",
         "//3rdparty/jvm/org/scala_lang:scala_library",
         ":coursier_core"
     ],

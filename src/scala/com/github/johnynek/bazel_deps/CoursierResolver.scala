@@ -180,7 +180,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
       val module = coursier.Module(Organization(c.group.asString), ModuleName(c.artifact.artifactId), Map.empty)
       val version = c.version.asString
       val f = FileCache().withChecksums(Seq(Some("SHA-1"), None)).withCachePolicies(Seq(CachePolicy.FetchMissing)).withPool(CoursierResolver.downloadPool).fetch
-      val task = ResolutionProcess.fetchOne[Task](repos, module, version, f).run
+      val task = ResolutionProcess.fetchOne[Task](repos, module, version, f, Seq()).run
 
       /*
        * we use Nested here to accumulate all the errors so we can
