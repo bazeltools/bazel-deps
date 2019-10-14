@@ -6,7 +6,7 @@ import coursier.util.Task
 import cats.MonadError
 import cats.data.{Nested, NonEmptyList, Validated, ValidatedNel}
 import cats.implicits._
-import coursier.cache.LocalRepositories
+import coursier.LocalRepositories
 import coursier.core._
 import org.slf4j.LoggerFactory
 

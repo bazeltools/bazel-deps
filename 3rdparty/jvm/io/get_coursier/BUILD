@@ -6,6 +6,7 @@ scala_import(
         "//external:jar/io/get_coursier/coursier_2_11"
     ],
     runtime_deps = [
+        "//3rdparty/jvm/com/github/alexarchambault:argonaut_shapeless_6_2",
         "//3rdparty/jvm/org/scala_lang:scala_library",
         ":coursier_cache",
         ":coursier_core"
