@@ -1,7 +1,7 @@
 package com.github.johnynek.bazel_deps
 
 import coursier.{Artifact, Dependency, ResolutionProcess, Project, Resolution}
-import coursier.{Cache, CachePolicy}
+import coursier.cache.{FileCache, CachePolicy}
 import coursier.util.Task
 import cats.MonadError
 import cats.data.{Nested, NonEmptyList, Validated, ValidatedNel}
@@ -47,7 +47,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
     }
   }
 
-  private[this] val fetch = ResolutionProcess.fetch(repos, Cache.fetch[Task](cachePolicies = Seq(CachePolicy.FetchMissing), pool = CoursierResolver.downloadPool))
+  private[this] val fetch = ResolutionProcess.fetch(repos, FileCache(cachePolicies = Seq(CachePolicy.FetchMissing), pool = CoursierResolver.downloadPool).fetch)
 
   private[this] val logger = LoggerFactory.getLogger("bazel_deps.CoursierResolver")
 
@@ -80,7 +80,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
   def run[A](fa: Task[A]): Try[A] = Try(Await.result(fa.value(ec), runTimeout))
 
-  case class FileErrorException(error: coursier.FileError) extends Exception(error.describe)
+  case class FileErrorException(error: coursier.cache.ArtifactError) extends Exception(error.describe)
   case class DownloadFailures(messages: NonEmptyList[String]) extends Exception("resolution errors:\n" + messages.toList.mkString("\n"))
 
   def getShas(m: List[MavenCoordinate]): Task[SortedMap[MavenCoordinate, ResolvedShasValue]] = {
@@ -99,7 +99,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
       def downloadSha(digestType: DigestType, a: coursier.Artifact): Task[Option[ShaValue]] = {
         // Because Cache.file is hijacked to download SHAs directly (rather than signed artifacts) checksum verification
         // is turned off. Checksums don't themselves have checksum files.
-        Cache.file[Task](a, checksums = Seq(None), cachePolicies = Seq(CachePolicy.FetchMissing), pool = CoursierResolver.downloadPool).run.map {
+        FileCache(checksums = Seq(None), cachePolicies = Seq(CachePolicy.FetchMissing), pool = CoursierResolver.downloadPool).file(a).run.map {
           case Left(error) =>
             logger.info(s"failure to download ${a.url}, ${error.describe}")
             None
@@ -113,7 +113,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
       }
 
       def computeSha(digestType: DigestType, artifact: coursier.Artifact): Task[ShaValue] =
-        Cache.file[Task](artifact, cachePolicies = Seq(CachePolicy.FetchMissing), pool = CoursierResolver.downloadPool).run.flatMap { e =>
+        FileCache(cachePolicies = Seq(CachePolicy.FetchMissing), pool = CoursierResolver.downloadPool).file(artifact).run.flatMap { e =>
           resolverMonad.fromTry(e match {
             case Left(error) =>
               Failure(FileErrorException(error))
@@ -175,7 +175,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
       val module = coursier.Module(Organization(c.group.asString), ModuleName(c.artifact.artifactId), Map.empty)
       val version = c.version.asString
-      val f = Cache.fetch[Task](checksums = Seq(Some("SHA-1"), None), cachePolicies = Seq(CachePolicy.FetchMissing), pool = CoursierResolver.downloadPool)
+      val f = FileCache(checksums = Seq(Some("SHA-1"), None), cachePolicies = Seq(CachePolicy.FetchMissing), pool = CoursierResolver.downloadPool).fetch
       val task = ResolutionProcess.fetchOne[Task](repos, module, version, f).run
 
       /*
