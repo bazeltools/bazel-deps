@@ -47,7 +47,9 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
     }
   }
 
-  private[this] val fetch = ResolutionProcess.fetch(repos, FileCache(cachePolicies = Seq(CachePolicy.FetchMissing), pool = CoursierResolver.downloadPool).fetch)
+  private[this] val fetch = ResolutionProcess.fetch(repos, FileCache().
+    withCachePolicies(Seq(CachePolicy.FetchMissing))
+    .withPool(CoursierResolver.downloadPool).fetch)
 
   private[this] val logger = LoggerFactory.getLogger("bazel_deps.CoursierResolver")
 
@@ -99,7 +101,9 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
       def downloadSha(digestType: DigestType, a: coursier.Artifact): Task[Option[ShaValue]] = {
         // Because Cache.file is hijacked to download SHAs directly (rather than signed artifacts) checksum verification
         // is turned off. Checksums don't themselves have checksum files.
-        FileCache(checksums = Seq(None), cachePolicies = Seq(CachePolicy.FetchMissing), pool = CoursierResolver.downloadPool).file(a).run.map {
+        FileCache().withChecksums(Seq(None))
+        .withCachePolicies(Seq(CachePolicy.FetchMissing))
+        .withPool(CoursierResolver.downloadPool).file(a).run.map {
           case Left(error) =>
             logger.info(s"failure to download ${a.url}, ${error.describe}")
             None
@@ -113,7 +117,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
       }
 
       def computeSha(digestType: DigestType, artifact: coursier.Artifact): Task[ShaValue] =
-        FileCache(cachePolicies = Seq(CachePolicy.FetchMissing), pool = CoursierResolver.downloadPool).file(artifact).run.flatMap { e =>
+        FileCache().withCachePolicies(Seq(CachePolicy.FetchMissing)).withPool(CoursierResolver.downloadPool).file(artifact).run.flatMap { e =>
           resolverMonad.fromTry(e match {
             case Left(error) =>
               Failure(FileErrorException(error))
@@ -175,7 +179,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
       val module = coursier.Module(Organization(c.group.asString), ModuleName(c.artifact.artifactId), Map.empty)
       val version = c.version.asString
-      val f = FileCache(checksums = Seq(Some("SHA-1"), None), cachePolicies = Seq(CachePolicy.FetchMissing), pool = CoursierResolver.downloadPool).fetch
+      val f = FileCache().withChecksums(Seq(Some("SHA-1"), None)).withCachePolicies(Seq(CachePolicy.FetchMissing)).withPool(CoursierResolver.downloadPool).fetch
       val task = ResolutionProcess.fetchOne[Task](repos, module, version, f).run
 
       /*
