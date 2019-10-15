@@ -203,7 +203,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             Classifier(c.artifact.classifier.getOrElse(""))
           ))
 
-          val srcDep = dep.copy(attributes = coursier.Attributes(
+          val srcDep = dep.withAttributes(coursier.Attributes(
             Type(c.artifact.packaging),
             Classifier("sources")
           ))
