@@ -1,8 +1,14 @@
 package com.github.johnynek.bazel_deps
 
+<<<<<<< HEAD
 import coursier.{Artifact, Dependency, ResolutionProcess, Project, Resolution}
 import coursier.cache.{FileCache, CachePolicy}
 import coursier.util.Task
+=======
+import coursier.{Dependency, ResolutionProcess, Project, Resolution}
+import coursier.cache.{FileCache, CachePolicy}
+import coursier.util.{Artifact, Task}
+>>>>>>> master
 import cats.MonadError
 import cats.data.{Nested, NonEmptyList, Validated, ValidatedNel}
 import cats.implicits._
@@ -56,7 +62,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
   // Instructs the coursier resolver to keep `runtime`-scoped dependencies.
   private[this] val DefaultConfiguration = "default(compile)"
 
-  def serverFor(a: coursier.Artifact): Option[MavenServer] =
+  def serverFor(a: Artifact): Option[MavenServer] =
     if (a.url.isEmpty) None
     else servers.find { ms => a.url.startsWith(ms.url) }
 
@@ -92,13 +98,13 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
     def lookup(c: MavenCoordinate): N[ResolvedShasValue] = {
 
-      def downloadShas(digestType: DigestType, as: List[coursier.Artifact]): Task[Option[ShaValue]] =
+      def downloadShas(digestType: DigestType, as: List[Artifact]): Task[Option[ShaValue]] =
         as.foldM(Option.empty[ShaValue]) {
           case (s @ Some(r), _) => Task.point(s)
           case (None, a) => downloadSha(digestType, a)
         }
 
-      def downloadSha(digestType: DigestType, a: coursier.Artifact): Task[Option[ShaValue]] = {
+      def downloadSha(digestType: DigestType, a: Artifact): Task[Option[ShaValue]] = {
         // Because Cache.file is hijacked to download SHAs directly (rather than signed artifacts) checksum verification
         // is turned off. Checksums don't themselves have checksum files.
         FileCache().withChecksums(Seq(None))
@@ -116,7 +122,11 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
         }
       }
 
+<<<<<<< HEAD
       def computeSha(digestType: DigestType, artifact: coursier.Artifact): Task[ShaValue] =
+=======
+      def computeSha(digestType: DigestType, artifact: Artifact): Task[ShaValue] =
+>>>>>>> master
         FileCache().withCachePolicies(Seq(CachePolicy.FetchMissing)).withPool(CoursierResolver.downloadPool).file(artifact).run.flatMap { e =>
           resolverMonad.fromTry(e match {
             case Left(error) =>
@@ -126,7 +136,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
           })
         }
 
-      def computeShas(digestType: DigestType, as: NonEmptyList[coursier.Artifact]): Task[ShaValue] = {
+      def computeShas(digestType: DigestType, as: NonEmptyList[Artifact]): Task[ShaValue] = {
         val errorFn: Throwable => Task[ShaValue] = as.tail match {
           case Nil => {e: Throwable =>
             resolverMonad.raiseError(new RuntimeException(s"we could not download the artifact ${c.asString} to compute the hash for digest type ${digestType} with error ${e}"))
@@ -150,7 +160,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
         }
       }
 
-      def processArtifact(src: Artifact.Source, dep: Dependency, proj: Project): Task[Option[JarDescriptor]] = {
+      def processArtifact(src: coursier.core.ArtifactSource, dep: Dependency, proj: Project): Task[Option[JarDescriptor]] = {
           val maybeArtifacts = src.artifacts(dep, proj, None)
             .map { case (_, artifact: Artifact) => artifact }
             .toList
@@ -203,7 +213,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             Classifier(c.artifact.classifier.getOrElse(""))
           ))
 
-          val srcDep = dep.copy(attributes = coursier.Attributes(
+          val srcDep = dep.withAttributes(coursier.Attributes(
             Type(c.artifact.packaging),
             Classifier("sources")
           ))
