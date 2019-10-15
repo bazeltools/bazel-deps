@@ -1,14 +1,8 @@
 package com.github.johnynek.bazel_deps
 
-<<<<<<< HEAD
-import coursier.{Artifact, Dependency, ResolutionProcess, Project, Resolution}
-import coursier.cache.{FileCache, CachePolicy}
-import coursier.util.Task
-=======
 import coursier.{Dependency, ResolutionProcess, Project, Resolution}
 import coursier.cache.{FileCache, CachePolicy}
 import coursier.util.{Artifact, Task}
->>>>>>> master
 import cats.MonadError
 import cats.data.{Nested, NonEmptyList, Validated, ValidatedNel}
 import cats.implicits._
@@ -122,11 +116,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
         }
       }
 
-<<<<<<< HEAD
-      def computeSha(digestType: DigestType, artifact: coursier.Artifact): Task[ShaValue] =
-=======
       def computeSha(digestType: DigestType, artifact: Artifact): Task[ShaValue] =
->>>>>>> master
         FileCache().withCachePolicies(Seq(CachePolicy.FetchMissing)).withPool(CoursierResolver.downloadPool).file(artifact).run.flatMap { e =>
           resolverMonad.fromTry(e match {
             case Left(error) =>

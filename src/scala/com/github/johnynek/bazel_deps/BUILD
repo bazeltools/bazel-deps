@@ -54,10 +54,7 @@ scala_library(
         "//3rdparty/jvm/io/get_coursier:coursier_core",
         "//3rdparty/jvm/io/get_coursier:coursier_cache",
         "//3rdparty/jvm/io/get_coursier:coursier",
-<<<<<<< HEAD
-=======
         "//3rdparty/jvm/io/get_coursier:coursier_util",
->>>>>>> master
         "//3rdparty/jvm/org/slf4j:slf4j_api",
         "//3rdparty/jvm/org/typelevel:cats_core",
         ":resolver",
