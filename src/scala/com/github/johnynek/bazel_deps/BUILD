@@ -53,6 +53,8 @@ scala_library(
     deps = [
         "//3rdparty/jvm/io/get_coursier:coursier_core",
         "//3rdparty/jvm/io/get_coursier:coursier_cache",
+        "//3rdparty/jvm/io/get_coursier:coursier",
+        "//3rdparty/jvm/io/get_coursier:coursier_util",
         "//3rdparty/jvm/org/slf4j:slf4j_api",
         "//3rdparty/jvm/org/typelevel:cats_core",
         ":resolver",

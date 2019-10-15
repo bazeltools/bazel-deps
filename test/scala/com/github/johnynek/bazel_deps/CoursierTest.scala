@@ -226,4 +226,47 @@ dependencies:
 
     assert(Writer.targets(normalized, model).isLeft)
   }
+
+  test("version alignment breaks resolution") {
+    def configForVersions(firstVersion: String, secondVersion: String) = s"""
+options:
+  buildHeader: [ "load(\\"@io_bazel_rules_scala//scala:scala_import.bzl\\", \\"scala_import\\")" ]
+  languages: [ "java", "scala:2.11.8" ]
+  resolverType: "coursier"
+  resolvers:
+    - id: "mavencentral"
+      type: "default"
+      url: https://repo.maven.apache.org/maven2/
+  transitivity: runtime_deps
+  versionConflictPolicy: highest
+
+dependencies:
+  org.kie:
+    kie-api:
+      lang: java
+      version: "${firstVersion}"
+
+  org.kie.server:
+    kie:
+      lang: java
+      modules: [ "server-api", "server-client" ]
+      version: "${secondVersion}"
+"""
+
+    def testConfig(firstVersion: String, secondVersion: String): Unit = {
+      val model = Decoders.decodeModel(Yaml, configForVersions(firstVersion, secondVersion)).right.get
+      val (normalized, shas, duplicates) = MakeDeps.runResolve(model, null).get
+      val written = Writer.targets(normalized, model)
+
+      written match {
+        case Left(errors) =>
+            assert(false, errors)
+          case Right(_) => ()
+      }
+    }
+
+    testConfig("7.26.0.Final", "7.27.0.Final")
+    testConfig("7.27.0.Final", "7.26.0.Final")
+    testConfig("7.27.0.Final", "7.27.0.Final")
+  }
 }
