@@ -52,7 +52,7 @@ dependencies:
     coursier:
       lang: scala
       modules: [ "", "cache", "core", "util" ]
-      version: "2.0.0-RC4"
+      version: "2.0.0-RC4-1"
 
   org.apache.maven:
     maven:

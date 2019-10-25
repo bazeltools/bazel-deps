@@ -198,7 +198,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
             .getOrElse(NonEmptyList("<empty message>", Nil))
           Task.point(Validated.invalid(nel))
         case Right((src, proj)) =>
-          val dep = coursier.Dependency(module, version, Configuration(DefaultConfiguration), coursier.Attributes(
+          val dep = coursier.Dependency(module, version).withConfiguration(Configuration(DefaultConfiguration)).withAttributes(coursier.Attributes(
             Type(c.artifact.packaging),
             Classifier(c.artifact.classifier.getOrElse(""))
           ))
@@ -241,14 +241,17 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
       val exSet: Set[(Organization, ModuleName)] =
         exs.map { elem => (Organization(elem.group.asString), ModuleName(elem.artifact.artifactId)) }
       coursier.Dependency(
-        coursier.Module(Organization(mc.group.asString), ModuleName(mc.artifact.artifactId)),
-        mc.version.asString,
-        Configuration(DefaultConfiguration),
-        coursier.Attributes(
-          Type(mc.artifact.packaging),
-          Classifier(mc.artifact.classifier.getOrElse(""))
-        ),
-        exSet)
+          coursier.Module(Organization(mc.group.asString), ModuleName(mc.artifact.artifactId)),
+          mc.version.asString)
+        .withConfiguration(
+          Configuration(DefaultConfiguration))
+        .withExclusions(exSet)
+        .withAttributes(
+          coursier.Attributes(
+            Type(mc.artifact.packaging),
+            Classifier(mc.artifact.classifier.getOrElse(""))
+          )
+        )
     }
 
     def artifactFromDep(cd: coursier.Dependency): MavenArtifactId = {
