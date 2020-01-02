@@ -283,6 +283,8 @@ responsible for building correctly, and correctly exporting any dependencies tha
 on the compile classpath.
 
 ## Code
-This code was originally forked from [pgr0ss/bazel-deps](https://github.com/pgr0ss/bazel-deps)
+This code was originally forked from [pgr0ss/bazel-deps](https://github.com/pgr0ss/bazel-deps).
 
 This code was inspired by the [aether examples](https://github.com/eclipse/aether-demo/blob/322fa556494335faaf3ad3b7dbe8f89aaaf6222d/aether-demo-snippets/src/main/java/org/eclipse/aether/examples/GetDependencyTree.java) for walking maven dependencies.
+
+S3 Handler was based on [frugalmechanic/fm-sbt-s3-resolver](https://github.com/frugalmechanic/fm-sbt-s3-resolver/).
