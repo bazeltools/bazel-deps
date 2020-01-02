@@ -7,7 +7,7 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl",
 git_repository(
     name = "io_bazel_rules_scala",
     remote = "https://github.com/bazelbuild/rules_scala",
-    commit = "7b6360915f5d41a5c591328e2f30417550461486" # HEAD as of 2019-10-25, update this as needed
+    commit = "0f89c210ade8f4320017daf718a61de3c1ac4773" # HEAD as of 2019-10-25, update this as needed
 )
 
 http_archive(
