@@ -46,6 +46,36 @@ scala_library(
     exports = ["//3rdparty/jvm/org/apache/maven:maven_settings"],
     visibility = ["//visibility:public"])
 
+scala_library(
+    name = "s3_url_handler",
+    srcs = ["S3URLHandler.scala"],
+    deps = [
+        "//3rdparty/jvm/com/amazonaws:aws_java_sdk_core",
+        "//3rdparty/jvm/com/amazonaws:aws_java_sdk_s3",
+        "//3rdparty/jvm/com/amazonaws:aws_java_sdk_sts",
+        "//3rdparty/jvm/org/apache/ivy:ivy",
+    ],
+    exports = ["//3rdparty/jvm/org/apache/maven:maven_settings"],
+    visibility = ["//visibility:public"])
+
+scala_library(
+    name = "s3_url_loader",
+    srcs = [
+        "S3Handler.scala", 
+        "S3URLConnection.scala"
+    ],
+    deps = [
+        "//3rdparty/jvm/com/amazonaws:aws_java_sdk_core",
+        "//3rdparty/jvm/com/amazonaws:aws_java_sdk_s3",
+        "//3rdparty/jvm/com/amazonaws:aws_java_sdk_sts",
+        "//3rdparty/jvm/org/apache/ivy:ivy",
+        ":s3_url_handler",
+    ],
+    exports = [
+        "//3rdparty/jvm/org/apache/maven:maven_settings",
+        ":s3_url_handler",
+    ],
+    visibility = ["//visibility:public"])
 
 scala_library(
     name = "coursier_resolver",
@@ -61,6 +91,7 @@ scala_library(
         ":depsmodel",
         ":graph",
         ":settings_loader",
+        ":s3_url_loader",
         ],
     visibility = ["//visibility:public"])
 
