@@ -19,7 +19,6 @@ import scala.util.Try
 import scala.util.matching.Regex
 
 object S3URLHandler {
-  private val DOT_SBT_DIR: File = new File(System.getProperty("user.home"), ".sbt")
 
   // This is for matching region names in URLs or host names
   private val RegionMatcher: Regex = Regions.values().map{ _.getName }.sortBy{ -1 * _.length }.mkString("|").r
@@ -101,27 +100,6 @@ object S3URLHandler {
     val RoleArnKeyNames: Seq[String] = Seq("AWS_ROLE_ARN")
 
     protected def getRoleArn(keys: String*): String = keys.map( toEnvironmentVariableName ).map( System.getenv ).flatMap( Option(_) ).head.trim
-  }
-
-  private class RoleBasedPropertiesFileCredentialsProvider(providerChain: AWSCredentialsProviderChain, fileName: String)
-      extends RoleBasedCredentialsProvider(providerChain) {
-
-    val RoleArnKeyName: String = "roleArn"
-    val RoleArnKeyNames: Seq[String] = Seq(RoleArnKeyName)
-
-    protected def getRoleArn(keys: String*): String = {
-      val file: File = new File(DOT_SBT_DIR, fileName)
-      
-      // This will throw if the file doesn't exist
-      val is: InputStream = new FileInputStream(file)
-      
-      try {
-        val props: Properties = new Properties()
-        props.load(is)
-        // This will throw if there is no matching properties
-        RoleArnKeyNames.map{ props.getProperty }.flatMap{ Option(_) }.head.trim
-      } finally is.close()
-    }
   }
 
   private class BucketSpecificRoleBasedSystemPropertiesCredentialsProvider(providerChain: AWSCredentialsProviderChain, bucket: String)
