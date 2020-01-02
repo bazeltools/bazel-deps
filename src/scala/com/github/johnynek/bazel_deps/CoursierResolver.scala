@@ -53,7 +53,6 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
     servers.map { case MavenServer(id, _, url) =>
       val authentication = Option(settings.getServer(id))
         .map(server => Authentication(server.getUsername, server.getPassword))
-  
       coursier.MavenRepository(url, authentication = authentication)
     }
   }
