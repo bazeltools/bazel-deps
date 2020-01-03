@@ -48,7 +48,13 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
   private[this] val repos = LocalRepositories.ivy2Local :: {
     val settings = SettingsLoader.settings
 
-    URL.setURLStreamHandlerFactory(S3URLStreamHandlerFactory)
+    try {
+      new URL("s3://example.com")
+    } catch {
+      // This means we haven't installed the handler, so install it
+      case _: java.net.MalformedURLException =>
+        URL.setURLStreamHandlerFactory(S3URLStreamHandlerFactory)
+    }
 
     servers.map { case MavenServer(id, _, url) =>
       val authentication = Option(settings.getServer(id))
