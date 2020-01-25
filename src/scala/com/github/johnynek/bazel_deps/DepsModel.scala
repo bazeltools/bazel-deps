@@ -1261,7 +1261,7 @@ case class Options(
   }
   def getResolvers: List[MavenServer] =
     resolvers.getOrElse(
-      List(MavenServer("central", "default", "http://central.maven.org/maven2/")))
+      List(MavenServer("mavencentral", "default", "https://repo.maven.apache.org/maven2/")))
 
   def getTransitivity: Transitivity =
     transitivity.getOrElse(Transitivity.Exports)
