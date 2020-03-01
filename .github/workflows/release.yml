@@ -1,0 +1,68 @@
+name: Release
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  native-image:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+        include:
+          - os: macos-latest
+            url: https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-20.0.0/graalvm-ce-java11-darwin-amd64-20.0.0.tar.gz
+            bazel_platform_name: darwin
+            artifact: scalafmt-macos
+          - os: ubuntu-latest
+            url: https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-20.0.0/graalvm-ce-java11-linux-amd64-20.0.0.tar.gz
+            artifact: scalafmt-linux
+            bazel_platform_name: linux
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install bazel
+        run: ./ci_scripts/ci_install_baze.sh "${{ matrix.bazel_platform_name }}"
+      - name: Build fat jar
+        run: ./ci_scripts/build_fat_jar.sh
+      - uses: actions/upload-artifact@master
+        with:
+          name: ${{ matrix.artifact }}
+          path: scalafmt
+  make_release:
+    name: Display results
+    needs: native-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download linux scalafmt
+        uses: actions/download-artifact@v1
+        with:
+          name: scalafmt-linux
+          path: downloads/scalafmt-linux
+      - name: Download linux scalafmt
+        uses: actions/download-artifact@v1
+        with:
+          name: scalafmt-macos
+          path: downloads/scalafmt-macos
+      - name: Look at localA
+        run: ls -lR
+      - name: mv binaries linux
+        run: mv downloads/scalafmt-linux/scalafmt scalafmt-linux
+      - name: mv binaries macos
+        run: mv downloads/scalafmt-macos/scalafmt scalafmt-macos
+      - name: Look at local
+        run: ls -lR
+      - name: Look at macos
+        run: cat scalafmt-macos
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "v0.1-${{ github.run_number }}"
+          prerelease: false
+          title: "Auto generated release"
+          files: |
+            scalafmt-macos
+            scalafmt-linux
+        id: "automatic_releases"
