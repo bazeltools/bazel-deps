@@ -24,7 +24,7 @@ native-image -H:+ReportUnsupportedElementsAtRuntime \
  --allow-incomplete-classpath \
  -H:+ReportExceptionStackTraces \
  --no-fallback \
- -H:IncludeResources='templates/.*bzl$' \
+ -H:IncludeResources='^templates.*bzl$' \
  -jar bazel-deps.jar
 
 # ensure it actually works!
