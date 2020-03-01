@@ -11,11 +11,11 @@ import scala.util.{Failure, Success}
 
 object Writer {
   private lazy val jarArtifactBackend = Source.fromInputStream(
-    getClass.getResource("/templates/jar_artifact_backend.bzl").openStream()).mkString
+    getClass.getResourceAsStream("/templates/jar_artifact_backend.bzl")).mkString
 
 
   private lazy val externalWorkspaceBackend = Source.fromInputStream(
-    getClass.getResource("/templates/external_workspace_backend.bzl").openStream()).mkString
+    getClass.getResourceAsStream("/templates/external_workspace_backend.bzl")).mkString
 
   sealed abstract class TargetsError {
     def message: String
