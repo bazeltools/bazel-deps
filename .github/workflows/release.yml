@@ -59,7 +59,7 @@ jobs:
           name: ${{ matrix.artifact }}
           path: bazel-deps
   make_release:
-    name: Display results
+    name: Make release
     needs: native-image
     runs-on: ubuntu-latest
     steps:
@@ -68,21 +68,15 @@ jobs:
         with:
           name: bazel-deps-linux
           path: downloads/bazel-deps-linux
-      - name: Download linux bazel-deps
+      - name: Download macos bazel-deps
         uses: actions/download-artifact@v1
         with:
           name: bazel-deps-macos
           path: downloads/bazel-deps-macos
-      - name: Look at localA
-        run: ls -lR
       - name: mv binaries linux
         run: mv downloads/bazel-deps-linux/bazel-deps bazel-deps-linux
       - name: mv binaries macos
         run: mv downloads/bazel-deps-macos/bazel-deps bazel-deps-macos
-      - name: Look at local
-        run: ls -lR
-      - name: Look at macos
-        run: cat bazel-deps-macos
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
