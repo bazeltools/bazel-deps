@@ -11,7 +11,7 @@ import scala.util.{Failure, Success}
 
 object Writer {
   private lazy val jarArtifactBackend = Source.fromInputStream(
-    getClass.getResourceAsStream("/templates/jar_artifact_backend.bzl")).mkString
+        getClass.getResourceAsStream("/templates/jar_artifact_backend.bzl")).mkString
 
 
   private lazy val externalWorkspaceBackend = Source.fromInputStream(

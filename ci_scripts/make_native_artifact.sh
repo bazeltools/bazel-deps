@@ -8,7 +8,11 @@ gu install native-image
 
 cd $GITHUB_WORKSPACE
 
-~/github/graalvm-ce-19.0.2/Contents/Home/bin/native-image -H:+ReportUnsupportedElementsAtRuntime \
+rm -rf templates
+mkdir templates/
+cp src/scala/com/github/johnynek/bazel_deps/templates/* templates/
+
+native-image -H:+ReportUnsupportedElementsAtRuntime \
  --initialize-at-build-time \
  --no-server \
  --enable-http \
@@ -20,7 +24,7 @@ cd $GITHUB_WORKSPACE
  --allow-incomplete-classpath \
  -H:+ReportExceptionStackTraces \
  --no-fallback \
- -H:IncludeResources='src.*/templates.*bzl$' \
+ -H:IncludeResources='templates/.*bzl$' \
  -jar bazel-deps.jar
 
 # ensure it actually works!
