@@ -34,10 +34,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-bazel-out-
       - name: Configure bazel config for actions
-      run: |
-        echo "build --config github_actions" > user.bazelrc
-        echo "build --disk_cache ${{ github.workspace }}/.bazel-cache/disk-cache" >> user.bazelrc
-        echo "build --repository_cache ${{ github.workspace }}/.bazel-cache/repo-cache" >> user.bazelrc
+        run: |
+          echo "build --config github_actions" > user.bazelrc
+          echo "build --disk_cache ${{ github.workspace }}/.bazel-cache/disk-cache" >> user.bazelrc
+          echo "build --repository_cache ${{ github.workspace }}/.bazel-cache/repo-cache" >> user.bazelrc
       - name: Install bazel
         run: ./ci_scripts/ci_install_bazel.sh
         env:
