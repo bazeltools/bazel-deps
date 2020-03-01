@@ -32,6 +32,9 @@ jobs:
           BAZEL_INSTALLER_SHA: ${{ matrix.bazel_installer_sha }}
       - name: Build fat jar
         run: ./ci_scripts/build_fat_jar.sh
+        env:
+          BAZEL_VERSION: ${{ matrix.bazel_version }}
+          BAZEL_INSTALLER_SHA: ${{ matrix.bazel_installer_sha }}
       - uses: actions/upload-artifact@master
         with:
           name: ${{ matrix.artifact }}
