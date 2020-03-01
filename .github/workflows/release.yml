@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install bazel
-        run: ./ci_scripts/ci_install_baze.sh "${{ matrix.bazel_platform_name }}"
+        run: ./ci_scripts/ci_install_bazel.sh "${{ matrix.bazel_platform_name }}"
       - name: Build fat jar
         run: ./ci_scripts/build_fat_jar.sh
       - uses: actions/upload-artifact@master
