@@ -50,46 +50,46 @@ jobs:
           BAZEL_VERSION: ${{ matrix.bazel_version }}
           BAZEL_INSTALLER_SHA: ${{ matrix.bazel_installer_sha }}
           BAZEL_BIN_LOC: "${{ github.workspace }}/.bazel-cache/bazel-bin"
-      - uses: olafurpg/setup-scala@v5
-      - run: jabba install graal-custom@20.0=tgz+${{ matrix.graal_url }}
-      - name: Make native image
-        run: ./ci_scripts/make_native_artifact.sh  ${{ matrix.graal_url }}
-      - uses: actions/upload-artifact@master
-        with:
-          name: ${{ matrix.artifact }}
-          path: bazel-deps
-  make_release:
-    name: Display results
-    needs: native-image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download linux bazel-deps
-        uses: actions/download-artifact@v1
-        with:
-          name: bazel-deps-linux
-          path: downloads/bazel-deps-linux
-      - name: Download linux bazel-deps
-        uses: actions/download-artifact@v1
-        with:
-          name: bazel-deps-macos
-          path: downloads/bazel-deps-macos
-      - name: Look at localA
-        run: ls -lR
-      - name: mv binaries linux
-        run: mv downloads/bazel-deps-linux/bazel-deps bazel-deps-linux
-      - name: mv binaries macos
-        run: mv downloads/bazel-deps-macos/bazel-deps bazel-deps-macos
-      - name: Look at local
-        run: ls -lR
-      - name: Look at macos
-        run: cat bazel-deps-macos
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "v0.1-${{ github.run_number }}"
-          prerelease: false
-          title: "Auto generated release"
-          files: |
-            bazel-deps-macos
-            bazel-deps-linux
-        id: "automatic_releases"
+  #     - uses: olafurpg/setup-scala@v5
+  #     - run: jabba install graal-custom@20.0=tgz+${{ matrix.graal_url }}
+  #     - name: Make native image
+  #       run: ./ci_scripts/make_native_artifact.sh  ${{ matrix.graal_url }}
+  #     - uses: actions/upload-artifact@master
+  #       with:
+  #         name: ${{ matrix.artifact }}
+  #         path: bazel-deps
+  # make_release:
+  #   name: Display results
+  #   needs: native-image
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Download linux bazel-deps
+  #       uses: actions/download-artifact@v1
+  #       with:
+  #         name: bazel-deps-linux
+  #         path: downloads/bazel-deps-linux
+  #     - name: Download linux bazel-deps
+  #       uses: actions/download-artifact@v1
+  #       with:
+  #         name: bazel-deps-macos
+  #         path: downloads/bazel-deps-macos
+  #     - name: Look at localA
+  #       run: ls -lR
+  #     - name: mv binaries linux
+  #       run: mv downloads/bazel-deps-linux/bazel-deps bazel-deps-linux
+  #     - name: mv binaries macos
+  #       run: mv downloads/bazel-deps-macos/bazel-deps bazel-deps-macos
+  #     - name: Look at local
+  #       run: ls -lR
+  #     - name: Look at macos
+  #       run: cat bazel-deps-macos
+  #     - uses: "marvinpinto/action-automatic-releases@latest"
+  #       with:
+  #         repo_token: "${{ secrets.GITHUB_TOKEN }}"
+  #         automatic_release_tag: "v0.1-${{ github.run_number }}"
+  #         prerelease: false
+  #         title: "Auto generated release"
+  #         files: |
+  #           bazel-deps-macos
+  #           bazel-deps-linux
+  #       id: "automatic_releases"
