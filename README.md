@@ -3,7 +3,7 @@
 Generate [bazel](https://bazel.build/) dependencies transitively for maven artifacts, with scala
 support.
 
-## Fetching, Quickstart
+## Quickstart
 
 This repo can be cloned and built locally, or you can download pre-build binaries for MacOS and Linux in the releases page. Automatic releases are generated for every commit against master.
 We also include a bash script in the releases which will let you easily download/run on mac/linux a default configuration for running bazel-deps.
