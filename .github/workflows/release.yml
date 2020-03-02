@@ -78,8 +78,8 @@ jobs:
           path: downloads
       - name: show downloads
         run : ls -R downloads
-      - name: Build update_maven_deps.sh
-        run: ./ci_scripts/make_update_maven_deps.sh "v0.1-${{ github.run_number }}"
+      - name: Build update_dependencies.sh
+        run: ./ci_scripts/make_update_dependencies.sh "v0.1-${{ github.run_number }}"
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -91,5 +91,5 @@ jobs:
             downloads/bazel-deps-macos.sha256
             downloads/bazel-deps-linux
             downloads/bazel-deps-linux.sha256
-            update_maven_deps.sh
+            update_dependencies.sh
         id: "automatic_releases"
