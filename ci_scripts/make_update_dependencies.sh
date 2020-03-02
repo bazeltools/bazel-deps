@@ -72,4 +72,4 @@ fi
 \$BAZEL_DEPS_PATH format-deps -d \$REPO_ROOT/dependencies.yaml -o
 EOL
 
-chmod +x update_maven_deps.sh
+chmod +x update_dependencies.sh
