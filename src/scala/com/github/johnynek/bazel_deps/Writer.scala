@@ -10,6 +10,8 @@ import scala.io.Source
 import scala.util.{Failure, Success}
 
 object Writer {
+
+  // This changed from using Source.fromInputStream, as this prior method method could result in null values in a native-image.
   private[this] def loadResourceToString(path: String): String = {
     val is = getClass.getResourceAsStream(path)
     val outputBuffer = new java.io.ByteArrayOutputStream();
