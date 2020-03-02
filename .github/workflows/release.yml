@@ -75,6 +75,7 @@ jobs:
         with:
           name: bazel-deps-macos
           path: downloads
+      - uses: actions/checkout@v2
       - name: Build update_maven_deps.sh
         run: ./ci_scripts/make_update_maven_deps.sh "v0.1-${{ github.run_number }}"
       - uses: "marvinpinto/action-automatic-releases@latest"
