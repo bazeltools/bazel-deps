@@ -30,6 +30,7 @@ native-image -H:+ReportUnsupportedElementsAtRuntime \
  -H:+ReportExceptionStackTraces \
  --no-fallback \
  -H:IncludeResources='.*bzl$' \
+ -cp bazel-deps.jar \
  -jar bazel-deps.jar
 
  cd ..

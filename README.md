@@ -3,9 +3,23 @@
 Generate [bazel](https://bazel.build/) dependencies transitively for maven artifacts, with scala
 support.
 
-## Fetching/usage
+## Quickstart
 
 This repo can be cloned and built locally, or you can download pre-build binaries for MacOS and Linux in the releases page. Automatic releases are generated for every commit against master.
+We also include a bash script in the releases which will let you easily download/run on mac/linux a default configuration for running bazel-deps.
+
+A flow like:
+1) Download the bash script paired with the release, it has the expected per platform sha256's embedded in it
+2) Place in your repo and `chmod +x update_dependencies.sh`, maybe in a scripts folder if you wish.
+3) Copy the `dependencies.yaml` from this repo, or write your own
+4) Run the script, it should produce some files in `3rdparty`
+5) Add to your workspace:
+```python
+load("//3rdparty:workspace.bzl", "maven_dependencies")
+maven_dependencies()
+load("//3rdparty:target_file.bzl", "build_external_workspace")
+build_external_workspace(name = "third_party")
+```
 
 ## Usage
 

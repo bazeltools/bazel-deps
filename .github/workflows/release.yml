@@ -54,29 +54,32 @@ jobs:
       - run: jabba install graal-custom@20.0=tgz+${{ matrix.graal_url }}
       - name: Make native image
         run: ./ci_scripts/make_native_artifact.sh  ${{ matrix.graal_url }}
+      - name: Prepare outputs from platform run
+        run: ./ci_scripts/prepare_output.sh ${{ matrix.artifact }} staging-directory
       - uses: actions/upload-artifact@master
         with:
           name: ${{ matrix.artifact }}
-          path: bazel-deps
+          path: staging-directory
   make_release:
     name: Make release
     needs: native-image
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
       - name: Download linux bazel-deps
         uses: actions/download-artifact@v1
         with:
           name: bazel-deps-linux
-          path: downloads/bazel-deps-linux
+          path: downloads
       - name: Download macos bazel-deps
         uses: actions/download-artifact@v1
         with:
           name: bazel-deps-macos
-          path: downloads/bazel-deps-macos
-      - name: mv binaries linux
-        run: mv downloads/bazel-deps-linux/bazel-deps bazel-deps-linux
-      - name: mv binaries macos
-        run: mv downloads/bazel-deps-macos/bazel-deps bazel-deps-macos
+          path: downloads
+      - name: show downloads
+        run : ls -R downloads
+      - name: Build update_dependencies.sh
+        run: ./ci_scripts/make_update_dependencies.sh "v0.1-${{ github.run_number }}"
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -84,6 +87,9 @@ jobs:
           prerelease: false
           title: "Auto generated release"
           files: |
-            bazel-deps-macos
-            bazel-deps-linux
+            downloads/bazel-deps-macos
+            downloads/bazel-deps-macos.sha256
+            downloads/bazel-deps-linux
+            downloads/bazel-deps-linux.sha256
+            update_dependencies.sh
         id: "automatic_releases"
