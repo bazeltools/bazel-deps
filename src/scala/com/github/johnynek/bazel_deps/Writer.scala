@@ -10,12 +10,27 @@ import scala.io.Source
 import scala.util.{Failure, Success}
 
 object Writer {
-  private lazy val jarArtifactBackend = Source.fromInputStream(
-    getClass.getResource("/templates/jar_artifact_backend.bzl").openStream()).mkString
 
+  // This changed from using Source.fromInputStream, as this prior method method could result in null values in a native-image.
+  private[this] def loadResourceToString(path: String): String = {
+    val is = getClass.getResourceAsStream(path)
+    val outputBuffer = new java.io.ByteArrayOutputStream();
+    val data = new Array[Byte](1024)
+    @annotation.tailrec
+    def go() {
+      val nRead = is.read(data, 0, data.length)
+      if(nRead != -1) {
+        outputBuffer.write(data, 0, nRead)
+        go
+      }
+    }
+    go()
+    outputBuffer.flush();
+    new String(outputBuffer.toByteArray())
+  }
+  private lazy val jarArtifactBackend = loadResourceToString("/templates/jar_artifact_backend.bzl")
 
-  private lazy val externalWorkspaceBackend = Source.fromInputStream(
-    getClass.getResource("/templates/external_workspace_backend.bzl").openStream()).mkString
+  private lazy val externalWorkspaceBackend = loadResourceToString("/templates/external_workspace_backend.bzl")
 
   sealed abstract class TargetsError {
     def message: String

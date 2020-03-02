@@ -7,3 +7,4 @@ bazel-*
 .DS_Store
 .project/**
 .ijwb
+/templates
