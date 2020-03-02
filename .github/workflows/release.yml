@@ -65,6 +65,7 @@ jobs:
     needs: native-image
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
       - name: Download linux bazel-deps
         uses: actions/download-artifact@v1
         with:
@@ -75,7 +76,8 @@ jobs:
         with:
           name: bazel-deps-macos
           path: downloads
-      - uses: actions/checkout@v2
+      - name: show downloads
+        run : ls -R downloads
       - name: Build update_maven_deps.sh
         run: ./ci_scripts/make_update_maven_deps.sh "v0.1-${{ github.run_number }}"
       - uses: "marvinpinto/action-automatic-releases@latest"
