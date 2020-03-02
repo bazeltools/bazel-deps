@@ -5,7 +5,7 @@ MACOS_SHA=$(cat downloads/bazel-deps-macos.sha256)
 LINUX_SHA=$(cat downloads/bazel-deps-linux.sha256)
 BAZEL_DEPS_VERSION=$1
 
-cat >update_maven_deps.sh <<EOL
+cat >update_dependencies.sh <<EOL
 #!/bin/bash
 echo -ne "\033[0;32m"
 echo 'Updating bazel dependencies. This will take about five minutes.'
