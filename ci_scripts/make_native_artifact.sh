@@ -8,24 +8,13 @@ gu install native-image
 
 cd $GITHUB_WORKSPACE
 
-
-curl -L -o proguard.jar https://repo.maven.apache.org/maven2/net/sf/proguard/proguard-base/6.2.2/proguard-base-6.2.2.jar
-
-set +e
-java -jar proguard.jar @ci_scripts/bazel-deps.pro &> /dev/null
-set -e
-
 rm -rf native_image_working_directory
 mkdir native_image_working_directory
 cd native_image_working_directory
 
 mkdir templates/
 cp ../src/scala/com/github/johnynek/bazel_deps/templates/* templates/
-if [ -f ../bazel-deps-min.jar ]; then
-  cp ../bazel-deps-min.jar bazel-deps.jar
-else
-  cp ../bazel-deps.jar .
-fi
+cp ../bazel-deps.jar .
 cp ../ci_scripts/reflection.json .
 
 native-image -H:+ReportUnsupportedElementsAtRuntime \
