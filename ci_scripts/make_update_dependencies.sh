@@ -32,7 +32,8 @@ cd \$SCRIPT_LOCATION
 
 REPO_ROOT=\$(git rev-parse --show-toplevel)
 
-BAZEL_DEPS_PATH="\$HOME/.bazel-deps-cache/${BAZEL_DEPS_VERSION}"
+BAZEL_DEPS_DIR="\$HOME/.bazel-deps-cache"
+BAZEL_DEPS_PATH="\${BAZEL_DEPS_DIR}/${BAZEL_DEPS_VERSION}"
 
 if [ ! -f \${BAZEL_DEPS_PATH} ]; then
   ( # Opens a subshell
@@ -50,6 +51,7 @@ if [ ! -f \${BAZEL_DEPS_PATH} ]; then
     fi
 
     chmod +x /tmp/bazel-deps-bin
+    mkdir -p \${BAZEL_DEPS_DIR}
     mv /tmp/bazel-deps-bin \${BAZEL_DEPS_PATH}
   )
 fi
