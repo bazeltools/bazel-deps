@@ -20,6 +20,8 @@ maven_dependencies()
 load("//3rdparty:target_file.bzl", "build_external_workspace")
 build_external_workspace(name = "third_party")
 ```
+6) You can now add dependencies to your `BUILD` files as described [below](#alternate-outputs-external-repo).
+eg `deps = ["@third_party//3rdparty/jvm/org/scalaj:scala_http"]`.
 
 ## Usage
 
