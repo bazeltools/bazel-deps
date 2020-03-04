@@ -19,7 +19,7 @@ elif [ "\$(uname -s)" == "Darwin" ]; then
   BAZEL_DEPS_URL=https://github.com/${GITHUB_REPOSITORY}/releases/download/${BAZEL_DEPS_VERSION}/bazel-deps-macos
   BAZEL_DEPS_SHA256=${MACOS_SHA}
 else
-  "Your platform \$(uname -s) is unsupported, sorry"
+  echo "Your platform '\$(uname -s)' is unsupported, sorry"
   exit 1
 fi
 
