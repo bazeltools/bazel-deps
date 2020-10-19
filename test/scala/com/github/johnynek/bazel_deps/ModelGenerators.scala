@@ -70,7 +70,7 @@ object ModelGenerators {
     resolverType <- Gen.option(Gen.oneOf(ResolverType.Aether, ResolverType.Coursier))
     strictVisibility <- Gen.option(Gen.oneOf(StrictVisibility(true), StrictVisibility(false)))
     buildFileName <- Gen.option(Gen.oneOf("BUILD", "BUILD.bazel"))
-  } yield Options(vcp, dir, langs, res, trans, heads, cache, prefix, licenses, resolverType, strictVisibility, buildFileName)
+  } yield Options(vcp, dir, langs, res, trans, heads, cache, prefix, licenses, resolverType, strictVisibility, buildFileName, None)
 
   val modelGen: Gen[Model] = for {
     o <- Gen.option(optionGen)

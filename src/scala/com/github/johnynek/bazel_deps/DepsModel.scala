@@ -76,6 +76,14 @@ case class Model(
 
     yamlMap(List(opts, deps, reps).collect { case Some(kv) => kv }, 2) + Doc.line
   }
+
+  def hasAuthFile: Boolean = options.exists(_.authFile.nonEmpty)
+  def getAuthFile: Option[String] =
+    options.flatMap(_.authFile).map { auth =>
+      if(auth.startsWith("$"))
+        sys.env.getOrElse(auth.substring(1), s"env var ${auth} not found")
+      else auth
+    }
 }
 
 object Model {
@@ -1222,7 +1230,8 @@ case class Options(
   licenses: Option[Set[String]],
   resolverType: Option[ResolverType],
   strictVisibility: Option[StrictVisibility],
-  buildFileName: Option[String]
+  buildFileName: Option[String],
+  authFile: Option[String]
 ) {
   def isDefault: Boolean =
     versionConflictPolicy.isEmpty &&
@@ -1236,7 +1245,8 @@ case class Options(
     licenses.isEmpty &&
     resolverType.isEmpty &&
     strictVisibility.isEmpty &&
-    buildFileName.isEmpty
+    buildFileName.isEmpty &&
+    authFile.isEmpty
 
   def getLicenses: Set[String] =
     licenses.getOrElse(Set.empty)
@@ -1305,7 +1315,8 @@ case class Options(
         licenses.map { l => list(l.toList.sorted)(quoteDoc) }),
       ("strictVisibility", strictVisibility.map { x => Doc.text(x.enabled.toString)}),
       ("resolverType", resolverType.map(r => quoteDoc(r.asString))),
-      ("buildFileName", buildFileName.map(name => Doc.text(name)))
+      ("buildFileName", buildFileName.map(name => Doc.text(name))),
+      ("authFile", authFile.map(name => Doc.text(name)))
     ).sortBy(_._1)
      .collect { case (k, Some(v)) => (k, v) }
 
@@ -1327,7 +1338,7 @@ object Options {
    * A monoid on options that is just the point-wise monoid
    */
   implicit val optionsMonoid: Monoid[Options] = new Monoid[Options] {
-    val empty = Options(None, None, None, None, None, None, None, None, None, None, None, None)
+    val empty = Options(None, None, None, None, None, None, None, None, None, None, None, None, None)
 
     def combine(a: Options, b: Options): Options = {
       val vcp = Monoid[Option[VersionConflictPolicy]].combine(a.versionConflictPolicy, b.versionConflictPolicy)
@@ -1342,7 +1353,8 @@ object Options {
       val resolverType = Monoid[Option[ResolverType]].combine(a.resolverType, b.resolverType)
       val strictVisibility = Monoid[Option[StrictVisibility]].combine(a.strictVisibility, b.strictVisibility)
       val buildFileName = Monoid[Option[String]].combine(a.buildFileName, b.buildFileName)
-      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix, licenses, resolverType, strictVisibility, buildFileName)
+      val authFile = Monoid[Option[String]].combine(a.authFile, b.authFile)
+      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix, licenses, resolverType, strictVisibility, buildFileName, authFile)
     }
   }
 }

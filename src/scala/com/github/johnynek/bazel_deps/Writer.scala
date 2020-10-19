@@ -234,7 +234,41 @@ object Writer {
       }
       .mkString("\n")
 
+    val ifAuth : String => String =
+       if(model.hasAuthFile) identity
+       else _ => ""
+
+    val jarArtifactImpl =
+    s"""${
+      if(model.hasAuthFile)
+        s"""|load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_netrc", "use_netrc")
+            |
+            |def _jar_artifact_impl(ctx):
+            |    netrc = read_netrc(ctx, "${model.getAuthFile.get}")
+            |    auth = use_netrc(netrc, ctx.attr.urls, {})
+            |""".stripMargin
+      else "def _jar_artifact_impl(ctx):"
+       }
+       |    jar_name = "%s.jar" % ctx.name
+       |    ctx.download(
+       |        output = ctx.path("jar/%s" % jar_name),
+       |        url = ctx.attr.urls,
+       |        sha256 = ctx.attr.sha256,
+       |        executable = False${ifAuth(",\n        auth = auth")}
+       |    )
+       |    src_name = "%s-sources.jar" % ctx.name
+       |    srcjar_attr = ""
+       |    has_sources = len(ctx.attr.src_urls) != 0
+       |    if has_sources:${ifAuth("\n        src_auth = use_netrc(netrc, ctx.attr.src_urls, {})")}
+       |        ctx.download(
+       |            output = ctx.path("jar/%s" % src_name),
+       |            url = ctx.attr.src_urls,
+       |            sha256 = ctx.attr.src_sha256,
+       |            executable = False${ifAuth(",\n            auth = src_auth")}
+       |        )""".stripMargin
+
     s"""# Do not edit. bazel-deps autogenerates this file from $depsFile.
+        |$jarArtifactImpl
         |$jarArtifactBackend
         |
         |def list_dependencies():
