@@ -49,6 +49,7 @@ class ParseTest extends FunSuite {
                 |  resolverCache: bazel_output_base
                 |  licenses: ["unencumbered", "permissive"]
                 |  buildFileName: "BUILD.bazel"
+                |  authFile: $BAZEL_NETRC
                 |""".stripMargin('|')
 
     assert(Decoders.decodeModel(Yaml, str) ==
@@ -80,7 +81,7 @@ class ParseTest extends FunSuite {
               None,
               None,
               Some("BUILD.bazel"),
-              None)))))
+              Some("$BAZEL_NETRC"))))))
   }
   test("parse empty subproject version") {
     val str = """dependencies:
