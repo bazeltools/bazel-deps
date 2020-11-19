@@ -2,22 +2,22 @@
 def _jar_artifact_impl(ctx):
     jar_name = "%s.jar" % ctx.name
     ctx.download(
-        output=ctx.path("jar/%s" % jar_name),
-        url=ctx.attr.urls,
-        sha256=ctx.attr.sha256,
-        executable=False
+        output = ctx.path("jar/%s" % jar_name),
+        url = ctx.attr.urls,
+        sha256 = ctx.attr.sha256,
+        executable = False
     )
-    src_name="%s-sources.jar" % ctx.name
-    srcjar_attr=""
+    src_name = "%s-sources.jar" % ctx.name
+    srcjar_attr = ""
     has_sources = len(ctx.attr.src_urls) != 0
     if has_sources:
         ctx.download(
-            output=ctx.path("jar/%s" % src_name),
-            url=ctx.attr.src_urls,
-            sha256=ctx.attr.src_sha256,
-            executable=False
+            output = ctx.path("jar/%s" % src_name),
+            url = ctx.attr.src_urls,
+            sha256 = ctx.attr.src_sha256,
+            executable = False
         )
-        srcjar_attr ='\n    srcjar = ":%s",' % src_name
+        srcjar_attr = '\n    srcjar = ":%s",' % src_name
 
     build_file_contents = """
 package(default_visibility = ['//visibility:public'])
