@@ -682,14 +682,11 @@ case class ProjectRecord(
 
     val record = List(List(("lang", Doc.text(lang.asString))),
       version.toList.map { v => ("version", quoteDoc(v.asString)) },
-      modules.toList.map { ms =>
-        ("modules", list(ms.map(_.asString).toList.sorted)(quoteDoc)) },
-      exports.toList.map { ms =>
-        ("exports", exportsDoc(ms)) },
-      exclude.toList.map { ms =>
-        ("exclude", exportsDoc(ms)) },
-      processorClasses.toList.map { pcs =>
-        ("processorClasses", list(pcs.map(_.asString).toList.sorted)(quoteDoc)) }
+      modules.toList.map { ms => ("modules", list(ms.map(_.asString).toList.sorted)(quoteDoc)) },
+      exports.toList.map { ms => ("exports", exportsDoc(ms)) },
+      exclude.toList.map { ms => ("exclude", exportsDoc(ms)) },
+      processorClasses.toList.map { pcs => ("processorClasses", list(pcs.map(_.asString).toList.sorted)(quoteDoc)) },
+      generateNeverlink.toList.map { v => ("generateNeverlink", Doc.text(v.toString)) }
       )
       .flatten
       .sortBy(_._1)
