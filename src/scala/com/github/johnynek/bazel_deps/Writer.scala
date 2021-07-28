@@ -376,7 +376,7 @@ object Writer {
               Target(lang,
                 kind = Target.Library,
                 name = Label.localTarget(pathInRoot, u, lang),
-                visibility = visibility(u),
+                visibility = Target.Visibility.Public,
                 exports = Set(lab),
                 jars = Set.empty,
                 licenses = licenses)
@@ -384,7 +384,7 @@ object Writer {
               Target(lang,
                 kind = Target.Import,
                 name = Label.localTarget(pathInRoot, u, lang),
-                visibility = visibility(u),
+                visibility = Target.Visibility.Public,
                 exports = Set(lab),
                 jars = Set.empty,
                 licenses = licenses)
@@ -392,7 +392,7 @@ object Writer {
               Target(lang,
                 kind = Target.Library,
                 name = Label.localTarget(pathInRoot, u, lang),
-                visibility = visibility(u),
+                visibility = Target.Visibility.Public,
                 exports = Set(lab),
                 jars = Set.empty,
                 licenses = licenses)
