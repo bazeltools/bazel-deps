@@ -1,7 +1,7 @@
 package com.github.johnynek.bazel_deps
 
-import org.scalatest.FunSuite
 import cats.data.Validated
+import org.scalatest.FunSuite
 
 class ModelTest extends FunSuite {
   test("specific versions sort correctly") {
@@ -99,5 +99,31 @@ class ModelTest extends FunSuite {
 
     // special: remove default packaging
     assert(MavenArtifactId("foo:jar").addSuffix("_1").asString == "foo_1")
+  }
+
+  test("Model toXml"){
+    val lang = Language.Scala.default
+    val deps = Dependencies(Map(
+      MavenGroup("com.twitter") -> Map(
+        ArtifactOrProject("finagle") -> ProjectRecord(lang, Some(Version("0.1")), Some(Set(Subproject(""), Subproject("core"))), None, None, None, None, None)
+      )
+    ))
+    val model = new Model(deps, None, None)
+    val expected_xml =
+      <dependencies>
+        <dependency>
+          <groupId>com.twitter</groupId>
+          <artifactId>finagle</artifactId>
+          <version>0.1</version>
+        </dependency>
+        <dependency>
+          <groupId>com.twitter</groupId>
+          <artifactId>finagle-core</artifactId>
+          <version>0.1</version>
+        </dependency>
+      </dependencies>
+
+    val p = new scala.xml.PrettyPrinter(80, 2)
+    assert(p.format(model.toXml) == p.format(expected_xml))
   }
 }

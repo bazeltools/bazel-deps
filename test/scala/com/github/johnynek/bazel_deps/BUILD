@@ -8,7 +8,10 @@ scala_library(name = "gencheats",
 scala_test(name = "modeltest",
            srcs = ["ModelTest.scala"],
            size = "small",
-           deps = ["//src/scala/com/github/johnynek/bazel_deps:depsmodel"])
+           deps = [
+               "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+               "//3rdparty/jvm/org/scala_lang/modules:scala_xml",
+               ])
 
 scala_test(name = "graphtest",
            srcs = ["GraphTest.scala"],

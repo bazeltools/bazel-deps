@@ -4,6 +4,7 @@ scala_library(name = "depsmodel",
                   "//3rdparty/jvm/org/typelevel:cats_core",
                   "//3rdparty/jvm/org/typelevel:cats_kernel",
                   "//3rdparty/jvm/org/typelevel:paiges_core",
+                  "//3rdparty/jvm/org/scala_lang/modules:scala_xml",
               ],
               exports = [
                   "//3rdparty/jvm/org/typelevel:cats_core",
@@ -155,6 +156,7 @@ scala_binary(name = "parseproject",
              srcs = ["ParseProject.scala"],
              deps = [
                  ":makedeps",
+                 ":generatepom",
                  ":commands",
                  "//3rdparty/jvm/org/slf4j:slf4j_simple",
              ],
@@ -186,4 +188,15 @@ scala_library(name = "decoders",
                   "//3rdparty/jvm/io/circe:circe_generic",
               ],
               visibility = ["//visibility:public"])
+
+scala_library(name = "generatepom",
+             srcs = ["GeneratePom.scala"],
+             deps = [
+                 "//3rdparty/jvm/io/circe:circe_core",
+                 "//3rdparty/jvm/org/scala_lang/modules:scala_xml",
+                 ":circeyaml",
+                 ":depsmodel",
+                 ":decoders",
+             ],
+             visibility = ["//visibility:public"])
 
