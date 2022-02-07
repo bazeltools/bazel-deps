@@ -21,6 +21,8 @@ object ParseProject {
             MergeDeps(ms, out)
           case Command.AddDep(yaml, lang, coords, _) =>
             MergeDeps.addDep(yaml, lang, coords)
+          case gen: Command.GeneratePom =>
+            GeneratePom(gen.deps.toFile, gen.pomFile.toFile)
         }
     }
   }

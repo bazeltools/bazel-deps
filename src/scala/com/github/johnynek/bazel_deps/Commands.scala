@@ -116,6 +116,14 @@ object Command {
     (repoRoot |@| depsFile |@| shaFile |@| targetFile |@| buildifier |@| checkOnly |@| Verbosity.opt |@| disable3rdPartyInRepos).map(Generate(_, _, _, _, _, _, _, _))
   }
 
+  case class GeneratePom(deps: Path, pomFile: Path, verbosity: Verbosity) extends Command
+  val generatePom = DCommand("generate-pom", "create pom xml file") {
+    val depsFile = Opts.option[Path]("deps", short = "d", help = "the ABSOLUTE path to your dependencies yaml file")
+    val pomFile = Opts.option[Path]("pom-file", short = "p", help = "the ABSOLUTE path to your pom xml file")
+
+    (depsFile |@| pomFile |@| Verbosity.opt).map(GeneratePom(_, _, _))
+  }
+
   case class FormatDeps(deps: Path, overwrite: Boolean, verbosity: Verbosity) extends Command
   val format = DCommand("format-deps", "format the dependencies yaml file") {
     val depsFile = Opts.option[Path]("deps", short = "d", help = "the ABSOLUTE path to your dependencies yaml file")
@@ -158,7 +166,7 @@ object Command {
 
   val command: DCommand[Command] =
     DCommand(name = "bazel-deps", header = "a tool to manage transitive external Maven dependencies for bazel") {
-      (Opts.help :: (List(generate, format, mergeDeps, addDep).map(Opts.subcommand(_))))
+      (Opts.help :: (List(generate, format, mergeDeps, addDep, generatePom).map(Opts.subcommand(_))))
         .reduce(_.orElse(_))
     }
 }
