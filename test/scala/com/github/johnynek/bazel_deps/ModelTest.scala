@@ -105,6 +105,28 @@ class ModelTest extends FunSuite {
     val lang = Language.Scala.default
     val deps = Dependencies(Map(
       MavenGroup("com.twitter") -> Map(
+        ArtifactOrProject("finagle") -> ProjectRecord(lang, Some(Version("0.1")), None, None, None, None, None, None)
+      )
+    ))
+    val model = new Model(deps, None, None)
+    val expected_xml =
+      <dependencies>
+        <dependency>
+          <groupId>com.twitter</groupId>
+          <artifactId>finagle</artifactId>
+          <version>0.1</version>
+        </dependency>
+      </dependencies>
+
+    val p = new scala.xml.PrettyPrinter(80, 2)
+    assert(p.format(model.toXml) == p.format(expected_xml))
+  }
+
+
+  test("Model toXml with subprojects"){
+    val lang = Language.Scala.default
+    val deps = Dependencies(Map(
+      MavenGroup("com.twitter") -> Map(
         ArtifactOrProject("finagle") -> ProjectRecord(lang, Some(Version("0.1")), Some(Set(Subproject(""), Subproject("core"))), None, None, None, None, None)
       )
     ))

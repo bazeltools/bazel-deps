@@ -755,7 +755,7 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
       .map { case (mavenGroup, map) =>
         map.map { case (artifactId, projectRecord) =>
           val modules = projectRecord.modules
-          modules.getOrElse(Set.empty).toList.sortBy(_.asString).map {
+          modules.getOrElse(Set(new Subproject(""))).toList.sortBy(_.asString).map {
             module =>
               val p = new scala.xml.PrettyPrinter(80, 2)
               <dependency>
