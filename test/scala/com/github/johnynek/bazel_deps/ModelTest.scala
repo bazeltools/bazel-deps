@@ -101,51 +101,16 @@ class ModelTest extends FunSuite {
     assert(MavenArtifactId("foo:jar").addSuffix("_1").asString == "foo_1")
   }
 
-  test("Model toXml"){
-    val lang = Language.Scala.default
-    val deps = Dependencies(Map(
-      MavenGroup("com.twitter") -> Map(
-        ArtifactOrProject("finagle") -> ProjectRecord(lang, Some(Version("0.1")), None, None, None, None, None, None)
-      )
-    ))
-    val model = new Model(deps, None, None)
+  test("MavenCoordinate toXml"){
+
+    val mavenCoordinate = new MavenCoordinate(MavenGroup("com.twitter"), MavenArtifactId("finagle"), Version("0.1"))
     val expected_xml =
-      <dependencies>
-        <dependency>
-          <groupId>com.twitter</groupId>
-          <artifactId>finagle</artifactId>
-          <version>0.1</version>
-        </dependency>
-      </dependencies>
-
+      <dependency>
+        <groupId>com.twitter</groupId>
+        <artifactId>finagle</artifactId>
+        <version>0.1</version>
+      </dependency>
     val p = new scala.xml.PrettyPrinter(80, 2)
-    assert(p.format(model.toXml) == p.format(expected_xml))
-  }
-
-
-  test("Model toXml with subprojects"){
-    val lang = Language.Scala.default
-    val deps = Dependencies(Map(
-      MavenGroup("com.twitter") -> Map(
-        ArtifactOrProject("finagle") -> ProjectRecord(lang, Some(Version("0.1")), Some(Set(Subproject(""), Subproject("core"))), None, None, None, None, None)
-      )
-    ))
-    val model = new Model(deps, None, None)
-    val expected_xml =
-      <dependencies>
-        <dependency>
-          <groupId>com.twitter</groupId>
-          <artifactId>finagle</artifactId>
-          <version>0.1</version>
-        </dependency>
-        <dependency>
-          <groupId>com.twitter</groupId>
-          <artifactId>finagle-core</artifactId>
-          <version>0.1</version>
-        </dependency>
-      </dependencies>
-
-    val p = new scala.xml.PrettyPrinter(80, 2)
-    assert(p.format(model.toXml) == p.format(expected_xml))
+    assert(p.format(mavenCoordinate.toXml) == p.format(expected_xml))
   }
 }

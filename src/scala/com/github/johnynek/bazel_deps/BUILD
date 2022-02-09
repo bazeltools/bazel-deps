@@ -192,11 +192,16 @@ scala_library(name = "decoders",
 scala_library(name = "generatepom",
              srcs = ["GeneratePom.scala"],
              deps = [
+                 "//3rdparty/jvm/io/get_coursier:coursier_cache",
                  "//3rdparty/jvm/io/circe:circe_core",
                  "//3rdparty/jvm/org/scala_lang/modules:scala_xml",
                  ":circeyaml",
                  ":depsmodel",
                  ":decoders",
+                 ":graph",
+                 ":normalizer",
+                 ":coursier_resolver",
+                 ":resolver",
              ],
              visibility = ["//visibility:public"])
 

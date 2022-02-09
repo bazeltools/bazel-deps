@@ -80,10 +80,6 @@ case class Model(
     yamlMap(List(opts, deps, reps).collect { case Some(kv) => kv }, 2) + Doc.line
   }
 
-  def toXml: Elem = {
-    {dependencies.toXml}
-  }
-
   def hasAuthFile: Boolean = options.exists(_.authFile.nonEmpty)
   def getAuthFile: Option[String] =
     options.flatMap(_.authFile).map { auth =>
@@ -146,11 +142,7 @@ object Model {
   }
 }
 
-case class MavenGroup(asString: String) {
-  def toXml: Elem = {
-    <groupId>{asString}</groupId>
-  }
-}
+case class MavenGroup(asString: String)
 case class ArtifactOrProject(artifact: MavenArtifactId) {
 
   private val artifactId = artifact.artifactId
@@ -188,10 +180,6 @@ case class ArtifactOrProject(artifact: MavenArtifactId) {
       case "" => this
       case _ => ArtifactOrProject(MavenArtifactId(s"$artifactId-$str", packaging, classifier))
     }
-  }
-
-  def toXml(sp: Subproject): Elem = {
-    <artifactId>{toArtifact(sp).asString}</artifactId>
   }
 }
 object ArtifactOrProject {
@@ -451,6 +439,14 @@ case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, version
     Dependencies(Map(group ->
       Map(ArtifactOrProject(artifact.asString) ->
         ProjectRecord(l, Some(version), None, None, None, None, None, None))))
+
+  def toXml: Elem = {
+    <dependency>
+      <groupId>{group.asString}</groupId>
+      <artifactId>{artifact.asString}</artifactId>
+      <version>{version.asString}</version>
+    </dependency>
+  }
 }
 
 object MavenCoordinate {
@@ -748,30 +744,6 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
 
     yamlMap(allDepDoc, 2)
   }
-
-  def toXml: Elem = {
-    <dependencies>
-      {toMap.toList
-      .map { case (mavenGroup, map) =>
-        map.map { case (artifactId, projectRecord) =>
-          val modules = projectRecord.modules
-          modules.getOrElse(Set(new Subproject(""))).toList.sortBy(_.asString).map {
-            module =>
-              val p = new scala.xml.PrettyPrinter(80, 2)
-              <dependency>
-                {mavenGroup.toXml}
-                {artifactId.toXml(module)}
-                {projectRecord.version match {
-                  case None =>
-                  case Some(v) => <version>{v.asString}</version>
-                }}
-              </dependency>
-          }
-        }
-      }}
-    </dependencies>
-  }
-
 
   // Returns 1 if there is exactly one candidate that matches.
   def unversionedCoordinatesOf(g: MavenGroup, a: ArtifactOrProject): Option[UnversionedCoordinate] =
