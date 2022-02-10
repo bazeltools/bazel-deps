@@ -83,14 +83,13 @@ object GeneratePom {
             }
         }
 
-
-
         val pomXml = <project>
           <modelVersion>4.0.0</modelVersion>
 
           <groupId>{groupId}</groupId>
           <artifactId>{artifactId}</artifactId>
           <version>{version}</version>
+
           <dependencies>
             {mavenCoordinateXml}
           </dependencies>
