@@ -59,6 +59,7 @@ object Command {
     shaFile: String,
     targetFile: Option[String],
     buildifier: Option[String],
+    pomFile: Option[String],
     checkOnly: Boolean,
     verbosity: Verbosity,
     disable3rdPartyInRepo: Boolean
@@ -104,6 +105,12 @@ object Command {
       metavar = "buildifier",
       help = "absolute path to buildifier binary, which will be called to format each generated BUILD file").orNone
 
+    val pomFile = Opts.option[String](
+      "pom-file",
+      short = "p",
+      metavar = "pom-file",
+      help = "absolute path to the pom xml file").orNone
+
     val checkOnly = Opts.flag(
       "check-only",
       help = "if set, the generated files are checked against the existing files but are not written; exits 0 if the files match").orFalse
@@ -113,7 +120,7 @@ object Command {
       "disable-3rdparty-in-repo",
       help = "If set it controls if we should print out the 3rdparty source tree in the repo or not.").orFalse
 
-    (repoRoot |@| depsFile |@| shaFile |@| targetFile |@| buildifier |@| checkOnly |@| Verbosity.opt |@| disable3rdPartyInRepos).map(Generate(_, _, _, _, _, _, _, _))
+    (repoRoot |@| depsFile |@| shaFile |@| targetFile |@| buildifier |@| pomFile |@| checkOnly |@| Verbosity.opt |@| disable3rdPartyInRepos).map(Generate(_, _, _, _, _, _, _, _, _))
   }
 
   case class FormatDeps(deps: Path, overwrite: Boolean, verbosity: Verbosity) extends Command

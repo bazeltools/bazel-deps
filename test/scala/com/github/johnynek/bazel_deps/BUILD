@@ -124,4 +124,17 @@ scala_test(name = "target_test",
                "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
                ])
 
+scala_test(name = "createpomtest",
+           srcs = ["CreatePomTest.scala"],
+           deps = [
+               "//3rdparty/jvm/io/circe:circe_core",
+               "//src/scala/com/github/johnynek/bazel_deps:circeyaml",
+               "//src/scala/com/github/johnynek/bazel_deps:decoders",
+               "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+               "//src/scala/com/github/johnynek/bazel_deps:makedeps",
+               "//src/scala/com/github/johnynek/bazel_deps:graph",
+                "//src/scala/com/github/johnynek/bazel_deps:createpom",
+                "//3rdparty/jvm/org/scala_lang/modules:scala_xml",
+               ])
+
 test_suite(name = "all_tests")

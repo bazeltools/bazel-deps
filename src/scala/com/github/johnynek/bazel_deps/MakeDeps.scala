@@ -41,6 +41,8 @@ object MakeDeps {
         logger.error("resolution and sha collection failed", err)
         System.exit(1)
       case Success((normalized, shas, duplicates)) =>
+        // creates pom xml when path is provided
+        if (g.pomFile.nonEmpty) { CreatePom(normalized,  g.pomFile.get ) }
         // build the BUILDs in thirdParty
         val targets = Writer.targets(normalized, model) match {
           case Right(t) => t
