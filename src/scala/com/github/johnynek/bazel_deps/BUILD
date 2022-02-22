@@ -141,6 +141,7 @@ scala_library(name = "makedeps",
                  ":commands",
                  ":decoders",
                  ":depsmodel",
+                 ":createpom",
                  ":graph",
                  ":io",
                  ":normalizer",
@@ -186,4 +187,13 @@ scala_library(name = "decoders",
                   "//3rdparty/jvm/io/circe:circe_generic",
               ],
               visibility = ["//visibility:public"])
+
+scala_library(name = "createpom",
+             srcs = ["CreatePom.scala"],
+             deps = [
+                 "//3rdparty/jvm/org/scala_lang/modules:scala_xml",
+                 ":depsmodel",
+                 ":graph",
+             ],
+             visibility = ["//visibility:public"])
 
