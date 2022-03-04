@@ -8,3 +8,5 @@ bazel-*
 .project/**
 .ijwb
 /templates
+.metals
+.vscode
