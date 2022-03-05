@@ -1334,7 +1334,6 @@ object ResolverType {
       }
     }
   }
-    Options.useRight.algebra[ResolverType]
 }
 
 object TryMerge {

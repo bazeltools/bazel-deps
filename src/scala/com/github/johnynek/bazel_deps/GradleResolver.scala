@@ -55,7 +55,7 @@ class GradleResolver(servers: List[DependencyServer], ec: ExecutionContext, runT
 
   private def cleanUpMap(depMap: Map[String, GradleLockDependency]): Try[Map[String, GradleLockDependency]] = {
     // First check its fully connected
-val noContentDeps: Map[String, Option[Version]] = gradleTpe.getNoContentDeps
+    val noContentDeps: Map[String, Option[Version]] = gradleTpe.getNoContentDeps
 
     val connected = depMap.foldLeft(Try(())) { case (p, (outerK, v)) =>
       v.transitive.getOrElse(Nil).foldLeft(p) { case (p, luK) =>
@@ -113,43 +113,42 @@ val noContentDeps: Map[String, Option[Version]] = gradleTpe.getNoContentDeps
   }
 
   //
-    private def buildGraphFromDepMap(depMap: Map[String, GradleLockDependency]): Try[Graph[MavenCoordinate, Unit]] =  {
-      cleanUpMap(depMap).flatMap { depMap =>
-        def toCoord(k: String): Try[MavenCoordinate] =
-          depMap.get(k).map { resolvedInfo =>
-            val e = k.split(':')
-            val (org, nme) = (e(0),e(1))
+  private def buildGraphFromDepMap(depMap: Map[String, GradleLockDependency]): Try[Graph[MavenCoordinate, Unit]] = {
+    cleanUpMap(depMap).flatMap { depMap =>
+      def toCoord(k: String): Try[MavenCoordinate] =
+        depMap.get(k).map { resolvedInfo =>
+          val e = k.split(':')
+          val (org, nme) = (e(0), e(1))
 
 
-            Success(MavenCoordinate(
-              MavenGroup(org),
-              MavenArtifactId(nme, gradleTpe.getContentTypeOverride.getOrElse(k, "jar"), ""),
-              Version(resolvedInfo.locked.getOrElse("")))
-            )
-          }.getOrElse(Failure(new Exception(s"Unable to lookup info about $k in dep map")))
+          Success(MavenCoordinate(
+            MavenGroup(org),
+            MavenArtifactId(nme, gradleTpe.getContentTypeOverride.getOrElse(k, "jar"), ""),
+            Version(resolvedInfo.locked.getOrElse("")))
+          )
+        }.getOrElse(Failure(new Exception(s"Unable to lookup info about $k in dep map")))
 
 
-        depMap.foldLeft(Try(Graph.empty[MavenCoordinate, Unit])) { case (tryG, (n, deps)) =>
+      depMap.foldLeft(Try(Graph.empty[MavenCoordinate, Unit])) { case (tryG, (n, deps)) =>
 
-          for {
-            g <- tryG
-            cnode <- toCoord(n)
-            transitive <- cats.Traverse[List].sequence(deps.transitive.getOrElse(Nil).map(toCoord(_)))
-          } yield {
-            val g1 = (cnode :: transitive).foldLeft(g) { case (p, n) => p.addNode(n)}
-            transitive.foldLeft(g1) { case (g, revDep) =>
-              if(!(revDep.artifact.artifactId == "custeng-subscriber-model" && cnode.artifact.artifactId == "account-metadata")) {
-                g.addEdge(Edge(revDep, cnode, ()))
-              } else {
-                g
-              }
+        for {
+          g <- tryG
+          cnode <- toCoord(n)
+          transitive <- cats.Traverse[List].sequence(deps.transitive.getOrElse(Nil).map(toCoord(_)))
+        } yield {
+          val g1 = (cnode :: transitive).foldLeft(g) { case (p, n) => p.addNode(n) }
+          transitive.foldLeft(g1) { case (g, revDep) =>
+            if (!(revDep.artifact.artifactId == "custeng-subscriber-model" && cnode.artifact.artifactId == "account-metadata")) {
+              g.addEdge(Edge(revDep, cnode, ()))
+            } else {
+              g
             }
           }
         }
       }
     }
+  }
 
-  //
   // Build the entire transitive graph of a set of coordinates
   def buildGraph(coords: List[MavenCoordinate], m: Model): Task[Graph[MavenCoordinate, Unit]] = {
     loadLockFiles(gradleTpe.getLockFiles).flatMap(mergeLockFiles(_))
@@ -166,26 +165,3 @@ val noContentDeps: Map[String, Option[Version]] = gradleTpe.getNoContentDeps
   }
 
 }
-//  val resolvedGradleFiles = model.getOptions.getPreResolvedGradleFiles
-//  val resolved = if(resolvedGradleFiles.nonEmpty) {
-//    resolverCachePath(model, projectRoot).flatMap(runPreResolved(model, resolvedGradleFiles, _))
-//  } else {
-//    resolverCachePath(model, projectRoot).flatMap(runResolve(model, _))
-//  }
-
-
-//
-//
-//      private def preResolve[F[_]](model: Model,
-//                                   graph: Graph[MavenCoordinate, Unit],
-//                                   resolver: Resolver[F]): F[(Graph[MavenCoordinate, Unit],
-//        SortedMap[MavenCoordinate, ResolvedShasValue],
-//        Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]])] = {
-//        import resolver.resolverMonad
-//
-//        def replaced(m: MavenCoordinate): Boolean =
-//          model.getReplacements.get(m.unversioned).isDefined
-//
-//        for {
-//          shas <- resolver.getShas(graph.nodes.toList.sorted)
-//        } yield (graph, shas, Map())    }

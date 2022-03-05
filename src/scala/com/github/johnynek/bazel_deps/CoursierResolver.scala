@@ -329,13 +329,7 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
         throw new RuntimeException("Failed to resolve dependencies")
       }
 
-      depCache.flatMap { case (k, v) =>
-        if (roots.contains(k)) {
-          Some((k, v.filter(roots.contains(_))))
-        } else {
-          None
-        }
-      }.foldLeft(Graph.empty[MavenCoordinate, Unit]) { case (g, (n, deps)) =>
+      depCache.foldLeft(Graph.empty[MavenCoordinate, Unit]) { case (g, (n, deps)) =>
         val cnode = toCoord(n)
         val exs = m.dependencies.excludes(cnode.unversioned)
         val g1 = g.addNode(cnode)
