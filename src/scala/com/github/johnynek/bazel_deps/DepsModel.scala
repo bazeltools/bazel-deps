@@ -18,6 +18,9 @@ object DocUtil {
   def packedKV(k: String, v: Doc): Doc =
     Doc.text(k) + Doc.text(":") + Doc.lineOrSpace.nested(2) + v
 
+  def packedDocKV(k: Doc, v: Doc): Doc =
+    k + Doc.text(":") + Doc.lineOrSpace.nested(2) + v
+
   def kv(k: String, v: Doc, tight: Boolean = false): Doc =
     Doc.text(k) + Doc.text(":") + ((Doc.line + v).nested(2))
   def quote(s: String): String = {
@@ -52,7 +55,11 @@ object DocUtil {
   def packedYamlMap(kvs: List[(String, Doc)]): Doc =
     if (kvs.isEmpty) Doc.text("{}")
     else Doc.intercalate(Doc.line, kvs.map { case (k, v) => packedKV(k, v) })
-}
+
+  def packedDocYamlMap(kvs: List[(Doc, Doc)]): Doc =
+    if (kvs.isEmpty) Doc.text("{}")
+    else Doc.intercalate(Doc.line, kvs.map { case (k, v) => packedDocKV(k, v) })
+  }
 
 import DocUtil._
 
@@ -269,7 +276,23 @@ case class StrictVisibility(enabled: Boolean)
 object StrictVisibility {
   implicit val strictVisibilitySemiGroup: Semigroup[StrictVisibility] = Options.useRight.algebra[StrictVisibility]
 }
-case class MavenServer(id: String, contentType: String, url: String) {
+
+sealed trait DependencyServer {
+    def toDoc: Doc
+    def id: String
+    def url: String
+}
+case class IvyServer(id: String, url: String, ivyPattern: String, ivyArtifactPattern: String) extends DependencyServer {
+    def toDoc: Doc =
+    packedYamlMap(
+      List(("id", quoteDoc(id)), ("serverType", quoteDoc("ivy")),
+        ("url", Doc.text(url)),
+        ("ivyPattern", quoteDoc(ivyPattern)),
+        ("ivyArtifactPattern", quoteDoc(ivyArtifactPattern))
+        ))
+
+}
+case class MavenServer(id: String, contentType: String, url: String) extends DependencyServer {
   def toDoc: Doc =
     packedYamlMap(
       List(("id", quoteDoc(id)), ("type", quoteDoc(contentType)), ("url", Doc.text(url))))
@@ -1202,24 +1225,229 @@ object NamePrefix {
     Options.useRight.algebra[NamePrefix]
 }
 
-sealed abstract class ResolverType(val asString: String)
+sealed abstract class ResolverType(val asString: String) {
+  def optionsDoc: Option[Doc]
+}
 
 object ResolverType {
-  case object Aether extends ResolverType("aether")
-  case object Coursier extends ResolverType("coursier")
+  case object Aether extends ResolverType("aether") {
+    override def optionsDoc: Option[Doc] = None
+  }
+  case object Coursier extends ResolverType("coursier") {
+    override def optionsDoc: Option[Doc] = None
+  }
+
+  case class Gradle(
+                     lockFiles: Option[List[String]],
+                     noContentDeps: Option[List[String]],
+                     contentTypeOverride: Option[Map[String, String]],
+                     ignoreDependencyEdge: Option[Map[String, String]]
+                   ) extends ResolverType("gradle")  {
+    def getLockFiles: List[String] = lockFiles.getOrElse(Nil)
+    def getNoContentDeps: Map[String, Option[Version]] = noContentDeps.getOrElse(Nil).map { entry =>
+      val indx = entry.indexOf('@')
+      if(indx > 0) {
+        require(indx < entry.length  -1, "Should never end on an @")
+        (
+          entry.substring(0, indx),
+          Some(Version(entry.substring(indx + 1)))
+        )
+      } else {
+        (entry, None)
+      }
+    }.toMap
+    def getContentTypeOverride: Map[String, String] = contentTypeOverride.getOrElse(Map())
+
+    override def optionsDoc: Option[Doc] = {
+
+      val items = List(
+        ("lockFiles", lockFiles.map {
+          case Nil => Doc.text("[]")
+          case fs => (Doc.line + vlist(fs.map(quoteDoc(_)))).nested(2)
+        }
+        ),
+        ("noContentDeps", noContentDeps.map {
+          case Nil => Doc.text("[]")
+          case fs => (Doc.line + vlist(fs.map(quoteDoc(_)))).nested(2)
+        }
+        ),
+        ("ignoreDependencyEdge", ignoreDependencyEdge.flatMap { m =>
+          if(m.isEmpty) {
+            None
+          } else {
+            Some((Doc.line + packedDocYamlMap(
+              m.toList.sorted.map { case (k, v) =>
+                (quoteDoc(k), quoteDoc(v))
+              }
+            )).nested(2))
+          }
+        }
+        ),
+        ("contentTypeOverride", contentTypeOverride.flatMap { m =>
+          if(m.isEmpty) {
+            None
+          } else {
+            Some((Doc.line + packedDocYamlMap(
+              m.toList.sorted.map { case (k, v) =>
+                (quoteDoc(k), quoteDoc(v))
+              }
+            )).nested(2))
+          }
+        }
+        )
+      ).sortBy(_._1)
+        .collect { case (k, Some(v)) => (k, v) }
+
+      // we can't pack resolvers (yet)
+      Some(packedYamlMap(items))
+    }
+  }
+
+  object Gradle {
+    def empty = Gradle(None, None, None, None)
+    implicit val gradleMonoid: Monoid[Gradle] = new Monoid[Gradle] {
+      val empty = Gradle.empty
+
+      def combine(a: Gradle, b: Gradle): Gradle = {
+        val lockFiles = Monoid[Option[List[String]]].combine(a.lockFiles, b.lockFiles)
+        val noContentDeps = Monoid[Option[List[String]]].combine(a.noContentDeps, b.noContentDeps)
+        val contentTypeOverride = Monoid[Option[Map[String, String]]].combine(a.contentTypeOverride, b.contentTypeOverride)
+        val ignoreDependencyEdge = Monoid[Option[Map[String, String]]].combine(a.ignoreDependencyEdge, b.ignoreDependencyEdge)
+
+        Gradle(
+          lockFiles = lockFiles,
+          noContentDeps = noContentDeps,
+          contentTypeOverride = contentTypeOverride,
+          ignoreDependencyEdge = ignoreDependencyEdge
+        )
+      }
+    }
+  }
 
   val default = Coursier
 
-  implicit val resolverSemigroup: Semigroup[ResolverType] =
+  implicit val resolverSemigroup: Semigroup[ResolverType] =  new Semigroup[ResolverType] {
+    override def combine(x: ResolverType, y: ResolverType): ResolverType = {
+      (x, y) match {
+        case (l: Gradle, r : Gradle) => Monoid.combine(l, r)
+        case (_, r) => r
+      }
+    }
+  }
     Options.useRight.algebra[ResolverType]
 }
 
+object TryMerge {
+  def tryMerge[T: TryMerge](a: T, b: T): Try[T] = {
+    implicitly[TryMerge[T]].tryMerge(a,b)
+  }
+
+  implicit def tryOptMerge[T: TryMerge]: TryMerge[Option[T]] = new TryMerge[Option[T]] {
+        def tryMerge(left: Option[T], right: Option[T]): Try[Option[T]] = {
+          (left, right) match {
+            case (None, None) => Success(None)
+            case (Some(l), Some(r)) => TryMerge.tryMerge(l, r).map(Some(_))
+            case (Some(l), None) => Success(Some(l))
+            case (None, Some(r)) => Success(Some(r))
+          }
+        }
+  }
+
+  implicit def tryStringMapMerge[T: TryMerge]: TryMerge[Map[String, T]] = new TryMerge[Map[String, T]] {
+        def tryMerge(left: Map[String,T], right: Map[String, T]): Try[Map[String, T]] = {
+          (left.keySet ++ right.keySet).foldLeft(Try(Map[String, T]())) { case (prevM, nextK) =>
+            prevM.flatMap { m => 
+               val r: Try[T] = (left.get(nextK), right.get(nextK)) match {
+            case (None, None) => Failure(new Exception("Shouldn't happen, key was in keyset"))
+            case (Some(l), Some(r)) => TryMerge.tryMerge(l, r)
+            case (Some(l), None) => Success(l)
+            case (None, Some(r)) => Success(r)
+          }
+            r.map { innerV => 
+              m + ((nextK, innerV))
+            }
+          }
+        }
+      }
+  }
+}
+sealed trait TryMerge[T] {
+    def tryMerge(left: T, right: T): Try[T]
+}
+
+object GradleLockDependency {
+  def resolveVersions(left: Option[String], right: Option[String]): Try[Option[String]] = {
+    (left,right) match {
+      case (None, None) => Success(None)
+      case (Some(l), None) => Success(Some(l))
+      case (None, Some(r)) => Success(Some(r))
+      case (Some(l), Some(r)) if (l == r) => Success(Some(r))
+      case (Some(l), Some(r)) => {
+        println(s"This should probably not be allowed... but we are going to pick a version conflict highest if we can between $l, $r")
+        VersionConflictPolicy.Highest.resolve(None, Set(Version(l), Version(r))) match {
+          case Validated.Valid(v) => Success(Some(v.asString))
+          case Validated.Invalid(iv) => Failure(new Exception(s"Unable ot combine versions, $iv"))
+        }
+      }
+    }
+    
+  }
+  implicit val mergeInst = new TryMerge[GradleLockDependency] {
+    def tryMerge(left: GradleLockDependency, right: GradleLockDependency): Try[GradleLockDependency] = {
+    for {
+      v <- resolveVersions(left.locked, right.locked)
+      _ <- if(left.project == right.project) Success(()) else Failure(new Exception(s"Unable to merge due to incompatible project setting, had $left, $right"))
+    } yield {
+      GradleLockDependency(
+        locked = v,
+        project = left.project,
+        transitive = Some((left.transitive.getOrElse(Nil) ++ right.transitive.getOrElse(Nil)).sorted.distinct)
+      )
+    }
+  }
+  }
+}
+
+
+case class GradleLockDependency(
+  locked: Option[String],
+  project: Option[Boolean],
+  transitive: Option[List[String]]
+) 
+
+object GradleLockFile {
+  implicit val mergeInst = new TryMerge[GradleLockFile] {
+    def tryMerge(left: GradleLockFile, right: GradleLockFile): Try[GradleLockFile] = {
+      for {
+        annotationProcessor <- TryMerge.tryMerge(left.annotationProcessor, right.annotationProcessor)
+        compileClasspath <- TryMerge.tryMerge(left.compileClasspath, right.compileClasspath)
+        resolutionRules <- TryMerge.tryMerge(left.resolutionRules, right.resolutionRules)
+        runtimeClasspath <- TryMerge.tryMerge(left.runtimeClasspath, right.runtimeClasspath)
+        testCompileClasspath <- TryMerge.tryMerge(left.testCompileClasspath, right.testCompileClasspath)
+        testRuntimeClasspath <- TryMerge.tryMerge(left.testRuntimeClasspath, right.testRuntimeClasspath)
+      } yield {
+        GradleLockFile(
+          annotationProcessor, compileClasspath,resolutionRules,runtimeClasspath,testCompileClasspath, testRuntimeClasspath
+        )
+      }
+  }
+  }
+  def empty = GradleLockFile(None, None, None, None, None, None)
+}
+case class GradleLockFile(
+  annotationProcessor: Option[Map[String, GradleLockDependency]],
+  compileClasspath: Option[Map[String, GradleLockDependency]],
+  resolutionRules: Option[Map[String, GradleLockDependency]],
+  runtimeClasspath: Option[Map[String, GradleLockDependency]],
+  testCompileClasspath: Option[Map[String, GradleLockDependency]],
+  testRuntimeClasspath: Option[Map[String, GradleLockDependency]]
+)
 
 case class Options(
   versionConflictPolicy: Option[VersionConflictPolicy],
   thirdPartyDirectory: Option[DirectoryName],
   languages: Option[Set[Language]],
-  resolvers: Option[List[MavenServer]],
+  resolvers: Option[List[DependencyServer]],
   transitivity: Option[Transitivity],
   buildHeader: Option[List[String]],
   resolverCache: Option[ResolverCache],
@@ -1266,7 +1494,7 @@ case class Options(
     case None => List(Language.Java, Language.Scala.default)
     case Some(langs) => langs.toList.sortBy(_.asString)
   }
-  def getResolvers: List[MavenServer] =
+  def getResolvers: List[DependencyServer] =
     resolvers.getOrElse(
       List(MavenServer("mavencentral", "default", "https://repo.maven.apache.org/maven2/")))
 
@@ -1313,7 +1541,8 @@ case class Options(
       ("strictVisibility", strictVisibility.map { x => Doc.text(x.enabled.toString)}),
       ("resolverType", resolverType.map(r => quoteDoc(r.asString))),
       ("buildFileName", buildFileName.map(name => Doc.text(name))),
-      ("authFile", authFile.map(name => Doc.text(name)))
+      ("authFile", authFile.map(name => Doc.text(name))),
+      ("resolverOptions", resolverType.flatMap(_.optionsDoc).map(d => (Doc.line + d).nested(2)))
     ).sortBy(_._1)
      .collect { case (k, Some(v)) => (k, v) }
 
@@ -1341,7 +1570,7 @@ object Options {
       val vcp = Monoid[Option[VersionConflictPolicy]].combine(a.versionConflictPolicy, b.versionConflictPolicy)
       val tpd = Monoid[Option[DirectoryName]].combine(a.thirdPartyDirectory, b.thirdPartyDirectory)
       val langs = Monoid[Option[Set[Language]]].combine(a.languages, b.languages)
-      val resolvers = Monoid[Option[List[MavenServer]]].combine(a.resolvers, b.resolvers).map(_.distinct)
+      val resolvers = Monoid[Option[List[DependencyServer]]].combine(a.resolvers, b.resolvers).map(_.distinct)
       val trans = Monoid[Option[Transitivity]].combine(a.transitivity, b.transitivity)
       val headers = Monoid[Option[List[String]]].combine(a.buildHeader, b.buildHeader).map(_.distinct)
       val resolverCache = Monoid[Option[ResolverCache]].combine(a.resolverCache, b.resolverCache)

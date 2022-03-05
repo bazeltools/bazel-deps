@@ -102,19 +102,24 @@ object MakeDeps {
     })
     .map(_.toAbsolutePath)
 
+
   private[bazel_deps] def runResolve(model: Model, resolverCachePath: Path): Try[(Graph[MavenCoordinate, Unit],
     SortedMap[MavenCoordinate, ResolvedShasValue],
     Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]])] =
-
     model.getOptions.getResolverType match {
       case ResolverType.Aether =>
-        val resolver = new AetherResolver(model.getOptions.getResolvers, resolverCachePath)
+        val resolver = new AetherResolver(model.getOptions.getResolvers.collect { case e: MavenServer => e}, resolverCachePath)
         resolver.run(resolve(model, resolver))
       case ResolverType.Coursier =>
         val ec = scala.concurrent.ExecutionContext.Implicits.global
         import scala.concurrent.duration._
         val resolver = new CoursierResolver(model.getOptions.getResolvers, ec, 3600.seconds)
         resolver.run(resolve(model, resolver))
+      case g: ResolverType.Gradle =>
+        val ec = scala.concurrent.ExecutionContext.Implicits.global
+        import scala.concurrent.duration._
+        val resolver = new GradleResolver(model.getOptions.getResolvers, ec, 3600.seconds, g)
+        resolver.run(resolver.buildGraph(Nil, model)).map { g => (g, SortedMap(), Map())}
     }
 
   private def resolve[F[_]](model: Model,
@@ -124,6 +129,7 @@ object MakeDeps {
     import resolver.resolverMonad
 
     val deps = model.dependencies
+  
     resolver.buildGraph(deps.roots.toList.sorted, model)
       .flatMap { graph =>
         // This is a defensive check that can be removed as we add more tests

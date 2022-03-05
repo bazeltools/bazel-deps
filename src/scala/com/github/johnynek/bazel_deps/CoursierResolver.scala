@@ -9,7 +9,7 @@ import cats.implicits._
 import coursier.LocalRepositories
 import coursier.core._
 import org.slf4j.LoggerFactory
-
+import coursier.ivy._
 import scala.collection.immutable.SortedMap
 import scala.util.{Failure, Try}
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -20,11 +20,12 @@ object CoursierResolver {
   // most downloads are tiny sha downloads so try keep things alive
   lazy val downloadPool = {
     import java.util.concurrent.{ExecutorService, Executors, ThreadFactory}
-Executors.newFixedThreadPool(
+    Executors.newFixedThreadPool(
       12,
       // from scalaz.concurrent.Strategy.DefaultDaemonThreadFactory
       new ThreadFactory {
         val defaultThreadFactory = Executors.defaultThreadFactory()
+
         def newThread(r: Runnable) = {
           val t = defaultThreadFactory.newThread(r)
           t.setDaemon(true)
@@ -32,18 +33,33 @@ Executors.newFixedThreadPool(
         }
       }
     )
+  }
 }
-}
-class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTimeout: Duration) extends Resolver[Task] {
+
+class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, runTimeout: Duration) extends Resolver[Task] {
   // TODO: add support for a local file cache other than ivy
   private[this] val repos = LocalRepositories.ivy2Local :: {
     val settings = SettingsLoader.settings
 
-    servers.map { case MavenServer(id, _, url) =>
-      val authentication = Option(settings.getServer(id))
-        .map(server => Authentication(server.getUsername, server.getPassword))
+    servers.map {
+      case MavenServer(id, _, url) =>
+        val authentication = Option(settings.getServer(id))
+          .map(server => Authentication(server.getUsername, server.getPassword))
 
-      coursier.MavenRepository(url, authentication = authentication)
+        coursier.MavenRepository(url, authentication = authentication)
+
+      case IvyServer(id, url, ivyPattern, ivyArtifactPattern) =>
+        val authentication = Option(settings.getServer(id))
+          .map(server => Authentication(server.getUsername, server.getPassword))
+
+
+        IvyRepository.parse(
+          url + ivyArtifactPattern,
+          Some(url + ivyPattern),
+          authentication = authentication) match {
+          case Left(o) => ???
+          case Right(r) => r
+        }
     }
   }
 
@@ -56,22 +72,26 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
   // Instructs the coursier resolver to keep `runtime`-scoped dependencies.
   private[this] val DefaultConfiguration = "default(compile)"
 
-  def serverFor(a: Artifact): Option[MavenServer] =
+  def serverFor(a: Artifact): Option[DependencyServer] =
     if (a.url.isEmpty) None
     else servers.find { ms => a.url.startsWith(ms.url) }
 
   implicit def resolverMonad: MonadError[Task, Throwable] =
     new MonadError[Task, Throwable] {
       def pure[A](a: A) = Task.point(a)
+
       def flatMap[A, B](fa: Task[A])(fn: A => Task[B]) = fa.flatMap(fn)
+
       def handleErrorWith[A](fa: Task[A])(rec: Throwable => Task[A]) =
         Task { implicit ec =>
           val m: MonadError[Future, Throwable] =
             cats.instances.future.catsStdInstancesForFuture(ec)
           m.handleErrorWith(fa.future)(t => rec(t).future)
         }
+
       def raiseError[A](e: Throwable): Task[A] =
         Task(_ => Future.failed(e))
+
       def tailRecM[A, B](a0: A)(f: A => Task[Either[A, B]]): Task[B] =
         Task { implicit ec =>
           val m: MonadError[Future, Throwable] =
@@ -83,6 +103,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
   def run[A](fa: Task[A]): Try[A] = Try(Await.result(fa.value(ec), runTimeout))
 
   case class FileErrorException(error: coursier.cache.ArtifactError) extends Exception(error.describe)
+
   case class DownloadFailures(messages: NonEmptyList[String]) extends Exception("resolution errors:\n" + messages.toList.mkString("\n"))
 
   def getShas(m: List[MavenCoordinate]): Task[SortedMap[MavenCoordinate, ResolvedShasValue]] = {
@@ -94,7 +115,7 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
 
       def downloadShas(digestType: DigestType, as: List[Artifact]): Task[Option[ShaValue]] =
         as.foldM(Option.empty[ShaValue]) {
-          case (s @ Some(r), _) => Task.point(s)
+          case (s@Some(r), _) => Task.point(s)
           case (None, a) => downloadSha(digestType, a)
         }
 
@@ -102,8 +123,8 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
         // Because Cache.file is hijacked to download SHAs directly (rather than signed artifacts) checksum verification
         // is turned off. Checksums don't themselves have checksum files.
         FileCache().withChecksums(Seq(None))
-        .withCachePolicies(Seq(CachePolicy.FetchMissing))
-        .withPool(CoursierResolver.downloadPool).file(a).run.map {
+          .withCachePolicies(Seq(CachePolicy.FetchMissing))
+          .withPool(CoursierResolver.downloadPool).file(a).run.map {
           case Left(error) =>
             logger.info(s"failure to download ${a.url}, ${error.describe}")
             None
@@ -116,22 +137,24 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
         }
       }
 
-      def computeSha(digestType: DigestType, artifact: Artifact): Task[ShaValue] =
+      def computeSha(digestType: DigestType, artifact: Artifact): Task[ShaValue] = {
         FileCache().withCachePolicies(Seq(CachePolicy.FetchMissing)).withPool(CoursierResolver.downloadPool).file(artifact).run.flatMap { e =>
           resolverMonad.fromTry(e match {
             case Left(error) =>
+              // println(s"Tried to download $artifact but failed.")
               Failure(FileErrorException(error))
             case Right(file) =>
               ShaValue.computeShaOf(digestType, file)
           })
         }
+      }
 
       def computeShas(digestType: DigestType, as: NonEmptyList[Artifact]): Task[ShaValue] = {
         val errorFn: Throwable => Task[ShaValue] = as.tail match {
-          case Nil => {e: Throwable =>
+          case Nil => { e: Throwable =>
             resolverMonad.raiseError(new RuntimeException(s"we could not download the artifact ${c.asString} to compute the hash for digest type ${digestType} with error ${e}"))
           }
-          case h :: t => {e: Throwable => computeShas(digestType, NonEmptyList(h, t))}
+          case h :: t => { e: Throwable => computeShas(digestType, NonEmptyList(h, t)) }
         }
         resolverMonad.handleErrorWith(computeSha(digestType, as.head))(errorFn)
       }
@@ -151,31 +174,58 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
       }
 
       def processArtifact(src: coursier.core.ArtifactSource, dep: Dependency, proj: Project): Task[Option[JarDescriptor]] = {
-          val maybeArtifacts = src.artifacts(dep, proj, None)
-            .map { case (_, artifact: Artifact) => artifact }
-            .toList
+        val module = dep.module
+        val organization = module.organization.value
+        val moduleName = module.name.value
+        val version = dep.version
+        val extension = dep.publication.ext.value
 
-          if (maybeArtifacts == Nil) {
-            logger.warn(s"Failed to process $dep")
+
+        // sometimes the artifactor source doesn't seem to entirely work... so
+        // we inject using any ivy servers about test URL's to try
+        val extraUrls = this.servers.collect {
+          case IvyServer(_, url, _, ivyArtifactPattern) =>
+            val subUrl = ivyArtifactPattern.replaceAllLiterally("[revision]", version)
+                .replaceAllLiterally("[orgPath]", organization.replace('.', '/'))
+              .replaceAllLiterally("[artifact]", moduleName)
+              .replaceAllLiterally("[module]", moduleName)
+              .replaceAllLiterally("(-[classifier])", "")
+              .replaceAllLiterally("[ext]", Option(extension).filter(_.nonEmpty).getOrElse("jar"))
+
+            Some(s"$url$subUrl")
+          case MavenServer(_, _, _) => None
+        }.flatten
+
+
+        val maybeArtifacts = src.artifacts(dep, proj, None)
+          .map { case (_, artifact: Artifact) => artifact }
+          .toList ++ extraUrls.map { url =>
+            Artifact(
+              url, Map.empty, Map.empty, false, false, None
+            )
           }
 
-          NonEmptyList.fromList(maybeArtifacts).map { artifacts =>
-            for {
-              sha1 <- fetchOrComputeShas(artifacts, DigestType.Sha1)
-              // I could not find any example of artifacts that actually have a SHA256 checksum, so don't bother
-              // trying to fetch them. Save on network latency and just calculate.
-              sha256 <- computeShas(DigestType.Sha256, artifacts)
-            } yield {
-              val serverId = serverFor(artifacts.head).fold("")(_.id)
+        if (maybeArtifacts == Nil) {
+          logger.warn(s"Failed to process $dep")
+        }
 
-              Some(JarDescriptor(
-                sha1 = Some(sha1),
-                sha256 = Some(sha256),
-                serverId = serverId,
-                url = Some(artifacts.head.url))) : Option[JarDescriptor]
-            }
-      }.getOrElse(Task.point(Option.empty[JarDescriptor]))
-    }
+        NonEmptyList.fromList(maybeArtifacts).map { artifacts =>
+          for {
+            sha1 <- fetchOrComputeShas(artifacts, DigestType.Sha1)
+            // I could not find any example of artifacts that actually have a SHA256 checksum, so don't bother
+            // trying to fetch them. Save on network latency and just calculate.
+            sha256 <- computeShas(DigestType.Sha256, artifacts)
+          } yield {
+            val serverId = serverFor(artifacts.head).fold("")(_.id)
+
+            Some(JarDescriptor(
+              sha1 = Some(sha1),
+              sha256 = Some(sha256),
+              serverId = serverId,
+              url = Some(artifacts.head.url))): Option[JarDescriptor]
+          }
+        }.getOrElse(Task.point(Option.empty[JarDescriptor]))
+      }
 
       val module = coursier.Module(Organization(c.group.asString), ModuleName(c.artifact.artifactId), Map.empty)
       val version = c.version.asString
@@ -209,15 +259,15 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
           ))
 
           processArtifact(src, dep, proj).flatMap { mainJarDescriptorOpt =>
-            resolverMonad.handleErrorWith(processArtifact(src, srcDep, proj)){_ => Task.point(None)}.flatMap { sourceJarDescriptorOpt =>
-                mainJarDescriptorOpt match {
-                case None => resolverMonad.raiseError(new RuntimeException(s"no artifacts for ${c.asString} found")) : Task[ResolvedShasValue]
+            resolverMonad.handleErrorWith(processArtifact(src, srcDep, proj)) { _ => Task.point(None) }.flatMap { sourceJarDescriptorOpt =>
+              mainJarDescriptorOpt match {
+                case None => resolverMonad.raiseError(new RuntimeException(s"no artifacts for ${c.asString} found. src: $src, dep: $dep, proj: $proj")): Task[ResolvedShasValue]
                 case Some(mainJarDescriptor) =>
                   Task.point(ResolvedShasValue(
                     binaryJar = mainJarDescriptor,
                     sourceJar = sourceJarDescriptorOpt
                   ))
-                }
+              }
             }
           }.map(Validated.valid(_))
       })
@@ -241,8 +291,8 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
       val exSet: Set[(Organization, ModuleName)] =
         exs.map { elem => (Organization(elem.group.asString), ModuleName(elem.artifact.artifactId)) }
       coursier.Dependency(
-          coursier.Module(Organization(mc.group.asString), ModuleName(mc.artifact.artifactId)),
-          mc.version.asString)
+        coursier.Module(Organization(mc.group.asString), ModuleName(mc.artifact.artifactId)),
+        mc.version.asString)
         .withConfiguration(
           Configuration(DefaultConfiguration))
         .withExclusions(exSet)
@@ -268,17 +318,24 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
         artifactFromDep(cd),
         Version(cd.version))
 
-    val roots: Seq[coursier.core.Dependency] = coords.map(toDep).toSet.toSeq
+    val rootsSet = coords.map(toDep).toSet
+    val roots: Seq[coursier.core.Dependency] = rootsSet.toSeq
 
     Resolution(roots).process.run(fetch).map { res =>
       val depCache = res.finalDependenciesCache
 
       if (res.errors.nonEmpty) {
-        res.errors.foreach{ case (_, msgs) => msgs.foreach(logger.error) }
+        res.errors.foreach { case (_, msgs) => msgs.foreach(logger.error) }
         throw new RuntimeException("Failed to resolve dependencies")
       }
 
-      depCache.foldLeft(Graph.empty[MavenCoordinate, Unit]) { case (g, (n, deps)) =>
+      depCache.flatMap { case (k, v) =>
+        if (roots.contains(k)) {
+          Some((k, v.filter(roots.contains(_))))
+        } else {
+          None
+        }
+      }.foldLeft(Graph.empty[MavenCoordinate, Unit]) { case (g, (n, deps)) =>
         val cnode = toCoord(n)
         val exs = m.dependencies.excludes(cnode.unversioned)
         val g1 = g.addNode(cnode)

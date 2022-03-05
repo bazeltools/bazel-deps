@@ -1,22 +1,20 @@
 package com.github.johnynek.bazel_deps
 
 import cats.syntax.either._
-import io.circe.{ Decoder, KeyDecoder, Json, Error, Parser }
+import io.circe.Decoder.Result
+import io.circe.{Decoder, Error, HCursor, Json, KeyDecoder, Parser}
 import io.circe.generic.auto
 
 object Decoders {
+  implicit val gradleLockDependencyDecoder: Decoder[GradleLockDependency] = auto.exportDecoder[GradleLockDependency].instance
+  implicit val gradleLockFileDecoder: Decoder[GradleLockFile] = auto.exportDecoder[GradleLockFile].instance
   implicit val strictVisibilityDecoder: Decoder[StrictVisibility] =  Decoder.decodeBoolean.map(x => StrictVisibility(x))
   implicit val versionDecoder: Decoder[Version] = stringWrapper(Version(_))
   implicit val processorClassDecoder: Decoder[ProcessorClass] = stringWrapper(ProcessorClass(_))
   implicit val subprojDecoder: Decoder[Subproject] = stringWrapper(Subproject(_))
   implicit val dirnameDecoder: Decoder[DirectoryName] = stringWrapper(DirectoryName(_))
   implicit val targetDecoder: Decoder[BazelTarget] = stringWrapper(BazelTarget(_))
-  implicit val resolverTypeDecoder: Decoder[ResolverType] = 
-    Decoder.decodeString.emap {
-      case "aether" => Right(ResolverType.Aether)
-      case "coursier" => Right(ResolverType.Coursier)
-      case other => Left(s"unrecogized resolverType: $other")
-    }
+
   implicit val transitivityDecoder: Decoder[Transitivity] =
     Decoder.decodeString.emap {
       case "exports" => Right(Transitivity.Exports)
@@ -40,7 +38,7 @@ object Decoders {
         case _ => Left(s"$s did not match expected maven coord format <groupId>:<artifactId>[:<extension>[:<classifier>]]")
       }
     }
-  implicit val resolverDecoder: Decoder[MavenServer] =
+  implicit val resolverDecoder: Decoder[DependencyServer] =
     Decoder[Map[String, String]].emap { smap =>
       def expect(k: String): Either[String, String] =
         smap.get(k) match {
@@ -50,14 +48,44 @@ object Decoders {
             Right(s)
         }
 
-      val goodKeys = Set("id", "url", "type")
-      lazy val badKeys = smap.keySet -- goodKeys
-      for {
+      val serverType = smap.getOrElse("serverType", "maven")
+      val serverTypeParsed = if (serverType == "maven" || serverType == "ivy") Right(serverType) else Left(s"Unknown dependency server type: '$serverType', expected 'maven' or 'ivy'")
+      lazy val mavenServer = {
+          val goodKeys = Set("id", "url", "type", "serverType")
+          lazy val badKeys = smap.keySet -- goodKeys
+   for {
         id <- expect("id")
         url <- expect("url")
         contentType = smap.getOrElse("type", "default")
         _ <- if (badKeys.isEmpty) Right(()) else Left(s"unexpected keys: $badKeys")
-      } yield MavenServer(id, contentType, url)
+      } yield {
+          MavenServer(id, contentType, url)
+      }
+    }
+
+    lazy val ivyServer = {
+       val goodKeys = Set("id", "url", "ivyPattern", "ivyArtifactPattern", "serverType")
+          lazy val badKeys = smap.keySet -- goodKeys
+   for {
+        id <- expect("id")
+        url <- expect("url")
+        ivyPattern <- expect("ivyPattern")
+        ivyArtifactPattern <- expect("ivyArtifactPattern")
+        _ <- if (badKeys.isEmpty) Right(()) else Left(s"unexpected keys: $badKeys")
+      } yield {
+            IvyServer(id, url, ivyPattern, ivyArtifactPattern)
+      }
+    }
+
+
+    serverTypeParsed.flatMap { tpe =>
+      if(tpe == "maven") {
+        mavenServer
+      } else {
+        ivyServer
+      }
+      }
+    
     }
 
 
@@ -76,6 +104,7 @@ object Decoders {
       case other => Left(s"unknown version conflict policy: $other")
     }
 
+
   implicit def optionsDecoder: Decoder[Options] = {
     implicit val versionLang: Decoder[Language] =
       Decoder.decodeString.emap {
@@ -90,7 +119,36 @@ object Decoders {
         case other => Left(s"unknown language: $other")
       }
 
-    auto.exportDecoder[Options].instance
+      implicit val resolverTypeDecoder: Decoder[ResolverType] = {
+        Decoder.decodeString.emap {
+          case "aether" => Right(ResolverType.Aether)
+          case "coursier" => Right(ResolverType.Coursier)
+          case "gradle" => Right(ResolverType.Gradle.empty)
+          case other => Left(s"unrecogized resolverType: $other")
+        }
+      }
+      implicit val gradleDecoder = auto.exportDecoder[ResolverType.Gradle].instance
+      val baseOptions = auto.exportDecoder[Options].instance
+        new Decoder[Options] {
+          override def apply(c: HCursor): Result[Options] = {
+            baseOptions(c) match {
+              case Right(b) => {
+                b.resolverType match {
+                  case Some(x) =>
+                    x match {
+                      case g: ResolverType.Gradle =>
+                        c.get[Option[ResolverType.Gradle]]("resolverOptions").map { optV =>
+                            optV.map{inner => b.copy(resolverType = Some(inner))}.getOrElse(b)
+                        }
+                      case _ => Right(b)
+                    }
+                  case None => Right(b)
+                }
+              }
+              case Left(a) => Left(a)
+            }
+          }
+        }
   }
 
   private case class OptionsFirst(
@@ -137,6 +195,9 @@ object Decoders {
       // we read twice, first to get the options, then parsing in the context of the options
       p.decode(str)(modDec)
     }
+
+  def decodeGradleLockFile(p: Parser, str: String): Either[Error, GradleLockFile] =
+    p.decode(str)(gradleLockFileDecoder)
 
   private def stringWrapper[T](fn: String => T): Decoder[T] =
     Decoder.decodeString.map(fn)

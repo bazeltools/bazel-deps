@@ -64,6 +64,30 @@ scala_library(
         ],
     visibility = ["//visibility:public"])
 
+
+scala_library(
+    name = "gradle_resolver",
+    srcs = ["GradleResolver.scala"],
+    deps = [
+        "//3rdparty/jvm/io/circe:circe_core",
+        "//3rdparty/jvm/io/circe:circe_jawn",
+        "//3rdparty/jvm/org/typelevel:cats_free",
+        "//3rdparty/jvm/io/get_coursier:coursier_core",
+        "//3rdparty/jvm/io/get_coursier:coursier_cache",
+        "//3rdparty/jvm/io/get_coursier:coursier",
+        "//3rdparty/jvm/io/get_coursier:coursier_util",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "//3rdparty/jvm/org/typelevel:cats_core",
+        ":resolver",
+        ":depsmodel",
+        ":decoders",
+        ":graph",
+        ":settings_loader",
+        ":coursier_resolver",
+        ":circeyaml",
+        ],
+    visibility = ["//visibility:public"])
+
 scala_library(name = "aether_resolver",
               srcs = ["AetherResolver.scala"],
               deps = [
@@ -147,6 +171,7 @@ scala_library(name = "makedeps",
                  ":normalizer",
                  ":aether_resolver",
                  ":coursier_resolver",
+                 ":gradle_resolver",
                  ":resolver",
                  ":writer",
              ],

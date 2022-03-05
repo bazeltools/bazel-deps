@@ -289,10 +289,33 @@ object Writer {
      */
     val uvToVerExplicit = g.nodes.map { c => (c.unversioned, c) }.toMap
 
+    val rootScalaArtifacts = Set(
+        "scala-library",
+        "scala-compiler",
+        "scala-reflect"
+    )
+
+    val scalaLang = model.getOptions.getLanguages
+              .collectFirst { case Language.Scala(v, _) => Language.Scala(v, false): Language }
+
     val langCache = scala.collection.mutable.Map[UnversionedCoordinate, Language]()
     def lang(u: UnversionedCoordinate): Language = langCache.getOrElseUpdate(u, {
       import Language.{Java, Scala}
 
+        val rootScalaEntry = for {
+             l <- scalaLang
+             grp = u.group.asString
+             artifactId = u.artifact.artifactId
+             packaging = u.artifact.packaging
+             if packaging == "jar" || packaging == ""
+             if rootScalaArtifacts.contains(artifactId)
+             if grp == "org.scala-lang"
+            } yield {
+              l
+            }
+
+
+            rootScalaEntry.getOrElse {
       model.dependencies.languageOf(u) match {
         case Some(l) => l
         case None =>
@@ -312,6 +335,7 @@ object Writer {
                 }
                 .getOrElse(Java)
           }
+        }
       }
     })
 
