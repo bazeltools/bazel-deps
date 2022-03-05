@@ -119,7 +119,7 @@ object MakeDeps {
         val ec = scala.concurrent.ExecutionContext.Implicits.global
         import scala.concurrent.duration._
         val resolver = new GradleResolver(model.getOptions.getResolvers, ec, 3600.seconds, g)
-        resolver.run(resolver.buildGraph(Nil, model)).map { g => (g, SortedMap(), Map())}
+        resolver.run(resolver.resolve(model))
     }
 
   private def resolve[F[_]](model: Model,

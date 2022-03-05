@@ -157,7 +157,19 @@ class GradleResolver(servers: List[DependencyServer], ec: ExecutionContext, runT
       case Success(value) => Task.point(value)
       case Failure(exception) => Task.fail(exception)
     }
+  }
 
+  def resolve(model: Model): Task[(Graph[MavenCoordinate, Unit],
+    SortedMap[MavenCoordinate, ResolvedShasValue],
+    Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]])] = {
+    buildGraph(Nil, model)
+      .flatMap { graph =>
+        def replaced(m: MavenCoordinate): Boolean =
+          model.getReplacements.get(m.unversioned).isDefined
+        for {
+          shas <- getShas(graph.nodes.filterNot(replaced).toList.sorted)
+        } yield (graph, shas, Map())
+      }
   }
 
   def run[A](fa: Task[A]): Try[A] = {
