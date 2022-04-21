@@ -193,7 +193,16 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
               .replaceAllLiterally("[ext]", Option(extension).filter(_.nonEmpty).getOrElse("jar"))
 
             Some(s"$url$subUrl")
-          case MavenServer(_, _, _) => None
+          case MavenServer(_, _, url) =>
+            // Builds a Maven artifact URL
+            def mavenUrl(url: String, organization: String, moduleName: String, version: String, classifier: Option[String], extension: Option[String]): String = {
+              val classifierSuffix: String = classifier.filter(_.nonEmpty).map("-" + _).getOrElse("")
+              val ext: String = extension.filter(_.nonEmpty).getOrElse("jar")
+
+              s"$url/${organization.replace('.', '/')}/$moduleName/$version/$moduleName-$version$classifierSuffix.$ext"
+            }
+
+            Some(mavenUrl(url, organization, moduleName, version, None, Option(extension)))
         }.flatten
 
 
