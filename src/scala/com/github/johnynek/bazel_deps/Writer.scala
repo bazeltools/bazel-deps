@@ -249,7 +249,8 @@ object Writer {
             |""".stripMargin
       else "def _jar_artifact_impl(ctx):"
        }
-       |    jar_name = "%s.jar" % ctx.name
+       |    # Makes the filename look like foo-bar.jar similar to how it would look downloaded by the code in rules_scala
+       |    jar_name = "%s.jar" % ctx.attr.artifact.split(':')[1]
        |    ctx.download(
        |        output = ctx.path("jar/%s" % jar_name),
        |        url = ctx.attr.urls,
