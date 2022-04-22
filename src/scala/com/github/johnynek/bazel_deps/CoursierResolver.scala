@@ -199,7 +199,7 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
               val classifierSuffix: String = classifier.filter(_.nonEmpty).map("-" + _).getOrElse("")
               val ext: String = extension.filter(_.nonEmpty).getOrElse("jar")
 
-              s"$url/${organization.replace('.', '/')}/$moduleName/$version/$moduleName-$version$classifierSuffix.$ext"
+              s"${url.stripSuffix("/")}/${organization.replace('.', '/')}/$moduleName/$version/$moduleName-$version$classifierSuffix.$ext"
             }
 
             Some(mavenUrl(url, organization, moduleName, version, None, Option(extension)))
