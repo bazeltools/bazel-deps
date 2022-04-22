@@ -1275,9 +1275,9 @@ object ResolverType {
           if(m.isEmpty) {
             None
           } else {
-            Some((Doc.line + packedDocYamlMap(
+            Some((Doc.line + vlist(
               m.toList.sorted.map { case (k, v) =>
-                (quoteDoc(k), quoteDoc(v))
+                list(List(k,v)){t:String => quoteDoc(t)}
               }
             )).nested(2))
           }
