@@ -1241,7 +1241,7 @@ object ResolverType {
                      lockFiles: Option[List[String]],
                      noContentDeps: Option[List[String]],
                      contentTypeOverride: Option[Map[String, String]],
-                     ignoreDependencyEdge: Option[Map[String, String]]
+                     ignoreDependencyEdge: Option[Set[(String, String)]]
                    ) extends ResolverType("gradle")  {
     def getLockFiles: List[String] = lockFiles.getOrElse(Nil)
     def getNoContentDeps: Map[String, Option[Version]] = noContentDeps.getOrElse(Nil).map { entry =>
@@ -1312,7 +1312,7 @@ object ResolverType {
         val lockFiles = Monoid[Option[List[String]]].combine(a.lockFiles, b.lockFiles)
         val noContentDeps = Monoid[Option[List[String]]].combine(a.noContentDeps, b.noContentDeps)
         val contentTypeOverride = Monoid[Option[Map[String, String]]].combine(a.contentTypeOverride, b.contentTypeOverride)
-        val ignoreDependencyEdge = Monoid[Option[Map[String, String]]].combine(a.ignoreDependencyEdge, b.ignoreDependencyEdge)
+        val ignoreDependencyEdge = Monoid[Option[Set[(String, String)]]].combine(a.ignoreDependencyEdge, b.ignoreDependencyEdge)
 
         Gradle(
           lockFiles = lockFiles,
@@ -1355,14 +1355,14 @@ object TryMerge {
   implicit def tryStringMapMerge[T: TryMerge]: TryMerge[Map[String, T]] = new TryMerge[Map[String, T]] {
         def tryMerge(left: Map[String,T], right: Map[String, T]): Try[Map[String, T]] = {
           (left.keySet ++ right.keySet).foldLeft(Try(Map[String, T]())) { case (prevM, nextK) =>
-            prevM.flatMap { m => 
+            prevM.flatMap { m =>
                val r: Try[T] = (left.get(nextK), right.get(nextK)) match {
             case (None, None) => Failure(new Exception("Shouldn't happen, key was in keyset"))
             case (Some(l), Some(r)) => TryMerge.tryMerge(l, r)
             case (Some(l), None) => Success(l)
             case (None, Some(r)) => Success(r)
           }
-            r.map { innerV => 
+            r.map { innerV =>
               m + ((nextK, innerV))
             }
           }
@@ -1389,7 +1389,7 @@ object GradleLockDependency {
         }
       }
     }
-    
+
   }
   implicit val mergeInst = new TryMerge[GradleLockDependency] {
     def tryMerge(left: GradleLockDependency, right: GradleLockDependency): Try[GradleLockDependency] = {
@@ -1412,7 +1412,7 @@ case class GradleLockDependency(
   locked: Option[String],
   project: Option[Boolean],
   transitive: Option[List[String]]
-) 
+)
 
 object GradleLockFile {
   implicit val mergeInst = new TryMerge[GradleLockFile] {

@@ -138,10 +138,11 @@ class GradleResolver(servers: List[DependencyServer], ec: ExecutionContext, runT
         } yield {
           val g1 = (cnode :: transitive).foldLeft(g) { case (p, n) => p.addNode(n) }
           transitive.foldLeft(g1) { case (g, revDep) =>
-            if (!(revDep.artifact.artifactId == "custeng-subscriber-model" && cnode.artifact.artifactId == "account-metadata")) {
-              g.addEdge(Edge(revDep, cnode, ()))
-            } else {
+            val curEdge = (s"${revDep.group.asString}:${revDep.artifact.artifactId}", s"${cnode.group.asString}:${cnode.artifact.artifactId}")
+            if (gradleTpe.ignoreDependencyEdge.map(_.contains(curEdge)).getOrElse(false)) {
               g
+            } else {
+              g.addEdge(Edge(revDep, cnode, ()))
             }
           }
         }
