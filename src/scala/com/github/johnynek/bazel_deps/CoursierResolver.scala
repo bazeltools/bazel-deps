@@ -113,13 +113,13 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
 
     def lookup(c: MavenCoordinate): N[ResolvedShasValue] = {
 
-      def downloadShas(digestType: DigestType, as: List[Artifact]): Task[Option[ShaValue]] =
-        as.foldM(Option.empty[ShaValue]) {
+      def downloadShas(digestType: DigestType, as: List[Artifact]): Task[Option[(Artifact, ShaValue)]] =
+        as.foldM(Option.empty[(Artifact, ShaValue)]) {
           case (s@Some(r), _) => Task.point(s)
           case (None, a) => downloadSha(digestType, a)
         }
 
-      def downloadSha(digestType: DigestType, a: Artifact): Task[Option[ShaValue]] = {
+      def downloadSha(digestType: DigestType, a: Artifact): Task[Option[(Artifact, ShaValue)]] = {
         // Because Cache.file is hijacked to download SHAs directly (rather than signed artifacts) checksum verification
         // is turned off. Checksums don't themselves have checksum files.
         FileCache().withChecksums(Seq(None))
@@ -133,24 +133,24 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
             o.foreach { r =>
               logger.info(s"$digestType for ${c.asString} downloaded from ${a.url} (${r.toHex})")
             }
-            o
+            o.map{sha => (a, sha)}
         }
       }
 
-      def computeSha(digestType: DigestType, artifact: Artifact): Task[ShaValue] = {
+      def computeSha(digestType: DigestType, artifact: Artifact): Task[(Artifact, ShaValue)] = {
         FileCache().withCachePolicies(Seq(CachePolicy.FetchMissing)).withPool(CoursierResolver.downloadPool).file(artifact).run.flatMap { e =>
           resolverMonad.fromTry(e match {
             case Left(error) =>
               // println(s"Tried to download $artifact but failed.")
               Failure(FileErrorException(error))
             case Right(file) =>
-              ShaValue.computeShaOf(digestType, file)
+              ShaValue.computeShaOf(digestType, file).map { sha => (artifact, sha)}
           })
         }
       }
 
-      def computeShas(digestType: DigestType, as: NonEmptyList[Artifact]): Task[ShaValue] = {
-        val errorFn: Throwable => Task[ShaValue] = as.tail match {
+      def computeShas(digestType: DigestType, as: NonEmptyList[Artifact]): Task[(Artifact, ShaValue)] = {
+        val errorFn: Throwable => Task[(Artifact, ShaValue)] = as.tail match {
           case Nil => { e: Throwable =>
             resolverMonad.raiseError(new RuntimeException(s"we could not download the artifact ${c.asString} to compute the hash for digest type ${digestType} with error ${e}"))
           }
@@ -159,7 +159,7 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
         resolverMonad.handleErrorWith(computeSha(digestType, as.head))(errorFn)
       }
 
-      def fetchOrComputeShas(artifacts: NonEmptyList[Artifact], digestType: DigestType): Task[ShaValue] = {
+      def fetchOrComputeShas(artifacts: NonEmptyList[Artifact], digestType: DigestType): Task[(Artifact, ShaValue)] = {
         val checksumArtifacts = artifacts.toList.flatMap { a =>
           a.checksumUrls.get(digestType.name).map(url => Artifact(url, Map.empty, Map.empty, a.changing, false, a.authentication))
         }
@@ -220,18 +220,20 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
 
         NonEmptyList.fromList(maybeArtifacts).map { artifacts =>
           for {
-            sha1 <- fetchOrComputeShas(artifacts, DigestType.Sha1)
+            foundSha1Data <- fetchOrComputeShas(artifacts, DigestType.Sha1)
+            (sha1Artifact, sha1) = foundSha1Data
             // I could not find any example of artifacts that actually have a SHA256 checksum, so don't bother
             // trying to fetch them. Save on network latency and just calculate.
-            sha256 <- computeShas(DigestType.Sha256, artifacts)
+            foundShaData <- computeShas(DigestType.Sha256, artifacts)
+            (artifact, sha256) = foundShaData
           } yield {
-            val serverId = serverFor(artifacts.head).fold("")(_.id)
+            val serverId = serverFor(artifact).fold("")(_.id)
 
             Some(JarDescriptor(
               sha1 = Some(sha1),
               sha256 = Some(sha256),
               serverId = serverId,
-              url = Some(artifacts.head.url))): Option[JarDescriptor]
+              url = Some(artifact.url))): Option[JarDescriptor]
           }
         }.getOrElse(Task.point(Option.empty[JarDescriptor]))
       }
