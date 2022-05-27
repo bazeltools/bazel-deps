@@ -28,6 +28,7 @@ load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
 
+
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repositories")
 scala_repositories()
 register_toolchains("//:scala_toolchain")
@@ -35,6 +36,7 @@ register_toolchains("//:scala_toolchain")
 load("//3rdparty:workspace.bzl", "maven_dependencies")
 
 maven_dependencies()
+
 
 load("//3rdparty:target_file.bzl", "build_external_workspace")
 build_external_workspace(name = "third_party")
