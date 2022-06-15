@@ -4,10 +4,12 @@ import java.io.File
 import java.nio.file.{Path, Paths}
 import io.circe.jawn.JawnParser
 import org.slf4j.LoggerFactory
+
 import scala.sys.process.{BasicIO, Process, ProcessIO}
 import scala.util.{Failure, Success, Try}
 import scala.collection.immutable.SortedMap
 import cats.implicits._
+import com.github.johnynek.bazel_deps.Writer.ArtifactEntry
 
 object MakeDeps {
 
@@ -31,8 +33,6 @@ object MakeDeps {
         System.exit(1)
         sys.error("unreachable")
     }
-    val workspacePath = g.shaFilePath
-    val targetFilePath = g.targetFile
     val projectRoot = g.repoRoot.toFile
 
     resolverCachePath(model, projectRoot).flatMap(runResolve(model, _)) match {
@@ -40,10 +40,8 @@ object MakeDeps {
         logger.error("resolution and sha collection failed", err)
         System.exit(1)
       case Success((normalized, shas, duplicates)) =>
-        // creates pom xml when path is provided
-        g.pomFile.foreach { fileName => CreatePom(normalized, fileName) }
         // build the BUILDs in thirdParty
-        val targets = Writer.targets(normalized, model) match {
+        val artifacts = Writer.artifactEntries(normalized, duplicates, shas, model) match {
           case Right(t) => t
           case Left(errs) =>
             errs.toList.foreach { e => logger.error(e.message) }
@@ -51,17 +49,11 @@ object MakeDeps {
             sys.error("exited already")
         }
 
-        // build the workspace
-        val ws =
-          Writer.workspace(g.depsFile, normalized, duplicates, shas, model)
-
         executeGenerate(
           model,
           projectRoot,
-          IO.path(workspacePath),
-          IO.path(targetFilePath),
-          ws,
-          targets
+          IO.path(g.resolvedOutput),
+          artifacts
         )
     }
   }
@@ -199,32 +191,23 @@ object MakeDeps {
       }
   }
 
+  case class AllArtifacts(artifact: List[ArtifactEntry])
   private def executeGenerate(
       model: Model,
       projectRoot: File,
-      workspacePath: IO.Path,
-      targetFile: IO.Path,
-      workspaceContents: String,
-      targets: List[Target]
+      resolvedJsonOutputPath: IO.Path,
+      artifacts: List[ArtifactEntry]
   ): Unit = {
-    // Build up the IO operations that need to run. Till now,
-    // nothing was written
-    val buildFileName = model.getOptions.getBuildFileName
+    import _root_.io.circe.syntax._
+    import _root_.io.circe.generic.auto._
+
     val io = for {
-      originalBuildFile <- IO.readUtf8(workspacePath.sibling(buildFileName))
-      _ <- IO.mkdirs(workspacePath.parent)
-      _ <- IO.writeUtf8(workspacePath, workspaceContents)
-      _ <- IO.writeUtf8(
-        workspacePath.sibling(buildFileName),
-        originalBuildFile.getOrElse("")
-      )
-      builds <- Writer.createBuildTargetFile(
-        model.getOptions.getBuildHeader,
-        targets,
-        targetFile,
-        model.getOptions.getThirdPartyDirectory
-      )
-    } yield builds
+      b <- IO.exists(resolvedJsonOutputPath.parent)
+      _ <- if (b) IO.const(false) else IO.mkdirs(resolvedJsonOutputPath.parent)
+      allArtifacts = AllArtifacts(artifacts.sortBy(_.artifact))
+      artifactsJson = allArtifacts.asJson
+      _ <- IO.writeUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
+    } yield ()
 
     // Here we actually run the whole thing
     io.foldMap(IO.fileSystemExec(projectRoot)) match {
@@ -232,7 +215,7 @@ object MakeDeps {
         logger.error("Failure during IO:", err)
         System.exit(-1)
       case Success(builds) =>
-        println(s"wrote ${targets.size} targets in $builds BUILD files")
+        println(s"wrote ${artifacts.size} targets")
     }
   }
 }

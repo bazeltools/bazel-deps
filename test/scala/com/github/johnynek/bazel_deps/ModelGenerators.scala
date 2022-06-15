@@ -134,9 +134,7 @@ object ModelGenerators {
     prefix,
     licenses,
     resolverType,
-    strictVisibility,
-    buildFileName,
-    None
+    strictVisibility
   )
 
   val modelGen: Gen[Model] = for {

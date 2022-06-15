@@ -94,14 +94,6 @@ case class Model(
       2
     ) + Doc.line
   }
-
-  def hasAuthFile: Boolean = options.exists(_.authFile.nonEmpty)
-  def getAuthFile: Option[String] =
-    options.flatMap(_.authFile).map { auth =>
-      if (auth.startsWith("$"))
-        sys.env.getOrElse(auth.substring(1), s"env var ${auth} not found")
-      else auth
-    }
 }
 
 object Model {
@@ -1468,13 +1460,6 @@ case class DirectoryName(asString: String) {
     asString.split('/').filter(_.nonEmpty).toList
 }
 
-object DirectoryName {
-  def default: DirectoryName = DirectoryName("3rdparty/jvm")
-
-  implicit val dirNameSemigroup: Semigroup[DirectoryName] =
-    Options.useRight.algebra[DirectoryName]
-}
-
 sealed abstract class Transitivity(val asString: String)
 object Transitivity {
   case object RuntimeDeps extends Transitivity("runtime_deps")
@@ -1806,39 +1791,28 @@ case class GradleLockFile(
 
 case class Options(
     versionConflictPolicy: Option[VersionConflictPolicy],
-    thirdPartyDirectory: Option[DirectoryName],
     languages: Option[Set[Language]],
     resolvers: Option[List[DependencyServer]],
     transitivity: Option[Transitivity],
-    buildHeader: Option[List[String]],
     resolverCache: Option[ResolverCache],
     namePrefix: Option[NamePrefix],
     licenses: Option[Set[String]],
     resolverType: Option[ResolverType],
-    strictVisibility: Option[StrictVisibility],
-    buildFileName: Option[String],
-    authFile: Option[String]
+    strictVisibility: Option[StrictVisibility]
 ) {
   def isDefault: Boolean =
     versionConflictPolicy.isEmpty &&
-      thirdPartyDirectory.isEmpty &&
       languages.isEmpty &&
       resolvers.isEmpty &&
       transitivity.isEmpty &&
-      buildHeader.isEmpty &&
       resolverCache.isEmpty &&
       namePrefix.isEmpty &&
       licenses.isEmpty &&
       resolverType.isEmpty &&
-      strictVisibility.isEmpty &&
-      buildFileName.isEmpty &&
-      authFile.isEmpty
+      strictVisibility.isEmpty
 
   def getLicenses: Set[String] =
     licenses.getOrElse(Set.empty)
-
-  def getThirdPartyDirectory: DirectoryName =
-    thirdPartyDirectory.getOrElse(DirectoryName.default)
 
   def getVersionConflictPolicy: VersionConflictPolicy =
     versionConflictPolicy.getOrElse(VersionConflictPolicy.default)
@@ -1870,10 +1844,6 @@ case class Options(
   def getTransitivity: Transitivity =
     transitivity.getOrElse(Transitivity.Exports)
 
-  def getBuildHeader: String = buildHeader match {
-    case Some(lines) => lines.mkString("\n")
-    case None        => ""
-  }
 
   def getResolverCache: ResolverCache =
     resolverCache.getOrElse(ResolverCache.Local)
@@ -1884,18 +1854,11 @@ case class Options(
   def getResolverType: ResolverType =
     resolverType.getOrElse(ResolverType.default)
 
-  def getBuildFileName: String =
-    buildFileName.getOrElse("BUILD")
-
   def toDoc: Doc = {
     val items = List(
       (
         "versionConflictPolicy",
         versionConflictPolicy.map { p => Doc.text(p.asString) }
-      ),
-      (
-        "thirdPartyDirectory",
-        thirdPartyDirectory.map { tpd => quoteDoc(tpd.asString) }
       ),
       (
         "resolvers",
@@ -1910,7 +1873,6 @@ case class Options(
           list(ls.map(_.asOptionsString).toList.sorted)(quoteDoc)
         }
       ),
-      ("buildHeader", buildHeader.map(list(_) { s => quoteDoc(s) })),
       ("transitivity", transitivity.map { t => Doc.text(t.asString) }),
       ("resolverCache", resolverCache.map { rc => Doc.text(rc.asString) }),
       ("namePrefix", namePrefix.map { p => quoteDoc(p.asString) }),
@@ -1920,8 +1882,6 @@ case class Options(
         strictVisibility.map { x => Doc.text(x.enabled.toString) }
       ),
       ("resolverType", resolverType.map(r => quoteDoc(r.asString))),
-      ("buildFileName", buildFileName.map(name => Doc.text(name))),
-      ("authFile", authFile.map(name => Doc.text(name))),
       (
         "resolverOptions",
         resolverType.flatMap(_.optionsDoc).map(d => (Doc.line + d).nested(2))
@@ -1955,18 +1915,12 @@ object Options {
       None,
       None,
       None,
-      None,
-      None,
-      None,
-      None,
       None
     )
 
     def combine(a: Options, b: Options): Options = {
       val vcp = Monoid[Option[VersionConflictPolicy]]
         .combine(a.versionConflictPolicy, b.versionConflictPolicy)
-      val tpd = Monoid[Option[DirectoryName]]
-        .combine(a.thirdPartyDirectory, b.thirdPartyDirectory)
       val langs =
         Monoid[Option[Set[Language]]].combine(a.languages, b.languages)
       val resolvers = Monoid[Option[List[DependencyServer]]]
@@ -1974,9 +1928,6 @@ object Options {
         .map(_.distinct)
       val trans =
         Monoid[Option[Transitivity]].combine(a.transitivity, b.transitivity)
-      val headers = Monoid[Option[List[String]]]
-        .combine(a.buildHeader, b.buildHeader)
-        .map(_.distinct)
       val resolverCache =
         Monoid[Option[ResolverCache]].combine(a.resolverCache, b.resolverCache)
       val namePrefix =
@@ -1986,23 +1937,16 @@ object Options {
         Monoid[Option[ResolverType]].combine(a.resolverType, b.resolverType)
       val strictVisibility = Monoid[Option[StrictVisibility]]
         .combine(a.strictVisibility, b.strictVisibility)
-      val buildFileName =
-        Monoid[Option[String]].combine(a.buildFileName, b.buildFileName)
-      val authFile = Monoid[Option[String]].combine(a.authFile, b.authFile)
       Options(
         vcp,
-        tpd,
         langs,
         resolvers,
         trans,
-        headers,
         resolverCache,
         namePrefix,
         licenses,
         resolverType,
-        strictVisibility,
-        buildFileName,
-        authFile
+        strictVisibility
       )
     }
   }

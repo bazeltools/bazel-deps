@@ -59,16 +59,11 @@ object Command {
   case class Generate(
       repoRoot: Path,
       depsFile: String,
-      shaFile: String,
-      targetFile: String,
-      pomFile: Option[String],
+      resolvedOutput: String,
       verbosity: Verbosity
   ) extends Command {
     def absDepsFile: File =
       new File(repoRoot.toFile, depsFile)
-
-    def shaFilePath: String =
-      new File(shaFile).toString
   }
   val generate = DCommand("generate", "generate transitive bazel targets") {
     val repoRoot = Opts.option[Path](
@@ -85,33 +80,16 @@ object Command {
       help = "relative path to the dependencies yaml file"
     )
 
-    val shaFile = Opts.option[String](
-      "sha-file",
-      short = "s",
-      metavar = "sha-file",
+    val resolvedOutput = Opts.option[String](
+      "resolved-output",
+      metavar = "resolved-output",
       help =
-        "relative path to the sha lock file (usually called workspace.bzl)."
+        "relative path to the file to emit target info into (usually called resolvedOutput.json)."
     )
 
-    val targetFile = Opts.option[String](
-      "target-file",
-      short = "t",
-      metavar = "target-file",
-      help =
-        "relative path to the file to emit target info into (usually called target_file.bzl)."
-    )
 
-    val pomFile = Opts
-      .option[String](
-        "pom-file",
-        short = "p",
-        metavar = "pom-file",
-        help = "absolute path to the pom xml file"
-      )
-      .orNone
-
-    (repoRoot |@| depsFile |@| shaFile |@| targetFile |@| pomFile |@| Verbosity.opt)
-      .map(Generate(_, _, _, _, _, _))
+    (repoRoot |@| depsFile |@| resolvedOutput |@| Verbosity.opt)
+      .map(Generate(_, _, _, _))
   }
 
   case class FormatDeps(deps: Path, overwrite: Boolean, verbosity: Verbosity)
