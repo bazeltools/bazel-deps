@@ -10,11 +10,12 @@ import WriterGenerators._
 import scala.util.{Failure, Success}
 
 class TargetTestTest extends FunSuite {
-  test ("Test we can serialize and round trip via the string format") {
+  test("Test we can serialize and round trip via the string format") {
     val separator = "|||"
-    forAll (targetGen) { target =>
-
-      val rt = target.listStringEncoding(separator).flatMap{ e => Target.fromListStringEncoding(separator, e)}
+    forAll(targetGen) { target =>
+      val rt = target.listStringEncoding(separator).flatMap { e =>
+        Target.fromListStringEncoding(separator, e)
+      }
 
       val rtV = rt.foldMap(IO.fileSystemExec(new File("/tmp"))) match {
         case Failure(err) =>
@@ -26,4 +27,3 @@ class TargetTestTest extends FunSuite {
     }
   }
 }
-

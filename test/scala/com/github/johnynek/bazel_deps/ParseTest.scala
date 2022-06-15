@@ -13,27 +13,36 @@ class ParseTest extends FunSuite {
                 |      version: "0.16.0"
                 |      modules: [core, args, date]
                 |""".stripMargin('|')
-                // |
-                // |options:
-                // |  languages: ["scala:2.11.8", java]
-                // |  thirdPartyDirectory: 3rdparty/jvm
+    // |
+    // |options:
+    // |  languages: ["scala:2.11.8", java]
+    // |  thirdPartyDirectory: 3rdparty/jvm
 
-    assert(Decoders.decodeModel(Yaml, str) ==
-      Right(Model(
-        Dependencies(
-          MavenGroup("com.twitter") ->
-            Map(ArtifactOrProject("scalding") ->
-              ProjectRecord(
-                Language.Scala.default,
-                Some(Version("0.16.0")),
-                Some(Set("core", "args", "date").map(Subproject(_))),
-                None,
-                None,
-                None,
-                None,
-                None))),
-          None,
-          None)))
+    assert(
+      Decoders.decodeModel(Yaml, str) ==
+        Right(
+          Model(
+            Dependencies(
+              MavenGroup("com.twitter") ->
+                Map(
+                  ArtifactOrProject("scalding") ->
+                    ProjectRecord(
+                      Language.Scala.default,
+                      Some(Version("0.16.0")),
+                      Some(Set("core", "args", "date").map(Subproject(_))),
+                      None,
+                      None,
+                      None,
+                      None,
+                      None
+                    )
+                )
+            ),
+            None,
+            None
+          )
+        )
+    )
   }
   test("parse a file with options, yaml") {
     val str = """dependencies:
@@ -52,36 +61,49 @@ class ParseTest extends FunSuite {
                 |  authFile: $BAZEL_NETRC
                 |""".stripMargin('|')
 
-    assert(Decoders.decodeModel(Yaml, str) ==
-      Right(Model(
-        Dependencies(
-          MavenGroup("com.twitter") ->
-            Map(ArtifactOrProject("scalding") ->
-              ProjectRecord(
-                Language.Scala(Version("2.11.7"), true),
-                Some(Version("0.16.0")),
-                Some(Set("core", "args", "date").map(Subproject(_))),
+    assert(
+      Decoders.decodeModel(Yaml, str) ==
+        Right(
+          Model(
+            Dependencies(
+              MavenGroup("com.twitter") ->
+                Map(
+                  ArtifactOrProject("scalding") ->
+                    ProjectRecord(
+                      Language.Scala(Version("2.11.7"), true),
+                      Some(Version("0.16.0")),
+                      Some(Set("core", "args", "date").map(Subproject(_))),
+                      None,
+                      None,
+                      None,
+                      None,
+                      None
+                    )
+                )
+            ),
+            None,
+            Some(
+              Options(
+                None,
+                Some(DirectoryName("3rdparty/jvm")),
+                Some(
+                  Set(Language.Scala(Version("2.11.7"), true), Language.Java)
+                ),
                 None,
                 None,
                 None,
+                Some(ResolverCache.BazelOutputBase),
                 None,
-                None))),
-          None,
-          Some(
-            Options(
-              None,
-              Some(DirectoryName("3rdparty/jvm")),
-              Some(Set(Language.Scala(Version("2.11.7"), true), Language.Java)),
-              None,
-              None,
-              None,
-              Some(ResolverCache.BazelOutputBase),
-              None,
-              Some(Set("unencumbered", "permissive")),
-              None,
-              None,
-              Some("BUILD.bazel"),
-              Some("$BAZEL_NETRC"))))))
+                Some(Set("unencumbered", "permissive")),
+                None,
+                None,
+                Some("BUILD.bazel"),
+                Some("$BAZEL_NETRC")
+              )
+            )
+          )
+        )
+    )
   }
   test("parse empty subproject version") {
     val str = """dependencies:
@@ -96,41 +118,60 @@ class ParseTest extends FunSuite {
                 |  thirdPartyDirectory: 3rdparty/jvm
                 |""".stripMargin('|')
 
-    assert(Decoders.decodeModel(Yaml, str) ==
-      Right(Model(
-        Dependencies(
-          MavenGroup("com.twitter") ->
-            Map(ArtifactOrProject("scalding") ->
-              ProjectRecord(
-                Language.Scala(Version("2.11.7"), true),
-                Some(Version("0.16.0")),
-                Some(Set("", "core", "args", "date").map(Subproject(_))),
+    assert(
+      Decoders.decodeModel(Yaml, str) ==
+        Right(
+          Model(
+            Dependencies(
+              MavenGroup("com.twitter") ->
+                Map(
+                  ArtifactOrProject("scalding") ->
+                    ProjectRecord(
+                      Language.Scala(Version("2.11.7"), true),
+                      Some(Version("0.16.0")),
+                      Some(Set("", "core", "args", "date").map(Subproject(_))),
+                      None,
+                      None,
+                      None,
+                      None,
+                      None
+                    )
+                )
+            ),
+            None,
+            Some(
+              Options(
+                None,
+                Some(DirectoryName("3rdparty/jvm")),
+                Some(
+                  Set(Language.Scala(Version("2.11.7"), true), Language.Java)
+                ),
                 None,
                 None,
                 None,
                 None,
-                None))),
-          None,
-          Some(
-            Options(
-              None,
-              Some(DirectoryName("3rdparty/jvm")),
-              Some(Set(Language.Scala(Version("2.11.7"), true), Language.Java)),
-              None,
-              None,
-              None,
-              None,
-              None,
-              None,
-              None,
-              None,
-              None,
-              None)))))
+                None,
+                None,
+                None,
+                None,
+                None,
+                None
+              )
+            )
+          )
+        )
+    )
 
-    assert(MavenArtifactId(ArtifactOrProject("a"), Subproject("")).asString === "a")
-    assert(MavenArtifactId(ArtifactOrProject("a"), Subproject("b")).asString === "a-b")
+    assert(
+      MavenArtifactId(ArtifactOrProject("a"), Subproject("")).asString === "a"
+    )
+    assert(
+      MavenArtifactId(
+        ArtifactOrProject("a"),
+        Subproject("b")
+      ).asString === "a-b"
+    )
   }
-
 
   test("parse a file with an annotationProcessor defined") {
     val str = """dependencies:
@@ -141,25 +182,42 @@ class ParseTest extends FunSuite {
                 |      processorClasses: ["com.google.auto.value.processor.AutoValueProcessor"]
                 |""".stripMargin('|')
 
-    assert(Decoders.decodeModel(Yaml, str) ==
-      Right(Model(
-        Dependencies(
-          MavenGroup("com.google.auto.value") ->
-            Map(ArtifactOrProject("auto-value") ->
-              ProjectRecord(
-                Language.Java,
-                Some(Version("1.5")),
-                None,
-                None,
-                None,
-                None,
-                Some(Set(ProcessorClass("com.google.auto.value.processor.AutoValueProcessor"))),
-                None))),
-        None,
-        None)))
+    assert(
+      Decoders.decodeModel(Yaml, str) ==
+        Right(
+          Model(
+            Dependencies(
+              MavenGroup("com.google.auto.value") ->
+                Map(
+                  ArtifactOrProject("auto-value") ->
+                    ProjectRecord(
+                      Language.Java,
+                      Some(Version("1.5")),
+                      None,
+                      None,
+                      None,
+                      None,
+                      Some(
+                        Set(
+                          ProcessorClass(
+                            "com.google.auto.value.processor.AutoValueProcessor"
+                          )
+                        )
+                      ),
+                      None
+                    )
+                )
+            ),
+            None,
+            None
+          )
+        )
+    )
   }
 
-  test("parse a file with an annotationProcessor defined and generatesApi false") {
+  test(
+    "parse a file with an annotationProcessor defined and generatesApi false"
+  ) {
     val str = """dependencies:
                 |  com.google.auto.value:
                 |    auto-value:
@@ -169,25 +227,42 @@ class ParseTest extends FunSuite {
                 |      processorClasses: ["com.google.auto.value.processor.AutoValueProcessor"]
                 |""".stripMargin('|')
 
-    assert(Decoders.decodeModel(Yaml, str) ==
-      Right(Model(
-        Dependencies(
-          MavenGroup("com.google.auto.value") ->
-            Map(ArtifactOrProject("auto-value") ->
-              ProjectRecord(
-                Language.Java,
-                Some(Version("1.5")),
-                None,
-                None,
-                None,
-                Some(false),
-                Some(Set(ProcessorClass("com.google.auto.value.processor.AutoValueProcessor"))),
-                None))),
-        None,
-        None)))
+    assert(
+      Decoders.decodeModel(Yaml, str) ==
+        Right(
+          Model(
+            Dependencies(
+              MavenGroup("com.google.auto.value") ->
+                Map(
+                  ArtifactOrProject("auto-value") ->
+                    ProjectRecord(
+                      Language.Java,
+                      Some(Version("1.5")),
+                      None,
+                      None,
+                      None,
+                      Some(false),
+                      Some(
+                        Set(
+                          ProcessorClass(
+                            "com.google.auto.value.processor.AutoValueProcessor"
+                          )
+                        )
+                      ),
+                      None
+                    )
+                )
+            ),
+            None,
+            None
+          )
+        )
+    )
   }
 
-  test("parse a file with an annotationProcessor defined and generatesApi true") {
+  test(
+    "parse a file with an annotationProcessor defined and generatesApi true"
+  ) {
     val str = """dependencies:
                 |  com.google.auto.value:
                 |    auto-value:
@@ -197,22 +272,37 @@ class ParseTest extends FunSuite {
                 |      processorClasses: ["com.google.auto.value.processor.AutoValueProcessor"]
                 |""".stripMargin('|')
 
-    assert(Decoders.decodeModel(Yaml, str) ==
-      Right(Model(
-        Dependencies(
-          MavenGroup("com.google.auto.value") ->
-            Map(ArtifactOrProject("auto-value") ->
-              ProjectRecord(
-                Language.Java,
-                Some(Version("1.5")),
-                None,
-                None,
-                None,
-                Some(true),
-                Some(Set(ProcessorClass("com.google.auto.value.processor.AutoValueProcessor"))),
-                None))),
-        None,
-        None)))
+    assert(
+      Decoders.decodeModel(Yaml, str) ==
+        Right(
+          Model(
+            Dependencies(
+              MavenGroup("com.google.auto.value") ->
+                Map(
+                  ArtifactOrProject("auto-value") ->
+                    ProjectRecord(
+                      Language.Java,
+                      Some(Version("1.5")),
+                      None,
+                      None,
+                      None,
+                      Some(true),
+                      Some(
+                        Set(
+                          ProcessorClass(
+                            "com.google.auto.value.processor.AutoValueProcessor"
+                          )
+                        )
+                      ),
+                      None
+                    )
+                )
+            ),
+            None,
+            None
+          )
+        )
+    )
   }
 
   test("parse a file that includes packaging for an artifact") {
@@ -223,25 +313,36 @@ class ParseTest extends FunSuite {
                 |      lang: java
                 |""".stripMargin('|')
 
-    assert(Decoders.decodeModel(Yaml, str) ==
-      Right(Model(
-        Dependencies(
-          MavenGroup("com.google.auto.value") ->
-            Map(ArtifactOrProject("auto-value:dll") ->
-              ProjectRecord(
-                Language.Java,
-                Some(Version("1.5")),
-                None,
-                None,
-                None,
-                None,
-                None,
-                None))),
-        None,
-        None)))
+    assert(
+      Decoders.decodeModel(Yaml, str) ==
+        Right(
+          Model(
+            Dependencies(
+              MavenGroup("com.google.auto.value") ->
+                Map(
+                  ArtifactOrProject("auto-value:dll") ->
+                    ProjectRecord(
+                      Language.Java,
+                      Some(Version("1.5")),
+                      None,
+                      None,
+                      None,
+                      None,
+                      None,
+                      None
+                    )
+                )
+            ),
+            None,
+            None
+          )
+        )
+    )
   }
 
-  test("parse a file that includes packaging for an artifact with subprojects") {
+  test(
+    "parse a file that includes packaging for an artifact with subprojects"
+  ) {
     val str = """dependencies:
                 |  com.google.auto.value:
                 |    auto-value:dll:
@@ -250,22 +351,31 @@ class ParseTest extends FunSuite {
                 |      lang: java
                 |""".stripMargin('|')
 
-    assert(Decoders.decodeModel(Yaml, str) ==
-      Right(Model(
-        Dependencies(
-          MavenGroup("com.google.auto.value") ->
-            Map(ArtifactOrProject("auto-value:dll") ->
-              ProjectRecord(
-                Language.Java,
-                Some(Version("1.5")),
-                Some(Set("", "extras").map(Subproject(_))),
-                None,
-                None,
-                None,
-                None,
-                None))),
-        None,
-        None)))
+    assert(
+      Decoders.decodeModel(Yaml, str) ==
+        Right(
+          Model(
+            Dependencies(
+              MavenGroup("com.google.auto.value") ->
+                Map(
+                  ArtifactOrProject("auto-value:dll") ->
+                    ProjectRecord(
+                      Language.Java,
+                      Some(Version("1.5")),
+                      Some(Set("", "extras").map(Subproject(_))),
+                      None,
+                      None,
+                      None,
+                      None,
+                      None
+                    )
+                )
+            ),
+            None,
+            None
+          )
+        )
+    )
   }
 
   test("parse a file that includes classifier") {
@@ -276,22 +386,31 @@ class ParseTest extends FunSuite {
                 |      lang: java
                 |""".stripMargin('|')
 
-    assert(Decoders.decodeModel(Yaml, str) ==
-      Right(Model(
-        Dependencies(
-          MavenGroup("com.google.auto.value") ->
-            Map(ArtifactOrProject("auto-value:dll:best-one") ->
-              ProjectRecord(
-                Language.Java,
-                Some(Version("1.5")),
-                None,
-                None,
-                None,
-                None,
-                None,
-                None))),
-        None,
-        None)))
+    assert(
+      Decoders.decodeModel(Yaml, str) ==
+        Right(
+          Model(
+            Dependencies(
+              MavenGroup("com.google.auto.value") ->
+                Map(
+                  ArtifactOrProject("auto-value:dll:best-one") ->
+                    ProjectRecord(
+                      Language.Java,
+                      Some(Version("1.5")),
+                      None,
+                      None,
+                      None,
+                      None,
+                      None,
+                      None
+                    )
+                )
+            ),
+            None,
+            None
+          )
+        )
+    )
   }
 
   test("parse a file that _excludes_ something with a classifier") {
@@ -304,22 +423,38 @@ class ParseTest extends FunSuite {
                 |      lang: java
                 |""".stripMargin('|')
 
-    assert(Decoders.decodeModel(Yaml, str) ==
-      Right(Model(
-        Dependencies(
-          MavenGroup("com.google.auto.value") ->
-            Map(ArtifactOrProject("auto-value") ->
-              ProjectRecord(
-                Language.Java,
-                Some(Version("1.5")),
-                None,
-                None,
-                Some(Set((MavenGroup("foo"), ArtifactOrProject(MavenArtifactId("bar:so:fancy"))))),
-                None,
-                None,
-                None))),
-        None,
-        None)))
+    assert(
+      Decoders.decodeModel(Yaml, str) ==
+        Right(
+          Model(
+            Dependencies(
+              MavenGroup("com.google.auto.value") ->
+                Map(
+                  ArtifactOrProject("auto-value") ->
+                    ProjectRecord(
+                      Language.Java,
+                      Some(Version("1.5")),
+                      None,
+                      None,
+                      Some(
+                        Set(
+                          (
+                            MavenGroup("foo"),
+                            ArtifactOrProject(MavenArtifactId("bar:so:fancy"))
+                          )
+                        )
+                      ),
+                      None,
+                      None,
+                      None
+                    )
+                )
+            ),
+            None,
+            None
+          )
+        )
+    )
   }
 
   test("parse a file that has generateNeverlink set to true") {
@@ -331,22 +466,31 @@ class ParseTest extends FunSuite {
                 |      generateNeverlink: true
                 |""".stripMargin('|')
 
-    assert(Decoders.decodeModel(Yaml, str) ==
-      Right(Model(
-        Dependencies(
-          MavenGroup("org.apache.tomcat") ->
-            Map(ArtifactOrProject("tomcat-catalina") ->
-              ProjectRecord(
-                Language.Java,
-                Some(Version("7.0.57")),
-                None,
-                None,
-                None,
-                None,
-                None,
-                Some(true)))),
-        None,
-        None)))
+    assert(
+      Decoders.decodeModel(Yaml, str) ==
+        Right(
+          Model(
+            Dependencies(
+              MavenGroup("org.apache.tomcat") ->
+                Map(
+                  ArtifactOrProject("tomcat-catalina") ->
+                    ProjectRecord(
+                      Language.Java,
+                      Some(Version("7.0.57")),
+                      None,
+                      None,
+                      None,
+                      None,
+                      None,
+                      Some(true)
+                    )
+                )
+            ),
+            None,
+            None
+          )
+        )
+    )
   }
 
   test("parse a file that has generateNeverlink set to false") {
@@ -358,22 +502,31 @@ class ParseTest extends FunSuite {
                 |      generateNeverlink: false
                 |""".stripMargin('|')
 
-    assert(Decoders.decodeModel(Yaml, str) ==
-      Right(Model(
-        Dependencies(
-          MavenGroup("org.apache.tomcat") ->
-            Map(ArtifactOrProject("tomcat-catalina") ->
-              ProjectRecord(
-                Language.Java,
-                Some(Version("7.0.57")),
-                None,
-                None,
-                None,
-                None,
-                None,
-                Some(false)))),
-        None,
-        None)))
+    assert(
+      Decoders.decodeModel(Yaml, str) ==
+        Right(
+          Model(
+            Dependencies(
+              MavenGroup("org.apache.tomcat") ->
+                Map(
+                  ArtifactOrProject("tomcat-catalina") ->
+                    ProjectRecord(
+                      Language.Java,
+                      Some(Version("7.0.57")),
+                      None,
+                      None,
+                      None,
+                      None,
+                      None,
+                      Some(false)
+                    )
+                )
+            ),
+            None,
+            None
+          )
+        )
+    )
   }
 
   /*
@@ -395,6 +548,6 @@ class ParseTest extends FunSuite {
 
     assert(Decoders.decodeModel(Yaml, str).isLeft)
   }
-*/
+   */
 
 }

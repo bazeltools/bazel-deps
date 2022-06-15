@@ -2,7 +2,7 @@ package com.github.johnynek.bazel_deps
 
 import org.scalatest.FunSuite
 
-class CreatePomTest extends FunSuite{
+class CreatePomTest extends FunSuite {
 
   test("CreatePom translates dependencies yaml file into pom xml file") {
     val dependenciesYaml = """
@@ -54,10 +54,10 @@ dependencies:
         </dependencies>
       </project>
 
-      val model = Decoders.decodeModel(Yaml, dependenciesYaml).right.get
-      val (dependencies, _, _) = MakeDeps.runResolve(model, null).get
-      val p = new scala.xml.PrettyPrinter(80, 2)
+    val model = Decoders.decodeModel(Yaml, dependenciesYaml).right.get
+    val (dependencies, _, _) = MakeDeps.runResolve(model, null).get
+    val p = new scala.xml.PrettyPrinter(80, 2)
 
-      assert(CreatePom.translate(dependencies) == p.format(expectedPomXml))
+    assert(CreatePom.translate(dependencies) == p.format(expectedPomXml))
   }
 }

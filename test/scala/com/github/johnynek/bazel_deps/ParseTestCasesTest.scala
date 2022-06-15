@@ -8,19 +8,52 @@ class ParseTestCasesTest extends FunSuite {
     import Language.Java
 
     // This has a single sub-project, which we don't minimize into this form
-    val model = Model(Dependencies(
-      Map(
-        MavenGroup("n2rr") ->
-          Map(
-            ArtifactOrProject("zmup") -> ProjectRecord(Java,Some(Version("019")),Some(Set(Subproject("wcv"))),Some(Set((MavenGroup("j9szw4"),ArtifactOrProject("i")))),None,None,None,None)
-          )
-        )),Some(Replacements(Map())),None)
+    val model = Model(
+      Dependencies(
+        Map(
+          MavenGroup("n2rr") ->
+            Map(
+              ArtifactOrProject("zmup") -> ProjectRecord(
+                Java,
+                Some(Version("019")),
+                Some(Set(Subproject("wcv"))),
+                Some(Set((MavenGroup("j9szw4"), ArtifactOrProject("i")))),
+                None,
+                None,
+                None,
+                None
+              )
+            )
+        )
+      ),
+      Some(Replacements(Map())),
+      None
+    )
 
     law(model)
 
-    val model1 = Model(Dependencies.empty,Some(Replacements.empty),Some(Options(None,None,None,None,None,Some(List()),
-      Some(ResolverCache.Local), Some(NamePrefix("y")), None, None, None, None, None)))
-    //println(model1.toDoc.render(70))
+    val model1 = Model(
+      Dependencies.empty,
+      Some(Replacements.empty),
+      Some(
+        Options(
+          None,
+          None,
+          None,
+          None,
+          None,
+          Some(List()),
+          Some(ResolverCache.Local),
+          Some(NamePrefix("y")),
+          None,
+          None,
+          None,
+          None,
+          None
+        )
+      )
+    )
+    // println(model1.toDoc.render(70))
     law(model1)
   }
 
@@ -99,7 +132,7 @@ dependencies:
     roundTripsTo(input, output)
   }
 
-   test("Do not collapse when incompatible") {
+  test("Do not collapse when incompatible") {
     val input = """
 dependencies:
    com.twitter:

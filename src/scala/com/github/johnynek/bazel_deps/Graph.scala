@@ -6,15 +6,17 @@ case class Edge[N, E](source: N, destination: N, label: E)
 
 case class Graph[N, E](nodes: Set[N], edges: Map[N, Set[Edge[N, E]]]) {
   def toDoc(showN: N => String, showE: E => String): Doc = {
-    val tab = nodes
-      .toList
+    val tab = nodes.toList
       .sortBy(showN)
       .map { n =>
         val strN = showN(n)
         val es = hasSource(n)
-        val edoc = Doc.intercalate(Doc.line, es.map { case Edge(_, d, e) =>
-          Doc.text(s"-(${showE(e)})->") + Doc.space + Doc.text(showN(d))
-        })
+        val edoc = Doc.intercalate(
+          Doc.line,
+          es.map { case Edge(_, d, e) =>
+            Doc.text(s"-(${showE(e)})->") + Doc.space + Doc.text(showN(d))
+          }
+        )
         (strN, edoc)
       }
     Doc.tabulate(' ', ":", tab)
@@ -47,7 +49,8 @@ case class Graph[N, E](nodes: Set[N], edges: Map[N, Set[Edge[N, E]]]) {
 
   def removeNode(n: N): Graph[N, E] = {
     val newG =
-      edges.getOrElse(n, Set.empty)
+      edges
+        .getOrElse(n, Set.empty)
         .foldLeft(this)(_.removeEdge(_))
     Graph(newG.nodes - n, newG.edges)
   }
@@ -74,16 +77,14 @@ case class Graph[N, E](nodes: Set[N], edges: Map[N, Set[Edge[N, E]]]) {
     }
   }.mkString("\n")
 
-  /**
-   * the result contains the input
-   */
+  /** the result contains the input
+    */
   def reflexiveTransitiveClosure(n: List[N]): Set[N] = {
     @annotation.tailrec
     def loop(stack: List[N], acc: Set[N]): Set[N] = stack match {
       case Nil => acc
-      case head::tail =>
-        val nodes = hasSource(head)
-          .iterator
+      case head :: tail =>
+        val nodes = hasSource(head).iterator
           .map(_.destination)
           .filterNot(acc)
           .toList

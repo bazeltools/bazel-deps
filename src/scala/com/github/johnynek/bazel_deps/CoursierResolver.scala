@@ -36,7 +36,11 @@ object CoursierResolver {
   }
 }
 
-class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, runTimeout: Duration) extends Resolver[Task] {
+class CoursierResolver(
+    servers: List[DependencyServer],
+    ec: ExecutionContext,
+    runTimeout: Duration
+) extends Resolver[Task] {
   // TODO: add support for a local file cache other than ivy
   private[this] val repos = LocalRepositories.ivy2Local :: {
     val settings = SettingsLoader.settings
@@ -52,22 +56,27 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
         val authentication = Option(settings.getServer(id))
           .map(server => Authentication(server.getUsername, server.getPassword))
 
-
         IvyRepository.parse(
           url + ivyArtifactPattern,
           Some(url + ivyPattern),
-          authentication = authentication) match {
-          case Left(o) => ???
+          authentication = authentication
+        ) match {
+          case Left(o)  => ???
           case Right(r) => r
         }
     }
   }
 
-  private[this] val fetch = ResolutionProcess.fetch(repos, FileCache().
-    withCachePolicies(Seq(CachePolicy.FetchMissing))
-    .withPool(CoursierResolver.downloadPool).fetch)
+  private[this] val fetch = ResolutionProcess.fetch(
+    repos,
+    FileCache()
+      .withCachePolicies(Seq(CachePolicy.FetchMissing))
+      .withPool(CoursierResolver.downloadPool)
+      .fetch
+  )
 
-  private[this] val logger = LoggerFactory.getLogger("bazel_deps.CoursierResolver")
+  private[this] val logger =
+    LoggerFactory.getLogger("bazel_deps.CoursierResolver")
 
   // Instructs the coursier resolver to keep `runtime`-scoped dependencies.
   private[this] val DefaultConfiguration = "default(compile)"
@@ -102,146 +111,241 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
 
   def run[A](fa: Task[A]): Try[A] = Try(Await.result(fa.value(ec), runTimeout))
 
-  case class FileErrorException(error: coursier.cache.ArtifactError) extends Exception(error.describe)
+  case class FileErrorException(error: coursier.cache.ArtifactError)
+      extends Exception(error.describe)
 
-  case class DownloadFailures(messages: NonEmptyList[String]) extends Exception("resolution errors:\n" + messages.toList.mkString("\n"))
+  case class DownloadFailures(messages: NonEmptyList[String])
+      extends Exception("resolution errors:\n" + messages.toList.mkString("\n"))
 
-  def getShas(m: List[MavenCoordinate]): Task[SortedMap[MavenCoordinate, ResolvedShasValue]] = {
+  def getShas(
+      m: List[MavenCoordinate]
+  ): Task[SortedMap[MavenCoordinate, ResolvedShasValue]] = {
 
     type L[x] = ValidatedNel[String, x]
     type N[x] = Nested[Task, L, x]
 
     def lookup(c: MavenCoordinate): N[ResolvedShasValue] = {
 
-      def downloadShas(digestType: DigestType, as: List[Artifact]): Task[Option[(Artifact, ShaValue)]] =
+      def downloadShas(
+          digestType: DigestType,
+          as: List[Artifact]
+      ): Task[Option[(Artifact, ShaValue)]] =
         as.foldM(Option.empty[(Artifact, ShaValue)]) {
-          case (s@Some(r), _) => Task.point(s)
-          case (None, a) => downloadSha(digestType, a)
+          case (s @ Some(r), _) => Task.point(s)
+          case (None, a)        => downloadSha(digestType, a)
         }
 
-      def downloadSha(digestType: DigestType, a: Artifact): Task[Option[(Artifact, ShaValue)]] = {
+      def downloadSha(
+          digestType: DigestType,
+          a: Artifact
+      ): Task[Option[(Artifact, ShaValue)]] = {
         // Because Cache.file is hijacked to download SHAs directly (rather than signed artifacts) checksum verification
         // is turned off. Checksums don't themselves have checksum files.
-        FileCache().withChecksums(Seq(None))
+        FileCache()
+          .withChecksums(Seq(None))
           .withCachePolicies(Seq(CachePolicy.FetchMissing))
-          .withPool(CoursierResolver.downloadPool).file(a).run.map {
-          case Left(error) =>
-            logger.info(s"failure to download ${a.url}, ${error.describe}")
-            None
-          case Right(file) =>
-            val o = ShaValue.parseFile(digestType, file).toOption
-            o.foreach { r =>
-              logger.info(s"$digestType for ${c.asString} downloaded from ${a.url} (${r.toHex})")
-            }
-            o.map{sha => (a, sha)}
-        }
-      }
-
-      def computeSha(digestType: DigestType, artifact: Artifact): Task[(Artifact, ShaValue)] = {
-        FileCache().withCachePolicies(Seq(CachePolicy.FetchMissing)).withPool(CoursierResolver.downloadPool).file(artifact).run.flatMap { e =>
-          resolverMonad.fromTry(e match {
+          .withPool(CoursierResolver.downloadPool)
+          .file(a)
+          .run
+          .map {
             case Left(error) =>
-              // println(s"Tried to download $artifact but failed.")
-              Failure(FileErrorException(error))
+              logger.info(s"failure to download ${a.url}, ${error.describe}")
+              None
             case Right(file) =>
-              ShaValue.computeShaOf(digestType, file).map { sha => (artifact, sha)}
-          })
-        }
+              val o = ShaValue.parseFile(digestType, file).toOption
+              o.foreach { r =>
+                logger.info(
+                  s"$digestType for ${c.asString} downloaded from ${a.url} (${r.toHex})"
+                )
+              }
+              o.map { sha => (a, sha) }
+          }
       }
 
-      def computeShas(digestType: DigestType, as: NonEmptyList[Artifact]): Task[(Artifact, ShaValue)] = {
+      def computeSha(
+          digestType: DigestType,
+          artifact: Artifact
+      ): Task[(Artifact, ShaValue)] = {
+        FileCache()
+          .withCachePolicies(Seq(CachePolicy.FetchMissing))
+          .withPool(CoursierResolver.downloadPool)
+          .file(artifact)
+          .run
+          .flatMap { e =>
+            resolverMonad.fromTry(e match {
+              case Left(error) =>
+                // println(s"Tried to download $artifact but failed.")
+                Failure(FileErrorException(error))
+              case Right(file) =>
+                ShaValue.computeShaOf(digestType, file).map { sha =>
+                  (artifact, sha)
+                }
+            })
+          }
+      }
+
+      def computeShas(
+          digestType: DigestType,
+          as: NonEmptyList[Artifact]
+      ): Task[(Artifact, ShaValue)] = {
         val errorFn: Throwable => Task[(Artifact, ShaValue)] = as.tail match {
           case Nil => { e: Throwable =>
-            resolverMonad.raiseError(new RuntimeException(s"we could not download the artifact ${c.asString} to compute the hash for digest type ${digestType} with error ${e}"))
+            resolverMonad.raiseError(
+              new RuntimeException(
+                s"we could not download the artifact ${c.asString} to compute the hash for digest type ${digestType} with error ${e}"
+              )
+            )
           }
-          case h :: t => { e: Throwable => computeShas(digestType, NonEmptyList(h, t)) }
+          case h :: t => { e: Throwable =>
+            computeShas(digestType, NonEmptyList(h, t))
+          }
         }
         resolverMonad.handleErrorWith(computeSha(digestType, as.head))(errorFn)
       }
 
-      def fetchOrComputeShas(artifacts: NonEmptyList[Artifact], digestType: DigestType): Task[(Artifact, ShaValue)] = {
+      def fetchOrComputeShas(
+          artifacts: NonEmptyList[Artifact],
+          digestType: DigestType
+      ): Task[(Artifact, ShaValue)] = {
         val checksumArtifacts = artifacts.toList.flatMap { a =>
-          a.checksumUrls.get(digestType.name).map(url => Artifact(url, Map.empty, Map.empty, a.changing, false, a.authentication))
+          a.checksumUrls
+            .get(digestType.name)
+            .map(url =>
+              Artifact(
+                url,
+                Map.empty,
+                Map.empty,
+                a.changing,
+                false,
+                a.authentication
+              )
+            )
         }
 
         downloadShas(digestType, checksumArtifacts).flatMap {
           case Some(s) => Task.point(s)
           case None => {
-            logger.info(s"Preforming cached fetch to execute $digestType calculation for ${artifacts.head.url}")
+            logger.info(
+              s"Preforming cached fetch to execute $digestType calculation for ${artifacts.head.url}"
+            )
             computeShas(digestType, artifacts)
           }
         }
       }
 
-      def processArtifact(src: coursier.core.ArtifactSource, dep: Dependency, proj: Project): Task[Option[JarDescriptor]] = {
+      def processArtifact(
+          src: coursier.core.ArtifactSource,
+          dep: Dependency,
+          proj: Project
+      ): Task[Option[JarDescriptor]] = {
         val module = dep.module
         val organization = module.organization.value
         val moduleName = module.name.value
         val version = dep.version
         val extension = dep.publication.ext.value
 
-
         // sometimes the artifactor source doesn't seem to entirely work... so
         // we inject using any ivy servers about test URL's to try
         val extraUrls = this.servers.collect {
           case IvyServer(_, url, _, ivyArtifactPattern) =>
-            val subUrl = ivyArtifactPattern.replaceAllLiterally("[revision]", version)
-                .replaceAllLiterally("[orgPath]", organization.replace('.', '/'))
+            val subUrl = ivyArtifactPattern
+              .replaceAllLiterally("[revision]", version)
+              .replaceAllLiterally("[orgPath]", organization.replace('.', '/'))
               .replaceAllLiterally("[artifact]", moduleName)
               .replaceAllLiterally("[module]", moduleName)
               .replaceAllLiterally("(-[classifier])", "")
-              .replaceAllLiterally("[ext]", Option(extension).filter(_.nonEmpty).getOrElse("jar"))
+              .replaceAllLiterally(
+                "[ext]",
+                Option(extension).filter(_.nonEmpty).getOrElse("jar")
+              )
 
             Some(s"$url$subUrl")
           case MavenServer(_, _, url) =>
             // Builds a Maven artifact URL
-            def mavenUrl(url: String, organization: String, moduleName: String, version: String, classifier: Option[String], extension: Option[String]): String = {
-              val classifierSuffix: String = classifier.filter(_.nonEmpty).map("-" + _).getOrElse("")
+            def mavenUrl(
+                url: String,
+                organization: String,
+                moduleName: String,
+                version: String,
+                classifier: Option[String],
+                extension: Option[String]
+            ): String = {
+              val classifierSuffix: String =
+                classifier.filter(_.nonEmpty).map("-" + _).getOrElse("")
               val ext: String = extension.filter(_.nonEmpty).getOrElse("jar")
 
               s"${url.stripSuffix("/")}/${organization.replace('.', '/')}/$moduleName/$version/$moduleName-$version$classifierSuffix.$ext"
             }
 
-            Some(mavenUrl(url, organization, moduleName, version, None, Option(extension)))
+            Some(
+              mavenUrl(
+                url,
+                organization,
+                moduleName,
+                version,
+                None,
+                Option(extension)
+              )
+            )
         }.flatten
 
-
-        val maybeArtifacts = src.artifacts(dep, proj, None)
+        val maybeArtifacts = src
+          .artifacts(dep, proj, None)
           .map { case (_, artifact: Artifact) => artifact }
           .toList ++ extraUrls.map { url =>
-            Artifact(
-              url, Map.empty, Map.empty, false, false, None
-            )
-          }
+          Artifact(
+            url,
+            Map.empty,
+            Map.empty,
+            false,
+            false,
+            None
+          )
+        }
 
         if (maybeArtifacts == Nil) {
           logger.warn(s"Failed to process $dep")
         }
 
-        NonEmptyList.fromList(maybeArtifacts).map { artifacts =>
-          for {
-            foundSha1Data <- fetchOrComputeShas(artifacts, DigestType.Sha1)
-            (sha1Artifact, sha1) = foundSha1Data
-            // I could not find any example of artifacts that actually have a SHA256 checksum, so don't bother
-            // trying to fetch them. Save on network latency and just calculate.
-            foundShaData <- computeShas(DigestType.Sha256, artifacts)
-            (artifact, sha256) = foundShaData
-          } yield {
-            val serverId = serverFor(artifact).fold("")(_.id)
+        NonEmptyList
+          .fromList(maybeArtifacts)
+          .map { artifacts =>
+            for {
+              foundSha1Data <- fetchOrComputeShas(artifacts, DigestType.Sha1)
+              (sha1Artifact, sha1) = foundSha1Data
+              // I could not find any example of artifacts that actually have a SHA256 checksum, so don't bother
+              // trying to fetch them. Save on network latency and just calculate.
+              foundShaData <- computeShas(DigestType.Sha256, artifacts)
+              (artifact, sha256) = foundShaData
+            } yield {
+              val serverId = serverFor(artifact).fold("")(_.id)
 
-            Some(JarDescriptor(
-              sha1 = Some(sha1),
-              sha256 = Some(sha256),
-              serverId = serverId,
-              url = Some(artifact.url))): Option[JarDescriptor]
+              Some(
+                JarDescriptor(
+                  sha1 = Some(sha1),
+                  sha256 = Some(sha256),
+                  serverId = serverId,
+                  url = Some(artifact.url)
+                )
+              ): Option[JarDescriptor]
+            }
           }
-        }.getOrElse(Task.point(Option.empty[JarDescriptor]))
+          .getOrElse(Task.point(Option.empty[JarDescriptor]))
       }
 
-      val module = coursier.Module(Organization(c.group.asString), ModuleName(c.artifact.artifactId), Map.empty)
+      val module = coursier.Module(
+        Organization(c.group.asString),
+        ModuleName(c.artifact.artifactId),
+        Map.empty
+      )
       val version = c.version.asString
-      val f = FileCache().withChecksums(Seq(Some("SHA-1"), None)).withCachePolicies(Seq(CachePolicy.FetchMissing)).withPool(CoursierResolver.downloadPool).fetch
-      val task = ResolutionProcess.fetchOne[Task](repos, module, version, f, Seq()).run
+      val f = FileCache()
+        .withChecksums(Seq(Some("SHA-1"), None))
+        .withCachePolicies(Seq(CachePolicy.FetchMissing))
+        .withPool(CoursierResolver.downloadPool)
+        .fetch
+      val task =
+        ResolutionProcess.fetchOne[Task](repos, module, version, f, Seq()).run
 
       /*
        * we use Nested here to accumulate all the errors so we can
@@ -255,32 +359,53 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
        */
       Nested[Task, L, ResolvedShasValue](task.flatMap {
         case Left(errors) =>
-          val nel = NonEmptyList.fromList(errors.toList)
+          val nel = NonEmptyList
+            .fromList(errors.toList)
             .getOrElse(NonEmptyList("<empty message>", Nil))
           Task.point(Validated.invalid(nel))
         case Right((src, proj)) =>
-          val dep = coursier.Dependency(module, version).withConfiguration(Configuration(DefaultConfiguration)).withAttributes(coursier.Attributes(
-            Type(c.artifact.packaging),
-            Classifier(c.artifact.classifier.getOrElse(""))
-          ))
+          val dep = coursier
+            .Dependency(module, version)
+            .withConfiguration(Configuration(DefaultConfiguration))
+            .withAttributes(
+              coursier.Attributes(
+                Type(c.artifact.packaging),
+                Classifier(c.artifact.classifier.getOrElse(""))
+              )
+            )
 
-          val srcDep = dep.withAttributes(coursier.Attributes(
-            Type(c.artifact.packaging),
-            Classifier("sources")
-          ))
+          val srcDep = dep.withAttributes(
+            coursier.Attributes(
+              Type(c.artifact.packaging),
+              Classifier("sources")
+            )
+          )
 
-          processArtifact(src, dep, proj).flatMap { mainJarDescriptorOpt =>
-            resolverMonad.handleErrorWith(processArtifact(src, srcDep, proj)) { _ => Task.point(None) }.flatMap { sourceJarDescriptorOpt =>
-              mainJarDescriptorOpt match {
-                case None => resolverMonad.raiseError(new RuntimeException(s"no artifacts for ${c.asString} found. src: $src, dep: $dep, proj: $proj")): Task[ResolvedShasValue]
-                case Some(mainJarDescriptor) =>
-                  Task.point(ResolvedShasValue(
-                    binaryJar = mainJarDescriptor,
-                    sourceJar = sourceJarDescriptorOpt
-                  ))
-              }
+          processArtifact(src, dep, proj)
+            .flatMap { mainJarDescriptorOpt =>
+              resolverMonad
+                .handleErrorWith(processArtifact(src, srcDep, proj)) { _ =>
+                  Task.point(None)
+                }
+                .flatMap { sourceJarDescriptorOpt =>
+                  mainJarDescriptorOpt match {
+                    case None =>
+                      resolverMonad.raiseError(
+                        new RuntimeException(
+                          s"no artifacts for ${c.asString} found. src: $src, dep: $dep, proj: $proj"
+                        )
+                      ): Task[ResolvedShasValue]
+                    case Some(mainJarDescriptor) =>
+                      Task.point(
+                        ResolvedShasValue(
+                          binaryJar = mainJarDescriptor,
+                          sourceJar = sourceJarDescriptorOpt
+                        )
+                      )
+                  }
+                }
             }
-          }.map(Validated.valid(_))
+            .map(Validated.valid(_))
       })
     }
 
@@ -296,16 +421,28 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
   }
 
   // Build the entire transitive graph of a set of coordinates
-  def buildGraph(coords: List[MavenCoordinate], m: Model): Task[Graph[MavenCoordinate, Unit]] = {
+  def buildGraph(
+      coords: List[MavenCoordinate],
+      m: Model
+  ): Task[Graph[MavenCoordinate, Unit]] = {
     def toDep(mc: MavenCoordinate): coursier.Dependency = {
       val exs = m.dependencies.excludes(mc.unversioned)
       val exSet: Set[(Organization, ModuleName)] =
-        exs.map { elem => (Organization(elem.group.asString), ModuleName(elem.artifact.artifactId)) }
-      coursier.Dependency(
-        coursier.Module(Organization(mc.group.asString), ModuleName(mc.artifact.artifactId)),
-        mc.version.asString)
-        .withConfiguration(
-          Configuration(DefaultConfiguration))
+        exs.map { elem =>
+          (
+            Organization(elem.group.asString),
+            ModuleName(elem.artifact.artifactId)
+          )
+        }
+      coursier
+        .Dependency(
+          coursier.Module(
+            Organization(mc.group.asString),
+            ModuleName(mc.artifact.artifactId)
+          ),
+          mc.version.asString
+        )
+        .withConfiguration(Configuration(DefaultConfiguration))
         .withExclusions(exSet)
         .withAttributes(
           coursier.Attributes(
@@ -320,14 +457,19 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
       val packaging =
         if (attrs.`type`.isEmpty) "jar"
         else attrs.`type`.value
-      MavenArtifactId(cd.module.name.value, packaging, attrs.classifier.value /* empty string OK */)
+      MavenArtifactId(
+        cd.module.name.value,
+        packaging,
+        attrs.classifier.value /* empty string OK */
+      )
     }
 
     def toCoord(cd: coursier.Dependency): MavenCoordinate =
       MavenCoordinate(
         MavenGroup(cd.module.organization.value),
         artifactFromDep(cd),
-        Version(cd.version))
+        Version(cd.version)
+      )
 
     val rootsSet = coords.map(toDep).toSet
     val roots: Seq[coursier.core.Dependency] = rootsSet.toSeq
@@ -340,15 +482,16 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
         throw new RuntimeException("Failed to resolve dependencies")
       }
 
-      depCache.foldLeft(Graph.empty[MavenCoordinate, Unit]) { case (g, (n, deps)) =>
-        val cnode = toCoord(n)
-        val exs = m.dependencies.excludes(cnode.unversioned)
-        val g1 = g.addNode(cnode)
-        deps.foldLeft(g1) { (g, dep) =>
-          val depCoord = toCoord(dep)
-          if (dep.optional || exs(depCoord.unversioned)) g
-          else g.addEdge(Edge(cnode, depCoord, ()))
-        }
+      depCache.foldLeft(Graph.empty[MavenCoordinate, Unit]) {
+        case (g, (n, deps)) =>
+          val cnode = toCoord(n)
+          val exs = m.dependencies.excludes(cnode.unversioned)
+          val g1 = g.addNode(cnode)
+          deps.foldLeft(g1) { (g, dep) =>
+            val depCoord = toCoord(dep)
+            if (dep.optional || exs(depCoord.unversioned)) g
+            else g.addEdge(Edge(cnode, depCoord, ()))
+          }
       }
     }
   }

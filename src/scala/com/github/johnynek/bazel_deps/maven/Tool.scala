@@ -30,18 +30,19 @@ object Tool {
     optionalNode(nodes).map(_.text)
 
   case class Project(
-    path: String,
-    name: Option[String],
-    version: String,
-    artifactId: String,
-    groupId: String,
-    packaging: String,
-    props: Map[String, String],
-    parentPath: Option[String], //fixme
-    modules: Seq[String], //fixme
-    dependencies: List[Dep] //fixme
+      path: String,
+      name: Option[String],
+      version: String,
+      artifactId: String,
+      groupId: String,
+      packaging: String,
+      props: Map[String, String],
+      parentPath: Option[String], // fixme
+      modules: Seq[String], // fixme
+      dependencies: List[Dep] // fixme
   ) {
-    def toDep: Dep = Dep(groupId, artifactId, version, None, Some(packaging), None)
+    def toDep: Dep =
+      Dep(groupId, artifactId, version, None, Some(packaging), None)
 
     def dir: String = directoryFor(path).getOrElse(".")
 
@@ -58,12 +59,13 @@ object Tool {
   }
 
   case class Dep(
-    groupId: String,
-    artifactId: String,
-    version: String,
-    scope: Option[String],
-    packaging: Option[String], // corresponds to "<type>"
-    classifier: Option[String]) {
+      groupId: String,
+      artifactId: String,
+      version: String,
+      scope: Option[String],
+      packaging: Option[String], // corresponds to "<type>"
+      classifier: Option[String]
+  ) {
 
     def unScalaVersion(s: Language.Scala): Option[Dep] =
       s.removeSuffix(artifactId)
@@ -72,29 +74,40 @@ object Tool {
     def hasScalaBinaryVersion: Boolean =
       artifactId.endsWith("${scala.binary.version}")
 
-    /**
-     * Apply the properties to the strings in Dep
-     */
+    /** Apply the properties to the strings in Dep
+      */
     def resolve(props: Map[String, String]): Dep = {
       val Symbol = """\$\{(.+?)\}""".r
       def r(s: String): String = {
-        Symbol.replaceAllIn(s, { m =>
-          val k = m.group(1)
-          props.getOrElse(k, "${" + k + "}")
-        })
+        Symbol.replaceAllIn(
+          s,
+          { m =>
+            val k = m.group(1)
+            props.getOrElse(k, "${" + k + "}")
+          }
+        )
       }
 
-      Dep(r(groupId), r(artifactId), r(version), scope,packaging.map(r), classifier.map(r))
+      Dep(
+        r(groupId),
+        r(artifactId),
+        r(version),
+        scope,
+        packaging.map(r),
+        classifier.map(r)
+      )
     }
   }
 
   def parseDep(e: Node): Dep =
-    Dep(singleText(e \ "groupId"),
+    Dep(
+      singleText(e \ "groupId"),
       singleText(e \ "artifactId"),
       singleText(e \ "version"),
       optionalText(e \ "scope"),
       optionalText(e \ "type"), // aka "packaging"
-      optionalText(e \ "classifier"))
+      optionalText(e \ "classifier")
+    )
 
   private def directoryFor(path: String): Option[String] = {
     val f = new File(path)
@@ -113,18 +126,33 @@ object Tool {
     val parent = (root \ "parent" \ "relativePath").headOption.map(_.text)
 
     val localProps: Map[String, String] = (root \ "properties" \ "_")
-      .map(node => (node.label, node.text)).toMap
+      .map(node => (node.label, node.text))
+      .toMap
 
     val baseDirectory = directoryFor(path).get
 
-    val parentProps = parent.map(s => parse(baseDirectory + "/" + s)).map(_.props).getOrElse(Map.empty[String, String])
+    val parentProps = parent
+      .map(s => parse(baseDirectory + "/" + s))
+      .map(_.props)
+      .getOrElse(Map.empty[String, String])
 
-    val props = parentProps ++ localProps //fixme
+    val props = parentProps ++ localProps // fixme
 
     val modules = (root \ "modules" \ "module").map(_.text)
     val deps = (root \ "dependencies" \ "dependency").map(parseDep).toList
 
-    Project(path, name, version, artifactId, groupId, packaging, props, parent, modules, deps)
+    Project(
+      path,
+      name,
+      version,
+      artifactId,
+      groupId,
+      packaging,
+      props,
+      parent,
+      modules,
+      deps
+    )
   }
 
   def allProjects(root: Project): Set[Project] = {
@@ -138,45 +166,55 @@ object Tool {
     val allProjs = allProjects(root)
     val scalaVersion: Option[Language.Scala] =
       (allProjs.flatMap { _.props.get("scala.binary.version") }.toList) match {
-        case Nil => None
+        case Nil      => None
         case v :: Nil => Some(Language.Scala(Version(v), mangle = true))
-        case other => sys.error(s"Many scala versions: ${other.sorted}")
+        case other    => sys.error(s"Many scala versions: ${other.sorted}")
       }
 
     val localDeps: Map[Dep, Project] = allProjs.map { p => (p.toDep, p) }.toMap
     val localKeys = localDeps.keySet
 
     val externalDeps: Set[(Dep, Language)] =
-      allProjs.flatMap { p =>
-        p.dependencies.map { d =>
-          val resDep = d.resolve(p.props)
+      allProjs
+        .flatMap { p =>
+          p.dependencies.map { d =>
+            val resDep = d.resolve(p.props)
 
-          scalaVersion
-            .flatMap { s => resDep.unScalaVersion(s).map((_, s)) }
-            .getOrElse((resDep, Language.Java))
+            scalaVersion
+              .flatMap { s => resDep.unScalaVersion(s).map((_, s)) }
+              .getOrElse((resDep, Language.Java))
+          }
         }
-      }
-      .toSet[(Dep, Language)] // invariance of sets biting us
-      .filterNot { case (d, _) => localKeys(d) }
+        .toSet[(Dep, Language)] // invariance of sets biting us
+        .filterNot { case (d, _) => localKeys(d) }
 
     val parts: List[(MavenGroup, ArtifactOrProject, ProjectRecord)] =
       externalDeps.iterator.map { case (d, lang) =>
-        (MavenGroup(d.groupId),
-          ArtifactOrProject(MavenArtifactId(
-            d.artifactId, d.packaging.getOrElse(MavenArtifactId.defaultPackaging), d.classifier)),
-          ProjectRecord(lang,
+        (
+          MavenGroup(d.groupId),
+          ArtifactOrProject(
+            MavenArtifactId(
+              d.artifactId,
+              d.packaging.getOrElse(MavenArtifactId.defaultPackaging),
+              d.classifier
+            )
+          ),
+          ProjectRecord(
+            lang,
             Some(Version(d.version)),
             None,
             None,
             None,
             None,
             None,
-            None))
-      }
-      .toList
+            None
+          )
+        )
+      }.toList
 
     val asMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]] =
-      parts.groupBy(_._1)
+      parts
+        .groupBy(_._1)
         .mapValues { list =>
           list.map { case (_, a, p) =>
             (a, p)
@@ -185,20 +223,23 @@ object Tool {
     Dependencies(asMap)
   }
 
-  def writeDependencies(opt: Option[Options], proj: Project): IO.Result[Unit] = {
+  def writeDependencies(
+      opt: Option[Options],
+      proj: Project
+  ): IO.Result[Unit] = {
     val yamlPath = IO.path(s"${proj.dir}/dependencies.yaml")
     def contents: String =
-      Model(allDependencies(proj),
-        None,
-        opt
-      ).toDoc.render(80)
+      Model(allDependencies(proj), None, opt).toDoc.render(80)
 
     IO.writeUtf8(yamlPath, contents)
   }
 
   def bazelize(s: String): String =
     s.map { c =>
-      if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9')) c else '_'
+      if (
+        ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9')
+      ) c
+      else '_'
     }
 
   def writeWorkspace(proj: Project): IO.Result[Unit] = {
@@ -230,23 +271,25 @@ maven_dependencies(maven_load)
   val DefaultHeader: String =
     """load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library", "scala_binary", "scala_test")"""
 
-  def writeBuilds(root: Project, header: Option[String] = Some(DefaultHeader)): IO.Result[Unit] = {
+  def writeBuilds(
+      root: Project,
+      header: Option[String] = Some(DefaultHeader)
+  ): IO.Result[Unit] = {
 
-    /**
-     * load all project:
-     *   - get their maven coords
-     *   - get their files (*.scala, *.java)
-     *   - get their explicit deps
-     *   - &c
-     *
-     * for each project:
-     *   - create the transitive closure of projects
-     *   - partition closure into internal/external
-     *   - for external, translate to maven coord -> build label
-     *   - for internal, find corresponding project -> build label
-     *   - (testing????)
-     *   - write build file
-     */
+    /** load all project:
+      *   - get their maven coords
+      *   - get their files (*.scala, *.java)
+      *   - get their explicit deps
+      *   - &c
+      *
+      * for each project:
+      *   - create the transitive closure of projects
+      *   - partition closure into internal/external
+      *   - for external, translate to maven coord -> build label
+      *   - for internal, find corresponding project -> build label
+      *   - (testing????)
+      *   - write build file
+      */
     val rootPath = IO.path(root.dir)
     val allProjs = allProjects(root)
     val localDeps: Map[Dep, Project] = allProjs.map { p => (p.toDep, p) }.toMap
@@ -254,7 +297,8 @@ maven_dependencies(maven_load)
 
     def labelFor(p: Project, targetName: String): IO.Result[Label] = {
       val pdir = p.dir
-      if (pdir.startsWith(root.dir)) IO.const(Label(None, IO.path(pdir.drop(root.dir.length)), targetName))
+      if (pdir.startsWith(root.dir))
+        IO.const(Label(None, IO.path(pdir.drop(root.dir.length)), targetName))
       else IO.failed(new Exception(s"$pdir is not inside root: ${root.dir}"))
     }
 
@@ -262,45 +306,61 @@ maven_dependencies(maven_load)
     val scalaLang = Language.Scala(Version(scalaBinaryVersion), true)
 
     val externalDeps: Map[Dep, Label] =
-      allProjs.iterator.flatMap { p =>
-        p.dependencies.map { d => (d, d.resolve(p.props)) }
-      }
-      .filterNot { case (d, resd) => localKeys(d) }
-      .map { case (dep, resolvedDep) =>
-        val lang =
-          if (dep.hasScalaBinaryVersion) scalaLang
-          else Language.Java
+      allProjs.iterator
+        .flatMap { p =>
+          p.dependencies.map { d => (d, d.resolve(p.props)) }
+        }
+        .filterNot { case (d, resd) => localKeys(d) }
+        .map { case (dep, resolvedDep) =>
+          val lang =
+            if (dep.hasScalaBinaryVersion) scalaLang
+            else Language.Java
 
-        (dep, Label.localTarget(List("3rdparty", "jvm"),
-          UnversionedCoordinate(MavenGroup(resolvedDep.groupId), MavenArtifactId(resolvedDep.artifactId)),
-          lang))
-      }
-      .toMap
+          (
+            dep,
+            Label.localTarget(
+              List("3rdparty", "jvm"),
+              UnversionedCoordinate(
+                MavenGroup(resolvedDep.groupId),
+                MavenArtifactId(resolvedDep.artifactId)
+              ),
+              lang
+            )
+          )
+        }
+        .toMap
 
     def getLabelFor(d: Dep): IO.Result[Label] =
       for {
         loc <- localDeps.get(d).traverse(labelFor(_, "main"))
         ex = externalDeps.get(d)
         res <- (ex.orElse(loc) match {
-          case None => IO.failed(new Exception(s"Could not find local or remote dependency $d"))
+          case None =>
+            IO.failed(
+              new Exception(s"Could not find local or remote dependency $d")
+            )
           case Some(t) => IO.const(t)
         })
       } yield res
 
     def writeBuild(proj: Project): IO.Result[Unit] = {
       val buildPath = IO.path(s"${proj.dir}/BUILD")
-      /**
-       * 1) in proj.dir/BUILD make main, test targets
-       */
+
+      /** 1) in proj.dir/BUILD make main, test targets
+        */
       val depLabels = proj.dependencies.traverse(getLabelFor)
 
       def mainTarget(labs: List[Label]): IO.Result[Target] =
         labelFor(proj, "main").map { lab =>
-          Target(scalaLang,
+          Target(
+            scalaLang,
             lab,
             visibility = Target.Visibility.Public,
             deps = labs.toSet,
-            sources = Target.SourceList.Globs(List("src/main/**/*.scala", "src/main/**/*.java")))
+            sources = Target.SourceList.Globs(
+              List("src/main/**/*.scala", "src/main/**/*.java")
+            )
+          )
         }
 
       val thisBuild = if (proj.packaging == "jar") {
@@ -322,7 +382,7 @@ maven_dependencies(maven_load)
       } yield ()
     }
 
-    writeBuild(root) //fixme
+    writeBuild(root) // fixme
   }
 
   def cleanUpBuild(proj: Project): IO.Result[Unit] =
@@ -343,7 +403,9 @@ maven_dependencies(maven_load)
       val options = if (args.length >= 2) {
         val optFile = args(1)
         val parser = if (optFile.endsWith(".json")) new JawnParser else Yaml
-        parser.decode(Model.readFile(new File(optFile)).get)(Decoders.optionsDecoder) match {
+        parser.decode(Model.readFile(new File(optFile)).get)(
+          Decoders.optionsDecoder
+        ) match {
           case Left(err) => sys.error("could not decode $optFile. $err")
           case Right(opt) =>
             if (opt.isDefault) None

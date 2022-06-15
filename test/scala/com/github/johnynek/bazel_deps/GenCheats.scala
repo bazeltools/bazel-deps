@@ -7,13 +7,15 @@ object GenTailRec {
 
   def tailRecM[A, B](a0: A)(fn: A => Gen[Either[A, B]]): Gen[B] = {
     @annotation.tailrec
-    def tailRecMR(a: A, seed: Seed, labs: Set[String])(fn: (A, Seed) => Gen.R[Either[A, B]]): Gen.R[B] = {
+    def tailRecMR(a: A, seed: Seed, labs: Set[String])(
+        fn: (A, Seed) => Gen.R[Either[A, B]]
+    ): Gen.R[B] = {
       val re = fn(a, seed)
       val nextLabs = labs | re.labels
       re.retrieve match {
-        case None => Gen.r(None, re.seed).copy(l = nextLabs)
+        case None           => Gen.r(None, re.seed).copy(l = nextLabs)
         case Some(Right(b)) => Gen.r(Some(b), re.seed).copy(l = nextLabs)
-        case Some(Left(a)) => tailRecMR(a, re.seed, nextLabs)(fn)
+        case Some(Left(a))  => tailRecMR(a, re.seed, nextLabs)(fn)
       }
     }
 
