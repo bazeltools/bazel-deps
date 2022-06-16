@@ -149,7 +149,7 @@ private def concreteToArtifactEntry(coord: MavenCoordinate,
     binaryJar = binaryJar,
     sourceJar = sourceJar,
     resolutionComment = resolutionComment,
-    deps = deps.map(_.destination.asString),
+    deps = deps.map(_.destination.unversioned.asString),
     exports = manualExports.map(_.asString)
   )
 }

@@ -191,7 +191,7 @@ object MakeDeps {
       }
   }
 
-  case class AllArtifacts(artifact: List[ArtifactEntry])
+  case class AllArtifacts(artifacts: List[ArtifactEntry])
   private def executeGenerate(
       model: Model,
       projectRoot: File,
@@ -214,7 +214,7 @@ object MakeDeps {
       case Failure(err) =>
         logger.error("Failure during IO:", err)
         System.exit(-1)
-      case Success(builds) =>
+      case Success(_) =>
         println(s"wrote ${artifacts.size} targets")
     }
   }
