@@ -39,4 +39,4 @@ native-image -H:+ReportUnsupportedElementsAtRuntime \
  rm -rf native_image_working_directory
 
 # ensure it actually works!
-./bazel-deps generate --repo-root `pwd` --sha-file 3rdparty/workspace.bzl --deps dependencies.yaml --target-file 3rdparty/target_file.bzl --disable-3rdparty-in-repo
+./bazel-deps generate --repo-root `pwd` --resolved-output 3rdparty/resolved-deps.json --deps dependencies.yaml
