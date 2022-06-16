@@ -87,7 +87,6 @@ object Command {
         "relative path to the file to emit target info into (usually called resolvedOutput.json)."
     )
 
-
     (repoRoot |@| depsFile |@| resolvedOutput |@| Verbosity.opt)
       .map(Generate(_, _, _, _))
   }

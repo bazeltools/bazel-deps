@@ -1844,7 +1844,6 @@ case class Options(
   def getTransitivity: Transitivity =
     transitivity.getOrElse(Transitivity.Exports)
 
-
   def getResolverCache: ResolverCache =
     resolverCache.getOrElse(ResolverCache.Local)
 

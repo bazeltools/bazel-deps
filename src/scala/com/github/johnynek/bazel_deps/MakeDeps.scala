@@ -41,13 +41,14 @@ object MakeDeps {
         System.exit(1)
       case Success((normalized, shas, duplicates)) =>
         // build the BUILDs in thirdParty
-        val artifacts = Writer.artifactEntries(normalized, duplicates, shas, model) match {
-          case Right(t) => t
-          case Left(errs) =>
-            errs.toList.foreach { e => logger.error(e.message) }
-            System.exit(-1)
-            sys.error("exited already")
-        }
+        val artifacts =
+          Writer.artifactEntries(normalized, duplicates, shas, model) match {
+            case Right(t) => t
+            case Left(errs) =>
+              errs.toList.foreach { e => logger.error(e.message) }
+              System.exit(-1)
+              sys.error("exited already")
+          }
 
         executeGenerate(
           model,
