@@ -10,8 +10,6 @@ object Decoders {
     auto.exportDecoder[GradleLockDependency].instance
   implicit val gradleLockFileDecoder: Decoder[GradleLockFile] =
     auto.exportDecoder[GradleLockFile].instance
-  implicit val strictVisibilityDecoder: Decoder[StrictVisibility] =
-    Decoder.decodeBoolean.map(x => StrictVisibility(x))
   implicit val versionDecoder: Decoder[Version] = stringWrapper(Version(_))
   implicit val processorClassDecoder: Decoder[ProcessorClass] = stringWrapper(
     ProcessorClass(_)
@@ -19,19 +17,10 @@ object Decoders {
   implicit val subprojDecoder: Decoder[Subproject] = stringWrapper(
     Subproject(_)
   )
-  implicit val dirnameDecoder: Decoder[DirectoryName] = stringWrapper(
-    DirectoryName(_)
-  )
   implicit val targetDecoder: Decoder[BazelTarget] = stringWrapper(
     BazelTarget(_)
   )
 
-  implicit val transitivityDecoder: Decoder[Transitivity] =
-    Decoder.decodeString.emap {
-      case "exports"      => Right(Transitivity.Exports)
-      case "runtime_deps" => Right(Transitivity.RuntimeDeps)
-      case other          => Left(s"unrecogized transitivity: $other")
-    }
   implicit val resolverCacheDecoder: Decoder[ResolverCache] =
     Decoder.decodeString.emap {
       case "local"             => Right(ResolverCache.Local)

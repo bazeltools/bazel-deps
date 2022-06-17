@@ -9,7 +9,6 @@ import scala.sys.process.{BasicIO, Process, ProcessIO}
 import scala.util.{Failure, Success, Try}
 import scala.collection.immutable.SortedMap
 import cats.implicits._
-import com.github.johnynek.bazel_deps.Writer.ArtifactEntry
 
 object MakeDeps {
 

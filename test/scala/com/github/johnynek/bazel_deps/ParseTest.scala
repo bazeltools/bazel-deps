@@ -84,21 +84,15 @@ class ParseTest extends FunSuite {
             None,
             Some(
               Options(
-                None,
-                Some(DirectoryName("3rdparty/jvm")),
-                Some(
+                versionConflictPolicy = None,
+                languages = Some(
                   Set(Language.Scala(Version("2.11.7"), true), Language.Java)
                 ),
-                None,
-                None,
-                None,
-                Some(ResolverCache.BazelOutputBase),
-                None,
-                Some(Set("unencumbered", "permissive")),
-                None,
-                None,
-                Some("BUILD.bazel"),
-                Some("$BAZEL_NETRC")
+                resolvers = None,
+                resolverCache = Some(ResolverCache.BazelOutputBase),
+                namePrefix = None,
+                licenses = Some(Set("unencumbered", "permissive")),
+                resolverType = None
               )
             )
           )
@@ -141,21 +135,15 @@ class ParseTest extends FunSuite {
             None,
             Some(
               Options(
-                None,
-                Some(DirectoryName("3rdparty/jvm")),
-                Some(
+                versionConflictPolicy = None,
+                languages = Some(
                   Set(Language.Scala(Version("2.11.7"), true), Language.Java)
                 ),
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None
+                resolvers = None,
+                resolverCache = None,
+                namePrefix = None,
+                licenses = None,
+                resolverType = None
               )
             )
           )

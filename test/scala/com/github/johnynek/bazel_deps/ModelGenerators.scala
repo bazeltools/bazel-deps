@@ -98,15 +98,10 @@ object ModelGenerators {
         VersionConflictPolicy.Highest
       )
     )
-    dir <- Gen.option(Gen.identifier.map(DirectoryName(_)))
     langs <- Gen.option(
       Gen.choose(1, 10).flatMap(Gen.listOfN(_, langGen).map(_.toSet))
     )
     res <- Gen.option(Gen.listOf(mavenServerGen))
-    trans <- Gen.option(
-      Gen.oneOf(Transitivity.RuntimeDeps, Transitivity.Exports)
-    )
-    heads <- Gen.option(Gen.listOf(Gen.identifier))
     cache <- Gen.option(
       Gen.oneOf(ResolverCache.Local, ResolverCache.BazelOutputBase)
     )
@@ -119,22 +114,15 @@ object ModelGenerators {
     resolverType <- Gen.option(
       Gen.oneOf(ResolverType.Aether, ResolverType.Coursier)
     )
-    strictVisibility <- Gen.option(
-      Gen.oneOf(StrictVisibility(true), StrictVisibility(false))
-    )
-    buildFileName <- Gen.option(Gen.oneOf("BUILD", "BUILD.bazel"))
+
   } yield Options(
     vcp,
-    dir,
     langs,
     res,
-    trans,
-    heads,
     cache,
     prefix,
     licenses,
-    resolverType,
-    strictVisibility
+    resolverType
   )
 
   val modelGen: Gen[Model] = for {

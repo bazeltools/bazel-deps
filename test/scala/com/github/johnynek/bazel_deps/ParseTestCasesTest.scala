@@ -40,14 +40,8 @@ class ParseTestCasesTest extends FunSuite {
           None,
           None,
           None,
-          None,
-          None,
-          Some(List()),
           Some(ResolverCache.Local),
           Some(NamePrefix("y")),
-          None,
-          None,
-          None,
           None,
           None
         )

@@ -11,42 +11,37 @@ object WriterGenerators {
     name <- Gen.identifier
   } yield Label(workspace, path, name)
 
-  val targetGen: Gen[Target] = for {
+  val datasourceGen: Gen[DataSource] = for {
+    sha1 <- Gen.option(Gen.identifier)
+    sha256 <- Gen.option(Gen.identifier)
+    repository <- Gen.option(Gen.identifier)
+    urls <- Gen.listOf(Gen.identifier)
+  } yield DataSource(
+    sha1 = sha1,
+    sha256 = sha256,
+    repository = repository,
+    urls = urls
+  )
+
+  val targetGen: Gen[ArtifactEntry] = for {
     language <- langGen
     name <- labelGen
-    visibility <- labelGen.flatMap { id =>
-      Gen.oneOf(
-        Target.Visibility.Public,
-        Target.Visibility.SubPackages(id.copy(name = ""))
-      )
-    }
-    kind <- Gen.oneOf(Target.Library, Target.Import, Target.Test, Target.Binary)
-    deps <- Gen.listOf(labelGen).map(_.toSet)
-    jars <- Gen.listOf(labelGen).map(_.toSet)
-    sources <- Gen.oneOf(
-      Target.SourceList.Empty,
-      Target.SourceList.Explicit(Set("abcd")),
-      Target.SourceList.Globs(List("*.a.*java"))
-    )
-    exports <- Gen.listOf(labelGen).map(_.toSet)
-    runtimeDeps <- Gen.listOf(labelGen).map(_.toSet)
-    processorClasses <- Gen.listOf(processorClassGen).map(_.toSet)
-    generatesApi <- Gen.oneOf(true, false)
-    licences <- Gen.listOf(Gen.identifier).map(_.toSet)
-    generateNeverLink <- Gen.oneOf(true, false)
-  } yield Target(
-    language,
-    name,
-    visibility,
-    kind,
-    deps,
-    jars,
-    sources,
-    exports,
-    runtimeDeps,
-    processorClasses,
-    generatesApi,
-    licences,
-    generateNeverLink
+    deps <- Gen.listOf(Gen.identifier).map(_.toSet)
+    binaryJar <- Gen.option(datasourceGen)
+    sourceJar <- Gen.option(datasourceGen)
+    exports <- Gen.listOf(Gen.identifier).map(_.toSet)
+    artifact <- Gen.identifier
+    version <- Gen.identifier
+
+  } yield ArtifactEntry(
+    artifact = artifact,
+    version = version,
+    lang = language.asString,
+    binaryJar = binaryJar,
+    sourceJar = sourceJar,
+    resolutionComment = None,
+    deps = deps.toList,
+    exports = exports.toList,
+    replacementData = None
   )
 }

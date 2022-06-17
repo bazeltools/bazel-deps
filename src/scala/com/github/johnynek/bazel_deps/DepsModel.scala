@@ -309,12 +309,6 @@ object ShaValue {
 
 case class Subproject(asString: String)
 case class Version(asString: String)
-case class StrictVisibility(enabled: Boolean)
-object StrictVisibility {
-  implicit val strictVisibilitySemiGroup: Semigroup[StrictVisibility] =
-    Options.useRight.algebra[StrictVisibility]
-}
-
 sealed trait DependencyServer {
   def toDoc: Doc
   def id: String
@@ -1455,28 +1449,6 @@ object VersionConflictPolicy {
   }
 }
 
-case class DirectoryName(asString: String) {
-  def parts: List[String] =
-    asString.split('/').filter(_.nonEmpty).toList
-}
-
-sealed abstract class Transitivity(val asString: String)
-object Transitivity {
-  case object RuntimeDeps extends Transitivity("runtime_deps")
-  case object Exports extends Transitivity("exports")
-
-  implicit val transitivityMonoid: CommutativeMonoid[Transitivity] =
-    new CommutativeMonoid[Transitivity] {
-      def empty = RuntimeDeps
-      def combine(a: Transitivity, b: Transitivity): Transitivity =
-        (a, b) match {
-          case (RuntimeDeps, t)   => t
-          case (t, RuntimeDeps)   => t
-          case (Exports, Exports) => Exports
-        }
-    }
-}
-
 sealed abstract class ResolverCache(val asString: String)
 object ResolverCache {
   case object Local extends ResolverCache("local")
@@ -1793,23 +1765,19 @@ case class Options(
     versionConflictPolicy: Option[VersionConflictPolicy],
     languages: Option[Set[Language]],
     resolvers: Option[List[DependencyServer]],
-    transitivity: Option[Transitivity],
     resolverCache: Option[ResolverCache],
     namePrefix: Option[NamePrefix],
     licenses: Option[Set[String]],
-    resolverType: Option[ResolverType],
-    strictVisibility: Option[StrictVisibility]
+    resolverType: Option[ResolverType]
 ) {
   def isDefault: Boolean =
     versionConflictPolicy.isEmpty &&
       languages.isEmpty &&
       resolvers.isEmpty &&
-      transitivity.isEmpty &&
       resolverCache.isEmpty &&
       namePrefix.isEmpty &&
       licenses.isEmpty &&
-      resolverType.isEmpty &&
-      strictVisibility.isEmpty
+      resolverType.isEmpty
 
   def getLicenses: Set[String] =
     licenses.getOrElse(Set.empty)
@@ -1841,9 +1809,6 @@ case class Options(
       )
     )
 
-  def getTransitivity: Transitivity =
-    transitivity.getOrElse(Transitivity.Exports)
-
   def getResolverCache: ResolverCache =
     resolverCache.getOrElse(ResolverCache.Local)
 
@@ -1872,14 +1837,9 @@ case class Options(
           list(ls.map(_.asOptionsString).toList.sorted)(quoteDoc)
         }
       ),
-      ("transitivity", transitivity.map { t => Doc.text(t.asString) }),
       ("resolverCache", resolverCache.map { rc => Doc.text(rc.asString) }),
       ("namePrefix", namePrefix.map { p => quoteDoc(p.asString) }),
       ("licenses", licenses.map { l => list(l.toList.sorted)(quoteDoc) }),
-      (
-        "strictVisibility",
-        strictVisibility.map { x => Doc.text(x.enabled.toString) }
-      ),
       ("resolverType", resolverType.map(r => quoteDoc(r.asString))),
       (
         "resolverOptions",
@@ -1912,8 +1872,6 @@ object Options {
       None,
       None,
       None,
-      None,
-      None,
       None
     )
 
@@ -1925,8 +1883,6 @@ object Options {
       val resolvers = Monoid[Option[List[DependencyServer]]]
         .combine(a.resolvers, b.resolvers)
         .map(_.distinct)
-      val trans =
-        Monoid[Option[Transitivity]].combine(a.transitivity, b.transitivity)
       val resolverCache =
         Monoid[Option[ResolverCache]].combine(a.resolverCache, b.resolverCache)
       val namePrefix =
@@ -1934,18 +1890,14 @@ object Options {
       val licenses = Monoid[Option[Set[String]]].combine(a.licenses, b.licenses)
       val resolverType =
         Monoid[Option[ResolverType]].combine(a.resolverType, b.resolverType)
-      val strictVisibility = Monoid[Option[StrictVisibility]]
-        .combine(a.strictVisibility, b.strictVisibility)
       Options(
         vcp,
         langs,
         resolvers,
-        trans,
         resolverCache,
         namePrefix,
         licenses,
-        resolverType,
-        strictVisibility
+        resolverType
       )
     }
   }

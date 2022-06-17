@@ -9,6 +9,30 @@ import org.slf4j.LoggerFactory
 import scala.io.Source
 import scala.util.{Failure, Success}
 
+case class DataSource(
+    sha1: Option[String],
+    sha256: Option[String],
+    repository: Option[String],
+    urls: List[String]
+)
+
+case class ArtifactReplacement(
+    lang: String,
+    bazelTarget: String
+)
+
+case class ArtifactEntry(
+    artifact: String,
+    version: String,
+    lang: String,
+    binaryJar: Option[DataSource],
+    sourceJar: Option[DataSource],
+    resolutionComment: Option[String],
+    deps: List[String],
+    exports: List[String], // "com/amazonaws:jmespath_java"
+    replacementData: Option[ArtifactReplacement] = None
+)
+
 object Writer {
 
   // This changed from using Source.fromInputStream, as this prior method method could result in null values in a native-image.
@@ -62,30 +86,6 @@ object Writer {
   }
 
   private[this] val logger = LoggerFactory.getLogger("Writer")
-
-  case class DataSource(
-      sha1: Option[String],
-      sha256: Option[String],
-      repository: Option[String],
-      urls: List[String]
-  )
-
-  case class ArtifactReplacement(
-      lang: String,
-      bazelTarget: String
-  )
-
-  case class ArtifactEntry(
-      artifact: String,
-      version: String,
-      lang: String,
-      binaryJar: Option[DataSource],
-      sourceJar: Option[DataSource],
-      resolutionComment: Option[String],
-      deps: List[String],
-      exports: List[String], // "com/amazonaws:jmespath_java"
-      replacementData: Option[ArtifactReplacement] = None
-  )
 
   private def concreteToArtifactEntry(
       coord: MavenCoordinate,
