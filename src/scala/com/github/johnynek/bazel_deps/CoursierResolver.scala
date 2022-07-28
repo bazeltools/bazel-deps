@@ -125,47 +125,10 @@ class CoursierResolver(
     type N[x] = Nested[Task, L, x]
 
     def lookup(c: MavenCoordinate): N[ResolvedShasValue] = {
-
-      def downloadShas(
-          digestType: DigestType,
-          as: List[Artifact]
-      ): Task[Option[(Artifact, ShaValue)]] =
-        as.foldM(Option.empty[(Artifact, ShaValue)]) {
-          case (s @ Some(r), _) => Task.point(s)
-          case (None, a)        => downloadSha(digestType, a)
-        }
-
-      def downloadSha(
-          digestType: DigestType,
-          a: Artifact
-      ): Task[Option[(Artifact, ShaValue)]] = {
-        // Because Cache.file is hijacked to download SHAs directly (rather than signed artifacts) checksum verification
-        // is turned off. Checksums don't themselves have checksum files.
-        FileCache()
-          .withChecksums(Seq(None))
-          .withCachePolicies(Seq(CachePolicy.FetchMissing))
-          .withPool(CoursierResolver.downloadPool)
-          .file(a)
-          .run
-          .map {
-            case Left(error) =>
-              logger.info(s"failure to download ${a.url}, ${error.describe}")
-              None
-            case Right(file) =>
-              val o = ShaValue.parseFile(digestType, file).toOption
-              o.foreach { r =>
-                logger.info(
-                  s"$digestType for ${c.asString} downloaded from ${a.url} (${r.toHex})"
-                )
-              }
-              o.map { sha => (a, sha) }
-          }
-      }
-
       def computeSha(
           digestType: DigestType,
           artifact: Artifact
-      ): Task[(Artifact, ShaValue)] = {
+      ): Task[(Artifact, ShaValue, Long)] = {
         FileCache()
           .withCachePolicies(Seq(CachePolicy.FetchMissing))
           .withPool(CoursierResolver.downloadPool)
@@ -178,7 +141,7 @@ class CoursierResolver(
                 Failure(FileErrorException(error))
               case Right(file) =>
                 ShaValue.computeShaOf(digestType, file).map { sha =>
-                  (artifact, sha)
+                  (artifact, sha, file.length())
                 }
             })
           }
@@ -187,8 +150,8 @@ class CoursierResolver(
       def computeShas(
           digestType: DigestType,
           as: NonEmptyList[Artifact]
-      ): Task[(Artifact, ShaValue)] = {
-        val errorFn: Throwable => Task[(Artifact, ShaValue)] = as.tail match {
+      ): Task[(Artifact, ShaValue, Long)] = {
+        val errorFn: Throwable => Task[(Artifact, ShaValue, Long)] = as.tail match {
           case Nil => { e: Throwable =>
             resolverMonad.raiseError(
               new RuntimeException(
@@ -201,36 +164,6 @@ class CoursierResolver(
           }
         }
         resolverMonad.handleErrorWith(computeSha(digestType, as.head))(errorFn)
-      }
-
-      def fetchOrComputeShas(
-          artifacts: NonEmptyList[Artifact],
-          digestType: DigestType
-      ): Task[(Artifact, ShaValue)] = {
-        val checksumArtifacts = artifacts.toList.flatMap { a =>
-          a.checksumUrls
-            .get(digestType.name)
-            .map(url =>
-              Artifact(
-                url,
-                Map.empty,
-                Map.empty,
-                a.changing,
-                false,
-                a.authentication
-              )
-            )
-        }
-
-        downloadShas(digestType, checksumArtifacts).flatMap {
-          case Some(s) => Task.point(s)
-          case None => {
-            logger.info(
-              s"Preforming cached fetch to execute $digestType calculation for ${artifacts.head.url}"
-            )
-            computeShas(digestType, artifacts)
-          }
-        }
       }
 
       def processArtifact(
@@ -311,12 +244,13 @@ class CoursierResolver(
           .fromList(maybeArtifacts)
           .map { artifacts =>
             for {
-              foundSha1Data <- fetchOrComputeShas(artifacts, DigestType.Sha1)
-              (sha1Artifact, sha1) = foundSha1Data
-              // I could not find any example of artifacts that actually have a SHA256 checksum, so don't bother
-              // trying to fetch them. Save on network latency and just calculate.
+              // No artifacts actually have Sha256's available
+              // so don't bother trying to fetch anything.
+              // Once we download the jar at all, calculating sha's is ~cheap.
+              foundSha1Data <- computeShas(DigestType.Sha1, artifacts)
+              (sha1Artifact, sha1, _) = foundSha1Data
               foundShaData <- computeShas(DigestType.Sha256, artifacts)
-              (artifact, sha256) = foundShaData
+              (artifact, sha256, fileSizeBytes) = foundShaData
             } yield {
               val serverId = serverFor(artifact).fold("")(_.id)
 
@@ -324,6 +258,7 @@ class CoursierResolver(
                 JarDescriptor(
                   sha1 = Some(sha1),
                   sha256 = Some(sha256),
+                  fileSizeBytes = Some(fileSizeBytes),
                   serverId = serverId,
                   url = Some(artifact.url)
                 )

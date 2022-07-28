@@ -205,6 +205,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path)
                         )
                         .toString
                     ),
+                    fileSizeBytes = Some(f.length()),
                     sha1 = Some(sha1),
                     sha256 = Some(sha256),
                     serverId = r.getRepository.getId

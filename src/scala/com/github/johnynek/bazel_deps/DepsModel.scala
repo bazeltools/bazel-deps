@@ -358,6 +358,7 @@ object JarDescriptor {
         url = url,
         sha1 = Some(sha1),
         sha256 = Some(sha256),
+        fileSizeBytes = Some(f.length()),
         serverId = serverId
       )
     }
@@ -367,6 +368,7 @@ case class JarDescriptor(
     url: Option[String],
     sha1: Option[ShaValue],
     sha256: Option[ShaValue],
+    fileSizeBytes: Option[Long],
     serverId: String
 )
 

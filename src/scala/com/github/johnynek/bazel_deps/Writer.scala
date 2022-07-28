@@ -12,6 +12,7 @@ import scala.util.{Failure, Success}
 case class DataSource(
     sha1: Option[String],
     sha256: Option[String],
+    file_size_bytes: Option[Long],
     repository: Option[String],
     urls: List[String]
 )
@@ -104,6 +105,7 @@ object Writer {
       DataSource(
         sha1 = sha.binaryJar.sha1.map(_.toHex),
         sha256 = sha.binaryJar.sha256.map(_.toHex),
+        file_size_bytes = sha.binaryJar.fileSizeBytes,
         repository = servers.get(sha.binaryJar.serverId),
         urls = List(sha.binaryJar.url.toList).flatten
       )
@@ -113,6 +115,7 @@ object Writer {
       DataSource(
         sha1 = sourceJar.sha1.map(_.toHex),
         sha256 = sourceJar.sha256.map(_.toHex),
+        file_size_bytes = sourceJar.fileSizeBytes,
         repository = servers.get(sourceJar.serverId),
         urls = List(sourceJar.url.toList).flatten
       )
