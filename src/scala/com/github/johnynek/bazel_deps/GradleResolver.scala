@@ -82,9 +82,9 @@ class GradleResolver(
   private def cleanUpMap(
       depMap: Map[String, GradleLockDependency]
   ): Try[Map[String, GradleLockDependency]] = {
-    // First check its fully connected
     val noContentDeps: Map[String, Option[Version]] = gradleTpe.getNoContentDeps
 
+    // First check its fully connected
     val connected = depMap.foldLeft(Try(())) { case (p, (outerK, v)) =>
       v.transitive.getOrElse(Nil).foldLeft(p) { case (p, luK) =>
         if (!depMap.contains(luK)) {
@@ -112,7 +112,11 @@ class GradleResolver(
               case h :: t =>
                 val hData = projectsRemoved.getOrElse(
                   h,
-                  sys.error(s"Map in invalid state, tried to get: $h from projectsRemoved but it wasn't present.")
+                  sys.error(s"""
+                    |Map in invalid state
+                    |tried to get: $h but it wasn't present
+                    |this dependency is a project? Not expected here.
+                    |Looking for $nK ---> $nV""".stripMargin)
                 )
                 val matchNoContentRes = noContentDeps
                   .get(h)
@@ -135,7 +139,8 @@ class GradleResolver(
                   go(t, loop, h :: acc)
                 }
               case Nil =>
-                val lst = acc.sorted.distinct
+                // we are recursing a transitive chain, we need to repeat the filter here
+                val lst = acc.sorted.distinct.filter(projectsRemoved.contains(_))
                 if (loop) {
                   go(lst, false, Nil)
                 } else {
