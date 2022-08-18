@@ -112,7 +112,7 @@ class GradleResolver(
               case h :: t =>
                 val hData = projectsRemoved.getOrElse(
                   h,
-                  sys.error(s"Map in invalid state")
+                  sys.error(s"Map in invalid state, tried to get: $h from projectsRemoved but it wasn't present.")
                 )
                 val matchNoContentRes = noContentDeps
                   .get(h)
