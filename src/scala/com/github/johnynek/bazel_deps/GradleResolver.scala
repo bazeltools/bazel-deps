@@ -63,6 +63,8 @@ class GradleResolver(
       p.flatMap { s => TryMerge.tryMerge(s, n) }
     }
 
+  // Gradle has compile/runtime/test sepearate classpaths
+  // we just want one, so we merge them all
   private def collapseDepTypes(
       lockFile: GradleLockFile
   ): Try[Map[String, GradleLockDependency]] =
@@ -79,13 +81,10 @@ class GradleResolver(
         p.flatMap { s => TryMerge.tryMerge(s, n) }
       }
 
-  private def cleanUpMap(
+  private def assertConnectedDependencyMap(
       depMap: Map[String, GradleLockDependency]
-  ): Try[Map[String, GradleLockDependency]] = {
-    val noContentDeps: Map[String, Option[Version]] = gradleTpe.getNoContentDeps
-
-    // First check its fully connected
-    val connected = depMap.foldLeft(Try(())) { case (p, (outerK, v)) =>
+  ): Try[Unit] =
+    depMap.foldLeft(Try(())) { case (p, (outerK, v)) =>
       v.transitive.getOrElse(Nil).foldLeft(p) { case (p, luK) =>
         if (!depMap.contains(luK)) {
           Failure(
@@ -99,18 +98,22 @@ class GradleResolver(
       }
     }
 
-    connected.map { _ =>
-      // removeAllProjects
-      val projectsRemoved = depMap.filter(_._2.project != Some(true))
+  private def cleanUpMap(
+      depMap: Map[String, GradleLockDependency]
+  ): Map[String, GradleLockDependency] = {
+    // for no content deps there is nothing to fetch/no sha to operate on.
+    val noContentDeps: Map[String, Option[Version]] = gradleTpe.getNoContentDeps
+      // Remove gradle projects, these are source dependencies
+      val gradleProjectsRemoved = depMap.filter(_._2.project != Some(true))
 
-      projectsRemoved
+      gradleProjectsRemoved
         .foldLeft(Map[String, GradleLockDependency]()) { case (p, (nK, nV)) =>
           @annotation.tailrec
           def go(parents: List[String], loop: Boolean, acc: List[String])
               : List[String] = {
             parents match {
               case h :: t =>
-                val hData = projectsRemoved.getOrElse(
+                val hData = gradleProjectsRemoved.getOrElse(
                   h,
                   sys.error(s"""
                     |Map in invalid state
@@ -130,7 +133,7 @@ class GradleResolver(
                   go(
                     t,
                     true,
-                    projectsRemoved
+                    gradleProjectsRemoved
                       .get(h)
                       .flatMap(_.transitive)
                       .getOrElse(Nil) ++ acc
@@ -140,7 +143,7 @@ class GradleResolver(
                 }
               case Nil =>
                 // we are recursing a transitive chain, we need to repeat the filter here
-                val lst = acc.sorted.distinct.filter(projectsRemoved.contains(_))
+                val lst = acc.sorted.distinct.filter(gradleProjectsRemoved.contains(_))
                 if (loop) {
                   go(lst, false, Nil)
                 } else {
@@ -151,7 +154,7 @@ class GradleResolver(
           }
 
           val removeUnused =
-            nV.transitive.getOrElse(Nil).filter(projectsRemoved.contains(_))
+            nV.transitive.getOrElse(Nil).filter(gradleProjectsRemoved.contains(_))
 
           p + ((nK, nV.copy(transitive = Some(go(removeUnused, false, Nil)))))
         }
@@ -168,14 +171,14 @@ class GradleResolver(
 
           !matchNoContentRes
         }
-    }
   }
 
   //
   private def buildGraphFromDepMap(
+    m: Model,
       depMap: Map[String, GradleLockDependency]
   ): Try[Graph[MavenCoordinate, Unit]] = {
-    cleanUpMap(depMap).flatMap { depMap =>
+    assertConnectedDependencyMap(depMap).map(_ => cleanUpMap(depMap)).flatMap { depMap =>
       def toCoord(k: String): Try[MavenCoordinate] =
         depMap
           .get(k)
@@ -199,7 +202,7 @@ class GradleResolver(
             Failure(new Exception(s"Unable to lookup info about $k in dep map"))
           )
 
-      depMap.foldLeft(Try(Graph.empty[MavenCoordinate, Unit])) {
+      val gradleDependencyGraphTry = depMap.foldLeft(Try(Graph.empty[MavenCoordinate, Unit])) {
         case (tryG, (n, deps)) =>
           for {
             g <- tryG
@@ -227,6 +230,15 @@ class GradleResolver(
               }
             }
           }
+
+
+      }
+
+      gradleDependencyGraphTry.map { graph =>
+
+        m.dependencies.roots.foldLeft(graph) { case (g, n) =>
+          g.addNode(n)
+        }
       }
     }
   }
@@ -239,7 +251,7 @@ class GradleResolver(
     loadLockFiles(gradleTpe.getLockFiles)
       .flatMap(mergeLockFiles(_))
       .flatMap(collapseDepTypes(_))
-      .flatMap(buildGraphFromDepMap(_)) match {
+      .flatMap(buildGraphFromDepMap(m, _)) match {
       case Success(value)     => Task.point(value)
       case Failure(exception) => Task.fail(exception)
     }

@@ -1671,8 +1671,8 @@ object GradleLockDependency {
         }
       }
     }
-
   }
+
   implicit val mergeInst = new TryMerge[GradleLockDependency] {
     def tryMerge(
         left: GradleLockDependency,
