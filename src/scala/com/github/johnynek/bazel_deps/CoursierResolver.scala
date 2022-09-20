@@ -176,7 +176,7 @@ class CoursierResolver(
         val moduleName = module.name.value
         val version = dep.version
         val extension = dep.publication.ext.value
-
+        val classifier = Option(dep.publication.classifier.value).filter(_.nonEmpty).filter(_ != "sources")
         // sometimes the artifactor source doesn't seem to entirely work... so
         // we inject using any ivy servers about test URL's to try
         val extraUrls = this.servers.collect {
@@ -186,7 +186,7 @@ class CoursierResolver(
               .replaceAllLiterally("[orgPath]", organization.replace('.', '/'))
               .replaceAllLiterally("[artifact]", moduleName)
               .replaceAllLiterally("[module]", moduleName)
-              .replaceAllLiterally("(-[classifier])", "")
+              .replaceAllLiterally("(-[classifier])", classifier.getOrElse(""))
               .replaceAllLiterally(
                 "[ext]",
                 Option(extension).filter(_.nonEmpty).getOrElse("jar")
@@ -216,7 +216,7 @@ class CoursierResolver(
                 organization,
                 moduleName,
                 version,
-                None,
+                classifier,
                 Option(extension)
               )
             )

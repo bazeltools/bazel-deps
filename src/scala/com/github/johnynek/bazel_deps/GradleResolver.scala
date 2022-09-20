@@ -60,7 +60,7 @@ class GradleResolver(
       lockFiles: List[GradleLockFile]
   ): Try[GradleLockFile] =
     lockFiles.foldLeft(Try(GradleLockFile.empty)) { case (p, n) =>
-      p.flatMap { s => TryMerge.tryMerge(s, n) }
+      p.flatMap { s => TryMerge.tryMerge(None, s, n) }
     }
 
   // Gradle has compile/runtime/test sepearate classpaths
@@ -78,7 +78,7 @@ class GradleResolver(
     )
       .map(_.getOrElse(Map()))
       .foldLeft(Try(Map[String, GradleLockDependency]())) { case (p, n) =>
-        p.flatMap { s => TryMerge.tryMerge(s, n) }
+        p.flatMap { s => TryMerge.tryMerge(None, s, n) }
       }
 
   private def assertConnectedDependencyMap(
@@ -235,7 +235,6 @@ class GradleResolver(
       }
 
       gradleDependencyGraphTry.map { graph =>
-
         m.dependencies.roots.foldLeft(graph) { case (g, n) =>
           g.addNode(n)
         }

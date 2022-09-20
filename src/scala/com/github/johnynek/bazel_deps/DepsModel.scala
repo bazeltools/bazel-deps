@@ -1603,16 +1603,16 @@ object ResolverType {
 }
 
 object TryMerge {
-  def tryMerge[T: TryMerge](a: T, b: T): Try[T] = {
-    implicitly[TryMerge[T]].tryMerge(a, b)
+  def tryMerge[T: TryMerge](debugName: Option[String], a: T, b: T): Try[T] = {
+    implicitly[TryMerge[T]].tryMerge(debugName, a, b)
   }
 
   implicit def tryOptMerge[T: TryMerge]: TryMerge[Option[T]] =
     new TryMerge[Option[T]] {
-      def tryMerge(left: Option[T], right: Option[T]): Try[Option[T]] = {
+      def tryMerge(debugName: Option[String], left: Option[T], right: Option[T]): Try[Option[T]] = {
         (left, right) match {
           case (None, None)       => Success(None)
-          case (Some(l), Some(r)) => TryMerge.tryMerge(l, r).map(Some(_))
+          case (Some(l), Some(r)) => TryMerge.tryMerge(debugName, l, r).map(Some(_))
           case (Some(l), None)    => Success(Some(l))
           case (None, Some(r))    => Success(Some(r))
         }
@@ -1622,6 +1622,7 @@ object TryMerge {
   implicit def tryStringMapMerge[T: TryMerge]: TryMerge[Map[String, T]] =
     new TryMerge[Map[String, T]] {
       def tryMerge(
+        debugName: Option[String],
           left: Map[String, T],
           right: Map[String, T]
       ): Try[Map[String, T]] = {
@@ -1631,7 +1632,7 @@ object TryMerge {
               val r: Try[T] = (left.get(nextK), right.get(nextK)) match {
                 case (None, None) =>
                   Failure(new Exception("Shouldn't happen, key was in keyset"))
-                case (Some(l), Some(r)) => TryMerge.tryMerge(l, r)
+                case (Some(l), Some(r)) => TryMerge.tryMerge(Some(debugName.map{p => s"$p:$nextK"}.getOrElse(nextK)), l, r)
                 case (Some(l), None)    => Success(l)
                 case (None, Some(r))    => Success(r)
               }
@@ -1644,11 +1645,11 @@ object TryMerge {
     }
 }
 sealed trait TryMerge[T] {
-  def tryMerge(left: T, right: T): Try[T]
+  def tryMerge(debugName: Option[String], left: T, right: T): Try[T]
 }
 
 object GradleLockDependency {
-  def resolveVersions(
+  def resolveVersions(dependencyName: String)(
       left: Option[String],
       right: Option[String]
   ): Try[Option[String]] = {
@@ -1659,7 +1660,7 @@ object GradleLockDependency {
       case (Some(l), Some(r)) if (l == r) => Success(Some(r))
       case (Some(l), Some(r)) => {
         println(
-          s"This should probably not be allowed... but we are going to pick a version conflict highest if we can between $l, $r"
+          s"This should probably not be allowed... but we are going to pick a version conflict highest if we can for $dependencyName between $l, $r"
         )
         VersionConflictPolicy.Highest.resolve(
           None,
@@ -1675,11 +1676,12 @@ object GradleLockDependency {
 
   implicit val mergeInst = new TryMerge[GradleLockDependency] {
     def tryMerge(
+      debugName: Option[String],
         left: GradleLockDependency,
         right: GradleLockDependency
     ): Try[GradleLockDependency] = {
       for {
-        v <- resolveVersions(left.locked, right.locked)
+        v <- resolveVersions(debugName.getOrElse("Unknown"))(left.locked, right.locked)
         _ <-
           if (left.project == right.project) Success(())
           else
@@ -1712,31 +1714,38 @@ case class GradleLockDependency(
 object GradleLockFile {
   implicit val mergeInst = new TryMerge[GradleLockFile] {
     def tryMerge(
+        debugName: Option[String],
         left: GradleLockFile,
         right: GradleLockFile
     ): Try[GradleLockFile] = {
       for {
         annotationProcessor <- TryMerge.tryMerge(
+          debugName,
           left.annotationProcessor,
           right.annotationProcessor
         )
         compileClasspath <- TryMerge.tryMerge(
+          debugName,
           left.compileClasspath,
           right.compileClasspath
         )
         resolutionRules <- TryMerge.tryMerge(
+          debugName,
           left.resolutionRules,
           right.resolutionRules
         )
         runtimeClasspath <- TryMerge.tryMerge(
+          debugName,
           left.runtimeClasspath,
           right.runtimeClasspath
         )
         testCompileClasspath <- TryMerge.tryMerge(
+          debugName,
           left.testCompileClasspath,
           right.testCompileClasspath
         )
         testRuntimeClasspath <- TryMerge.tryMerge(
+          debugName,
           left.testRuntimeClasspath,
           right.testRuntimeClasspath
         )
