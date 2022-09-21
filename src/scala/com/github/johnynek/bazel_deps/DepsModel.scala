@@ -1648,16 +1648,22 @@ sealed trait TryMerge[T] {
   def tryMerge(debugName: Option[String], left: T, right: T): Try[T]
 }
 
+
 object GradleLockDependency {
+  sealed trait VersionState
+  case object EqualVersionSpecified extends VersionState
+  case object LeftVersion extends VersionState
+  case object RightVersion extends VersionState
+
   def resolveVersions(dependencyName: String)(
       left: Option[String],
       right: Option[String]
-  ): Try[Option[String]] = {
+  ): Try[VersionState] = {
     (left, right) match {
-      case (None, None)                   => Success(None)
-      case (Some(l), None)                => Success(Some(l))
-      case (None, Some(r))                => Success(Some(r))
-      case (Some(l), Some(r)) if (l == r) => Success(Some(r))
+      case (None, None)                   => Success(EqualVersionSpecified)
+      case (Some(l), None)                => Success(LeftVersion)
+      case (None, Some(r))                => Success(RightVersion)
+      case (Some(l), Some(r)) if (l == r) => Success(EqualVersionSpecified)
       case (Some(l), Some(r)) => {
         println(
           s"This should probably not be allowed... but we are going to pick a version conflict highest if we can for $dependencyName between $l, $r"
@@ -1666,7 +1672,12 @@ object GradleLockDependency {
           None,
           Set(Version(l), Version(r))
         ) match {
-          case Validated.Valid(v) => Success(Some(v.asString))
+          case Validated.Valid(v) =>
+            if (v.asString == l) {
+              Success(LeftVersion)
+            } else {
+              Success(RightVersion)
+            }
           case Validated.Invalid(iv) =>
             Failure(new Exception(s"Unable ot combine versions, $iv"))
         }
@@ -1691,15 +1702,24 @@ object GradleLockDependency {
               )
             )
       } yield {
-        GradleLockDependency(
-          locked = v,
-          project = left.project,
-          transitive = Some(
-            (left.transitive.getOrElse(Nil) ++ right.transitive.getOrElse(
-              Nil
-            )).sorted.distinct
+        v match {
+          case EqualVersionSpecified =>
+          // if they have equal versions we would expect the dependencies to be the same
+          // but if someone has done some manual operations we would take the union
+          // (This means an exclude in one lock file but not in another would get ignored!)
+          GradleLockDependency(
+            locked = left.locked,
+            project = left.project,
+            transitive = Some(
+              (left.transitive.getOrElse(Nil) ++ right.transitive.getOrElse(
+                Nil
+              )).sorted.distinct
+            )
           )
-        )
+          case LeftVersion => left
+          case RightVersion => right
+        }
+
       }
     }
   }
