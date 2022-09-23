@@ -19,16 +19,26 @@ import cats.implicits._
   */
 
 object IO {
+  private[this] val logger = LoggerFactory.getLogger("IO")
+
   val charset = "UTF-8"
   val pathSeparator = File.separator
 
-  private[this] val logger = LoggerFactory.getLogger("IO")
 
   case class Path(parts: List[String]) {
     def child(p: String): Path = Path(parts ++ List(p))
     def parent: Path = Path(parts.dropRight(1))
     def sibling(p: String): Path = Path(parts.dropRight(1) ++ List(p))
     def asString: String = parts.mkString(pathSeparator)
+    def extension: String = {
+      val fileName = parts.last
+      val segments = fileName.split("\\.")
+      if(segments.length == 1) {
+        fileName
+      } else {
+        segments.tail.mkString(".")
+      }
+    }
   }
 
   def path(s: String): Path =
@@ -49,6 +59,7 @@ object IO {
    * data longer than needed if that is desired.
    */
   case class WriteFile(f: Path, data: Eval[String]) extends Ops[Unit]
+  case class WriteGzipFile(f: Path, data: Eval[String]) extends Ops[Unit]
   case class Failed(err: Throwable) extends Ops[Nothing]
   case class ReadFile(path: Path) extends Ops[Option[String]]
 
@@ -80,6 +91,9 @@ object IO {
 
   def writeUtf8(f: Path, s: => String): Result[Unit] =
     liftF[Ops, Unit](WriteFile(f, Eval.always(s)))
+
+  def writeGzipUtf8(f: Path, s: => String): Result[Unit] =
+    liftF[Ops, Unit](WriteGzipFile(f, Eval.always(s)))
 
   // Reads the contents of `f`, returning None if file doesn't exist
   def readUtf8(f: Path): Result[Option[String]] =
@@ -160,6 +174,13 @@ object IO {
         case WriteFile(f, d) =>
           Try {
             val os = new FileOutputStream(fileFor(f))
+            try os.write(d.value.getBytes(charset))
+            finally { os.close() }
+          }
+        case WriteGzipFile(f, d) =>
+          Try {
+            import java.util.zip.GZIPOutputStream;
+            val os = new GZIPOutputStream(new FileOutputStream(fileFor(f)))
             try os.write(d.value.getBytes(charset))
             finally { os.close() }
           }

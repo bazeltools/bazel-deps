@@ -206,7 +206,11 @@ object MakeDeps {
       _ <- if (b) IO.const(false) else IO.mkdirs(resolvedJsonOutputPath.parent)
       allArtifacts = AllArtifacts(artifacts.sortBy(_.artifact))
       artifactsJson = allArtifacts.asJson
-      _ <- IO.writeUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
+      _ <- if(resolvedJsonOutputPath.extension.endsWith(".gz")) {
+          IO.writeGzipUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
+      } else {
+          IO.writeUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
+      }
     } yield ()
 
     // Here we actually run the whole thing
