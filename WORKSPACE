@@ -12,9 +12,9 @@ git_repository(
 
 http_archive(
     name = "com_google_protobuf",
-    sha256 = "1e622ce4b84b88b6d2cdf1db38d1a634fe2392d74f0b7b74ff98f3a51838ee53",
-    urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.8.0.zip"],
-    strip_prefix = "protobuf-3.8.0",
+    sha256 = "662879e41508a5ecce3be2c65563a8fac3301a48adef3113913ec4010f405a33",
+    strip_prefix = "protobuf-3.20.1",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.20.1.zip"],
 )
 
 http_archive(
