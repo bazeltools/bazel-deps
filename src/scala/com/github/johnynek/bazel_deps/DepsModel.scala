@@ -1691,6 +1691,12 @@ object GradleLockDependency {
         left: GradleLockDependency,
         right: GradleLockDependency
     ): Try[GradleLockDependency] = {
+      lazy val mergedDependencies = Some(
+              (left.transitive.getOrElse(Nil) ++ right.transitive.getOrElse(
+                Nil
+              )).sorted.distinct
+            ).filter(_.nonEmpty)
+
       for {
         v <- resolveVersions(debugName.getOrElse("Unknown"))(left.locked, right.locked)
         _ <-
@@ -1704,20 +1710,21 @@ object GradleLockDependency {
       } yield {
         v match {
           case EqualVersionSpecified =>
-          // if they have equal versions we would expect the dependencies to be the same
-          // but if someone has done some manual operations we would take the union
-          // (This means an exclude in one lock file but not in another would get ignored!)
           GradleLockDependency(
             locked = left.locked,
             project = left.project,
-            transitive = Some(
-              (left.transitive.getOrElse(Nil) ++ right.transitive.getOrElse(
-                Nil
-              )).sorted.distinct
-            )
+            transitive = mergedDependencies
           )
-          case LeftVersion => left
-          case RightVersion => right
+          case LeftVersion => GradleLockDependency(
+            locked = left.locked,
+            project = left.project,
+            transitive = mergedDependencies
+          )
+          case RightVersion => GradleLockDependency(
+            locked = right.locked,
+            project = right.project,
+            transitive = mergedDependencies
+          )
         }
 
       }
