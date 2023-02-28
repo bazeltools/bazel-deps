@@ -14,13 +14,13 @@ jobs:
           - os: macos-latest
             graal_url: https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-20.0.0/graalvm-ce-java11-darwin-amd64-20.0.0.tar.gz
             artifact: bazel-deps-macos
-            bazel_installer_sha: b4c94148f52854b89cff5de38a9eeeb4b0bcb3fb3a027330c46c468d9ea0898b
-            bazel_version: 2.1.1
+            bazel_installer_sha: 967189ebadd6b65b1dd25464fdd4d2fcff7a00e0b776be425b19e283432d7862
+            bazel_version: 4.2.1
           - os: ubuntu-18.04
             graal_url: https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-20.0.0/graalvm-ce-java11-linux-amd64-20.0.0.tar.gz
             artifact: bazel-deps-linux
-            bazel_installer_sha: d6cea18d59e9c90c7ec417b2645834f968132de16d0022c7439b1e60438eb8c9
-            bazel_version: 2.1.1
+            bazel_installer_sha: 35f398ad93af2b5eadd4b6b4fd4d4803b726029e572f40c4e1fe736db3de944b
+            bazel_version: 4.2.1
     steps:
       - uses: actions/checkout@v2
       - name: Bazel output cache
