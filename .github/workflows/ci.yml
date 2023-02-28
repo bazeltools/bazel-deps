@@ -4,12 +4,13 @@ jobs:
   run-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Bazel output cache
         id: cache-bazel
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
-          path: "${{ github.workspace }}/.bazel-cache"
+          path: |
+            "${{ github.workspace }}/.bazel-cache"
           key: ${{ runner.os }}-bazel-out-${{ github.run_id}}
           restore-keys: |
             ${{ runner.os }}-bazel-out-
@@ -21,4 +22,4 @@ jobs:
       - name: run tests
         run: |
           ./bazel build //...
-          ./bazel test --test_output=errors //...
+          COURSIER_CACHE=non-existent ./bazel test --test_output=errors //...
