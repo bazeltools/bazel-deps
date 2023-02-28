@@ -106,15 +106,16 @@ object MakeDeps {
       case g: ResolverType.Gradle =>
         val ec = scala.concurrent.ExecutionContext.Implicits.global
         import scala.concurrent.duration._
+
+        lazy val coursierResolver =
+          new CoursierResolver(model.getOptions.getResolvers, ec, 3600.seconds, resolverCachePath)
+
         resolve(
           model,
           new GradleResolver(
-            model.getOptions.getResolvers,
             model.getOptions.getVersionConflictPolicy,
-            ec,
-            3600.seconds,
             g,
-            resolverCachePath))
+            { ls => coursierResolver.run(coursierResolver.getShas(ls)) }))
     }
 
   private type Res = (

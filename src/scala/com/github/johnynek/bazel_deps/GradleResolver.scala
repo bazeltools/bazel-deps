@@ -2,40 +2,28 @@ package com.github.johnynek.bazel_deps
 
 import cats.MonadError
 import cats.data.{Validated, ValidatedNel}
-import coursier.util.Task
 import io.circe.jawn.JawnParser
-import cats.implicits._
-
 import java.io.File
-import java.nio.file.Path
 import scala.collection.immutable.SortedMap
-import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
 
 import cats.implicits._
 
 class GradleResolver(
-    servers: List[DependencyServer],
     versionConflictPolicy: VersionConflictPolicy,
-    ec: ExecutionContext,
-    runTimeout: Duration,
     gradleTpe: ResolverType.Gradle,
-    cachePath: Path
-) extends Resolver[Task] {
+    getShasFn: List[MavenCoordinate] => Try[SortedMap[MavenCoordinate, ResolvedShasValue]]
+) extends Resolver[Try] {
 
   implicit val tryMergeGradleLock = GradleLockDependency.mergeGradleLockDeps(versionConflictPolicy)
 
-  private[this] lazy val coursierResolver =
-    new CoursierResolver(servers, ec, runTimeout, cachePath)
-
-  implicit def resolverMonad: MonadError[Task, Throwable] =
-    coursierResolver.resolverMonad
+  def resolverMonad: MonadError[Try, Throwable] =
+    cats.instances.try_.catsStdInstancesForTry
 
   def getShas(
       m: List[MavenCoordinate]
-  ): Task[SortedMap[MavenCoordinate, ResolvedShasValue]] =
-    coursierResolver.getShas(m)
+  ): Try[SortedMap[MavenCoordinate, ResolvedShasValue]] =
+    getShasFn(m)
 
   private def loadLockFile(
       lockFile: String
@@ -239,27 +227,19 @@ private def cleanUpMap(
     }
   }
 
-  def toTask[A](t: Try[A]): Task[A] =
-    t match {
-      case Success(value)     => Task.point(value)
-      case Failure(exception) => Task.fail(exception)
-    }
-
   // Build the entire transitive graph of a set of coordinates
   def buildGraph(
       coords: List[MavenCoordinate],
       m: Model
-  ): Task[Graph[MavenCoordinate, Unit]] =
-    toTask(
-      for {
-        lfs <- gradleTpe.getLockFiles.traverse(loadLockFile)
-        lockFile <- mergeLockFiles(lfs)
-        depMap <- collapseDepTypes(lockFile)
-        graph <- buildGraphFromDepMap(m, depMap)
-      } yield graph
-    )
+  ): Try[Graph[MavenCoordinate, Unit]] =
+    for {
+      lfs <- gradleTpe.getLockFiles.traverse(loadLockFile)
+      lockFile <- mergeLockFiles(lfs)
+      depMap <- collapseDepTypes(lockFile)
+      graph <- buildGraphFromDepMap(m, depMap)
+    } yield graph
 
-  def resolve(model: Model): Task[
+  def resolve(model: Model): Try[
     (
         Graph[MavenCoordinate, Unit],
         SortedMap[MavenCoordinate, ResolvedShasValue],
@@ -275,6 +255,5 @@ private def cleanUpMap(
     } yield (graph, shas, Map.empty)
   }
 
-  def run[A](fa: Task[A]): Try[A] =
-    coursierResolver.run(fa)
+  def run[A](fa: Try[A]): Try[A] = fa
 }
