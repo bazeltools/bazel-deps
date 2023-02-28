@@ -2,6 +2,8 @@ package com.github.johnynek.bazel_deps
 
 import org.scalatest.FunSuite
 
+import java.nio.file.Files
+
 class CreatePomTest extends FunSuite{
 
   test("CreatePom translates dependencies yaml file into pom xml file") {
@@ -55,7 +57,9 @@ dependencies:
       </project>
 
       val model = Decoders.decodeModel(Yaml, dependenciesYaml).right.get
-      val (dependencies, _, _) = MakeDeps.runResolve(model, null).get
+      val tmpPath = Files.createTempDirectory("cache")
+      tmpPath.toFile.deleteOnExit()
+      val (dependencies, _, _) = MakeDeps.runResolve(model, tmpPath).get
       val p = new scala.xml.PrettyPrinter(80, 2)
 
       assert(CreatePom.translate(dependencies) == p.format(expectedPomXml))
