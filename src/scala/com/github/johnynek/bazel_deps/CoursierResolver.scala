@@ -8,6 +8,7 @@ import cats.data.{Nested, NonEmptyList, Validated, ValidatedNel}
 import cats.implicits._
 import coursier.LocalRepositories
 import coursier.core._
+import java.nio.file.Path
 import org.slf4j.LoggerFactory
 import coursier.ivy._
 import scala.collection.immutable.SortedMap
@@ -36,23 +37,19 @@ object CoursierResolver {
   }
 }
 
-class CoursierResolver(
-    servers: List[DependencyServer],
-    ec: ExecutionContext,
-    runTimeout: Duration
-) extends Resolver[Task] {
+class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, runTimeout: Duration, resolverCachePath: Path) extends Resolver[Task] {
   // TODO: add support for a local file cache other than ivy
   private[this] val repos = LocalRepositories.ivy2Local :: {
     val settings = SettingsLoader.settings
 
-    servers.map {
+    servers.flatMap {
       case MavenServer(id, _, url) =>
         val authentication = Option(settings.getServer(id))
           .map(server => Authentication(server.getUsername, server.getPassword))
 
-        coursier.MavenRepository(url, authentication = authentication)
+        coursier.MavenRepository(url, authentication = authentication) :: Nil
 
-      case IvyServer(id, url, ivyPattern, ivyArtifactPattern) =>
+      case is @ IvyServer(id, url, ivyPattern, ivyArtifactPattern) =>
         val authentication = Option(settings.getServer(id))
           .map(server => Authentication(server.getUsername, server.getPassword))
 
@@ -61,19 +58,24 @@ class CoursierResolver(
           Some(url + ivyPattern),
           authentication = authentication
         ) match {
-          case Left(o)  => ???
-          case Right(r) => r
+          case Left(o)  =>
+            System.err.println(s"ignoring $is due to parse error:\n\n\t$o\n")
+            Nil
+          case Right(r) => r :: Nil
         }
     }
   }
 
-  private[this] val fetch = ResolutionProcess.fetch(
-    repos,
-    FileCache()
+  private[this] def makeCache() = 
+    Option(resolverCachePath) match {
+      case None => FileCache()
+      case Some(p) => FileCache().withLocation(p.toAbsolutePath.toString)
+    }
+  private[this] val fetch = ResolutionProcess.fetch(repos,
+    makeCache()
       .withCachePolicies(Seq(CachePolicy.FetchMissing))
       .withPool(CoursierResolver.downloadPool)
-      .fetch
-  )
+      .fetch)
 
   private[this] val logger =
     LoggerFactory.getLogger("bazel_deps.CoursierResolver")
@@ -129,7 +131,7 @@ class CoursierResolver(
           digestType: DigestType,
           artifact: Artifact
       ): Task[(Artifact, ShaValue, Long)] = {
-        FileCache()
+        makeCache()
           .withCachePolicies(Seq(CachePolicy.FetchMissing))
           .withPool(CoursierResolver.downloadPool)
           .file(artifact)
@@ -179,7 +181,7 @@ class CoursierResolver(
         val classifier = Option(dep.publication.classifier.value).filter(_.nonEmpty).filter(_ != "sources")
         // sometimes the artifactor source doesn't seem to entirely work... so
         // we inject using any ivy servers about test URL's to try
-        val extraUrls = this.servers.collect {
+        val extraUrls = servers.collect {
           case IvyServer(_, url, _, ivyArtifactPattern) =>
             val subUrl = ivyArtifactPattern
               .replaceAllLiterally("[revision]", version)
@@ -274,7 +276,7 @@ class CoursierResolver(
         Map.empty
       )
       val version = c.version.asString
-      val f = FileCache()
+      val f = makeCache()
         .withChecksums(Seq(Some("SHA-1"), None))
         .withCachePolicies(Seq(CachePolicy.FetchMissing))
         .withPool(CoursierResolver.downloadPool)

@@ -12,14 +12,17 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
 
+import cats.implicits._
+
 class GradleResolver(
     servers: List[DependencyServer],
     ec: ExecutionContext,
     runTimeout: Duration,
-    gradleTpe: ResolverType.Gradle
+    gradleTpe: ResolverType.Gradle,
+    cachePath: Path
 ) extends Resolver[Task] {
   private[this] lazy val coursierResolver =
-    new CoursierResolver(servers, ec, runTimeout)
+    new CoursierResolver(servers, ec, runTimeout, cachePath)
 
   implicit def resolverMonad: MonadError[Task, Throwable] =
     coursierResolver.resolverMonad
@@ -31,36 +34,27 @@ class GradleResolver(
 
   private def loadLockFiles(
       lockFiles: List[String]
-  ): Try[List[GradleLockFile]] = {
-    lockFiles.foldLeft(Try(List[GradleLockFile]())) { case (prev, next) =>
-      prev.flatMap { p =>
-        val content: Try[String] = Model.readFile(new File(next)) match {
-          case Success(str) => Success(str)
-          case Failure(err) =>
-            Failure(new Exception(s"Failed to read ${next}", err))
+  ): Try[List[GradleLockFile]] =
+    lockFiles.traverse { next =>
+      (Model.readFile(new File(next)) match {
+        case Success(str) => Success(str)
+        case Failure(err) =>
+          Failure(new Exception(s"Failed to read ${next}", err))
+      })
+      .flatMap { content =>
+        Decoders.decodeGradleLockFile(new JawnParser, content) match {
+          case Right(m) => Success(m)
+          case Left(err) =>
+            Failure(new Exception(s"Failed to parse ${next}", err))
         }
-
-        content
-          .flatMap { content =>
-            Decoders.decodeGradleLockFile(new JawnParser, content) match {
-              case Right(m) => Success(m)
-              case Left(err) =>
-                Failure(new Exception(s"Failed to parse ${next}", err))
-            }
-          }
-          .map { lFile =>
-            lFile :: p
-          }
-
       }
     }
-  }
 
   private def mergeLockFiles(
       lockFiles: List[GradleLockFile]
   ): Try[GradleLockFile] =
-    lockFiles.foldLeft(Try(GradleLockFile.empty)) { case (p, n) =>
-      p.flatMap { s => TryMerge.tryMerge(None, s, n) }
+    lockFiles.foldM(GradleLockFile.empty) { (s, n) =>
+      TryMerge.tryMerge(None, s, n)
     }
 
   // Gradle has compile/runtime/test sepearate classpaths
@@ -83,20 +77,21 @@ class GradleResolver(
 
   private def assertConnectedDependencyMap(
       depMap: Map[String, GradleLockDependency]
-  ): Try[Unit] =
-    depMap.foldLeft(Try(())) { case (p, (outerK, v)) =>
-      v.transitive.getOrElse(Nil).foldLeft(p) { case (p, luK) =>
+  ): Try[Unit] =  {
+    val sunit = Success(())
+
+    def assertDep(key: String, gld: GradleLockDependency): Try[Unit] =
+      gld.transitive.getOrElse(Nil).traverse_ { luK =>
         if (!depMap.contains(luK)) {
-          Failure(
-            new Exception(
-              s"Unable to find $luK, referenced as a transitive dep for $outerK in dependencies"
-            )
-          )
-        } else {
-          p
+          Failure(new Exception(s"Unable to find $luK, referenced as a transitive dep for $key in dependencies."))
+        }
+        else {
+          sunit
         }
       }
-    }
+
+    depMap.toList.traverse_ { case (k, v) => assertDep(k, v) }
+  }
 
   private def cleanUpMap(
       depMap: Map[String, GradleLockDependency]

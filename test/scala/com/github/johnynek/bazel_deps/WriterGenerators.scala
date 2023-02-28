@@ -14,11 +14,13 @@ object WriterGenerators {
   val datasourceGen: Gen[DataSource] = for {
     sha1 <- Gen.option(Gen.identifier)
     sha256 <- Gen.option(Gen.identifier)
+    bytes <- Gen.option(Gen.choose(0L, Int.MaxValue.toLong + 10L))
     repository <- Gen.option(Gen.identifier)
     urls <- Gen.listOf(Gen.identifier)
   } yield DataSource(
     sha1 = sha1,
     sha256 = sha256,
+    file_size_bytes = bytes,
     repository = repository,
     urls = urls
   )
