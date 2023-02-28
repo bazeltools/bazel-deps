@@ -12,6 +12,12 @@ options:
   versionConflictPolicy: highest
 
 dependencies:
+  com.amazonaws:
+    aws:
+      lang: java
+      modules: [ "java-sdk-core", "java-sdk-s3", "java-sdk-sts" ]
+      version: "1.11.507"
+
   com.chuusai:
     shapeless:
       lang: scala
@@ -53,6 +59,11 @@ dependencies:
       lang: scala
       modules: [ "", "cache", "core", "util" ]
       version: "2.0.0-RC4-1"
+
+  org.apache.ivy:
+    ivy:
+      lang: java
+      version: "2.4.0"
 
   org.apache.maven:
     maven:

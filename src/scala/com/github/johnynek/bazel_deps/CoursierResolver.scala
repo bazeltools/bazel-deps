@@ -15,6 +15,15 @@ import scala.util.{Failure, Try}
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 
+import java.net.{URL, URLStreamHandler, URLStreamHandlerFactory}
+
+private object S3URLStreamHandlerFactory extends URLStreamHandlerFactory {
+  def createURLStreamHandler(protocol: String): URLStreamHandler = protocol match {
+    case "s3" => new com.github.johnynek.bazel_deps.S3Handler
+    case _    => null
+  }
+}
+
 object CoursierResolver {
   // 12 concurrent downloads
   // most downloads are tiny sha downloads so try keep things alive
@@ -38,6 +47,14 @@ class CoursierResolver(servers: List[MavenServer], ec: ExecutionContext, runTime
   // TODO: add support for a local file cache other than ivy
   private[this] val repos = LocalRepositories.ivy2Local :: {
     val settings = SettingsLoader.settings
+
+    try {
+      new URL("s3://example.com")
+    } catch {
+      // This means we haven't installed the handler, so install it
+      case _: java.net.MalformedURLException =>
+        URL.setURLStreamHandlerFactory(S3URLStreamHandlerFactory)
+    }
 
     servers.map { case MavenServer(id, _, url) =>
       val authentication = Option(settings.getServer(id))
