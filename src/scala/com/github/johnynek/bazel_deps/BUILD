@@ -1,6 +1,18 @@
+scala_library(name = "trymerge",
+              srcs = ["TryMerge.scala"],
+              deps = [
+                  "//3rdparty/jvm/org/typelevel:cats_core",
+                  "//3rdparty/jvm/org/typelevel:cats_kernel",
+              ],
+              exports = [
+                  "//3rdparty/jvm/org/typelevel:cats_core",
+              ],
+              visibility = ["//visibility:public"])
+
 scala_library(name = "depsmodel",
               srcs = ["DepsModel.scala"],
               deps = [
+                  ":trymerge",
                   "//3rdparty/jvm/org/typelevel:cats_core",
                   "//3rdparty/jvm/org/typelevel:cats_kernel",
                   "//3rdparty/jvm/org/typelevel:paiges_core",
@@ -64,12 +76,12 @@ scala_library(
         ],
     visibility = ["//visibility:public"])
 
-
 scala_library(
     name = "gradle_resolver",
-    srcs = ["GradleResolver.scala"],
+    srcs = ["GradleResolver.scala", "GradleLockFile.scala", "GradleLockDependency.scala"],
     deps = [
         "//3rdparty/jvm/io/circe:circe_core",
+        "//3rdparty/jvm/io/circe:circe_generic",
         "//3rdparty/jvm/io/circe:circe_jawn",
         "//3rdparty/jvm/org/typelevel:cats_free",
         "//3rdparty/jvm/io/get_coursier:coursier_core",
@@ -80,6 +92,7 @@ scala_library(
         "//3rdparty/jvm/org/typelevel:cats_core",
         ":resolver",
         ":depsmodel",
+        ":trymerge",
         ":decoders",
         ":graph",
         ":settings_loader",
@@ -211,6 +224,7 @@ scala_library(name = "circeyaml",
 scala_library(name = "decoders",
               srcs = ["Decoders.scala"],
               deps = [
+                  ":trymerge",
                   ":depsmodel",
                   "//3rdparty/jvm/io/circe:circe_core",
                   "//3rdparty/jvm/io/circe:circe_generic",

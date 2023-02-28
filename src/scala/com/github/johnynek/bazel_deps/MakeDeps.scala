@@ -1,13 +1,14 @@
 package com.github.johnynek.bazel_deps
 
+import coursier.util.Task
+import io.circe.jawn.JawnParser
 import java.io.File
 import java.nio.file.{Path, Paths}
-import io.circe.jawn.JawnParser
 import org.slf4j.LoggerFactory
-
+import scala.collection.immutable.SortedMap
 import scala.sys.process.{BasicIO, Process, ProcessIO}
 import scala.util.{Failure, Success, Try}
-import scala.collection.immutable.SortedMap
+
 import cats.implicits._
 
 object MakeDeps {
@@ -89,32 +90,41 @@ object MakeDeps {
   ] =
     model.getOptions.getResolverType match {
       case ResolverType.Aether =>
-        val resolver = new AetherResolver(
-          model.getOptions.getResolvers.collect { case e: MavenServer => e },
-          resolverCachePath
+        resolve(
+          model,
+          new AetherResolver(
+            model.getOptions.getResolvers.collect { case e: MavenServer => e },
+            resolverCachePath)
         )
-        resolver.run(resolve(model, resolver))
       case ResolverType.Coursier =>
         val ec = scala.concurrent.ExecutionContext.Implicits.global
         import scala.concurrent.duration._
-        val resolver
-          = new CoursierResolver(model.getOptions.getResolvers, ec, 3600.seconds, resolverCachePath)
-        resolver.run(resolve(model, resolver))
+        resolve(
+          model,
+          new CoursierResolver(model.getOptions.getResolvers, ec, 3600.seconds, resolverCachePath)
+        )
       case g: ResolverType.Gradle =>
         val ec = scala.concurrent.ExecutionContext.Implicits.global
         import scala.concurrent.duration._
-        val resolver =
-          new GradleResolver(model.getOptions.getResolvers, ec, 3600.seconds, g, resolverCachePath)
-        resolver.run(resolver.resolve(model))
+        resolve(
+          model,
+          new GradleResolver(
+            model.getOptions.getResolvers,
+            model.getOptions.getVersionConflictPolicy,
+            ec,
+            3600.seconds,
+            g,
+            resolverCachePath))
     }
 
-  private def resolve[F[_]](model: Model, resolver: Resolver[F]): F[
-    (
+  private type Res = (
         Graph[MavenCoordinate, Unit],
         SortedMap[MavenCoordinate, ResolvedShasValue],
         Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]]
     )
-  ] = {
+
+  private def resolve[F[_]](model: Model, resolver: Resolver[F]): Try[Res] = 
+  resolver.run[Res] {
     import resolver.resolverMonad
 
     val deps = model.dependencies
