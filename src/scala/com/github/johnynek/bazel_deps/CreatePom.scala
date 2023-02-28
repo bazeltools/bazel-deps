@@ -2,7 +2,8 @@ package com.github.johnynek.bazel_deps
 import scala.xml._
 
 object CreatePom {
-  implicit class MavenCoordinateExtension(private val self: MavenCoordinate) extends AnyVal {
+  implicit class MavenCoordinateExtension(private val self: MavenCoordinate)
+      extends AnyVal {
     def toXml: Elem = {
       <dependency>
         <groupId>{self.group.asString}</groupId>
@@ -13,8 +14,8 @@ object CreatePom {
   }
 
   def translate(dependencies: Graph[MavenCoordinate, Unit]): String = {
-    val mavenCoordinateXml = dependencies.nodes.toList.map {
-      d => d.toXml
+    val mavenCoordinateXml = dependencies.nodes.toList.map { d =>
+      d.toXml
     }
 
     val pomXml = <project>

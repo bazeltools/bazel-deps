@@ -24,7 +24,7 @@ object ParseTestUtil extends FunSuite {
   def roundTripsTo(input: String, output: String) = {
     val mod = decode(input)
     val modStr = mod.toDoc.render(70)
-    //assert(decode(modStr) === mod)
+    // assert(decode(modStr) === mod)
     // println(input)
     // println("------")
     // println(modStr)

@@ -62,6 +62,6 @@ dependencies:
       val (dependencies, _, _) = MakeDeps.runResolve(model, tmpPath).get
       val p = new scala.xml.PrettyPrinter(80, 2)
 
-      assert(CreatePom.translate(dependencies) == p.format(expectedPomXml))
+    assert(CreatePom.translate(dependencies) == p.format(expectedPomXml))
   }
 }

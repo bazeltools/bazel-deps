@@ -6,14 +6,12 @@ import io.circe.jackson.CirceJsonModule
 import io.circe.{Decoder, Json, ParsingFailure, Parser}
 import scala.util.control.NonFatal
 
-/**
- * To use this, implement a Decoder for your type, or in
- * many cases:
- * import io.circe.generic.auto._
- * will work
- */
+/** To use this, implement a Decoder for your type, or in many cases: import
+  * io.circe.generic.auto._ will work
+  */
 object Yaml extends Parser {
-  private[this] val mapper = new ObjectMapper(new YAMLFactory()).registerModule(CirceJsonModule)
+  private[this] val mapper =
+    new ObjectMapper(new YAMLFactory()).registerModule(CirceJsonModule)
   private[this] val factory = mapper.getFactory
   override def parse(input: String): Either[ParsingFailure, Json] =
     try {

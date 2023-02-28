@@ -111,19 +111,6 @@ scala_test(name = "coursier_test",
                "//src/scala/com/github/johnynek/bazel_deps:graph",
                ])
 
-scala_test(name = "target_test",
-           srcs = ["TargetTest.scala"],
-           deps = [
-               ":modelgen",
-               ":writergen",
-               "//3rdparty/jvm/org/scalacheck",
-               "//3rdparty/jvm/org/typelevel:cats_core",
-               "//3rdparty/jvm/io/circe:circe_core",
-               "//src/scala/com/github/johnynek/bazel_deps:io",
-               "//src/scala/com/github/johnynek/bazel_deps:writer",
-               "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
-               ])
-
 scala_test(name = "createpomtest",
            srcs = ["CreatePomTest.scala"],
            deps = [

@@ -1,8 +1,8 @@
 package com.github.johnynek.bazel_deps
 
-import java.io.{ File, PrintWriter }
+import java.io.{File, PrintWriter}
 import io.circe.jawn.JawnParser
-import scala.util.{ Failure, Success }
+import scala.util.{Failure, Success}
 
 object FormatDeps {
   def readModel(path: File): Either[String, Model] = {
@@ -16,7 +16,7 @@ object FormatDeps {
     val parser = if (path.toString.endsWith(".json")) new JawnParser else Yaml
     content.right.flatMap { c =>
       Decoders.decodeModel(parser, c) match {
-        case Right(m) => Right(m)
+        case Right(m)  => Right(m)
         case Left(err) => Left(s"[ERROR]: Failed to parse ${path}.\n$err")
       }
     }
@@ -37,8 +37,7 @@ object FormatDeps {
       stream.foreach(pw.print(_))
       pw.flush
       pw.close
-    }
-    else {
+    } else {
       stream.foreach(System.out.print(_))
     }
   }

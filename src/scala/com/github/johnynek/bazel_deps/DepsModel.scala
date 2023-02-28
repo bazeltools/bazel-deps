@@ -1,37 +1,47 @@
 package com.github.johnynek.bazel_deps
 
-import java.io.{ BufferedReader, ByteArrayOutputStream, File, FileInputStream, FileReader, InputStream }
+import java.io.{
+  BufferedReader,
+  ByteArrayOutputStream,
+  File,
+  FileInputStream,
+  FileReader,
+  InputStream
+}
 import java.security.MessageDigest
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 import org.typelevel.paiges.Doc
-import cats.kernel.{ CommutativeMonoid, Monoid, Semigroup }
+import cats.kernel.{CommutativeMonoid, Monoid, Semigroup}
 import cats.implicits._
-import cats.{ Applicative, Functor, Foldable, Id, SemigroupK }
-import cats.data.{ Validated, ValidatedNel, Ior, NonEmptyList }
+import cats.{Applicative, Functor, Foldable, Id, SemigroupK}
+import cats.data.{Validated, ValidatedNel, Ior, NonEmptyList}
 
-/**
- * These should be upstreamed to paiges
- */
+/** These should be upstreamed to paiges
+  */
 object DocUtil {
   def packedKV(k: String, v: Doc): Doc =
     Doc.text(k) + Doc.text(":") + Doc.lineOrSpace.nested(2) + v
+
+  def packedDocKV(k: Doc, v: Doc): Doc =
+    k + Doc.text(":") + Doc.lineOrSpace.nested(2) + v
 
   def kv(k: String, v: Doc, tight: Boolean = false): Doc =
     Doc.text(k) + Doc.text(":") + ((Doc.line + v).nested(2))
   def quote(s: String): String = {
     val escape = s.flatMap {
       case '\\' => "\\\\"
-      case '"' => "\\\""
-      case o => o.toString
+      case '"'  => "\\\""
+      case o    => o.toString
     }
     "\"%s\"".format(escape)
   }
   def quoteDoc(s: String): Doc = Doc.text(quote(s))
 
   def list[T](i: Iterable[T])(show: T => Doc): Doc = {
-    val parts = Doc.intercalate(Doc.comma, i.map { j => (Doc.line + show(j)).grouped })
+    val parts =
+      Doc.intercalate(Doc.comma, i.map { j => (Doc.line + show(j)).grouped })
     "[" +: (parts :+ " ]").nested(2)
   }
   // Here is a vertical list of docs
@@ -52,14 +62,19 @@ object DocUtil {
   def packedYamlMap(kvs: List[(String, Doc)]): Doc =
     if (kvs.isEmpty) Doc.text("{}")
     else Doc.intercalate(Doc.line, kvs.map { case (k, v) => packedKV(k, v) })
+
+  def packedDocYamlMap(kvs: List[(Doc, Doc)]): Doc =
+    if (kvs.isEmpty) Doc.text("{}")
+    else Doc.intercalate(Doc.line, kvs.map { case (k, v) => packedDocKV(k, v) })
 }
 
 import DocUtil._
 
 case class Model(
-  dependencies: Dependencies,
-  replacements: Option[Replacements],
-  options: Option[Options]) {
+    dependencies: Dependencies,
+    replacements: Option[Replacements],
+    options: Option[Options]
+) {
 
   def flatten: Model = copy(dependencies = dependencies.flatten)
 
@@ -74,16 +89,11 @@ case class Model(
     val reps = replacements.map { r => ("replacements", r.toDoc) }
     val opts = options.map { o => ("options", o.toDoc) }
 
-    yamlMap(List(opts, deps, reps).collect { case Some(kv) => kv }, 2) + Doc.line
+    yamlMap(
+      List(opts, deps, reps).collect { case Some(kv) => kv },
+      2
+    ) + Doc.line
   }
-
-  def hasAuthFile: Boolean = options.exists(_.authFile.nonEmpty)
-  def getAuthFile: Option[String] =
-    options.flatMap(_.authFile).map { auth =>
-      if(auth.startsWith("$"))
-        sys.env.getOrElse(auth.substring(1), s"env var ${auth} not found")
-      else auth
-    }
 }
 
 object Model {
@@ -94,16 +104,14 @@ object Model {
       val bldr = new java.lang.StringBuilder
       val cbuf = new Array[Char](1024)
       var read = 0
-      while(read >= 0) {
+      while (read >= 0) {
         read = buf.read(cbuf, 0, 1024)
         if (read > 0) bldr.append(cbuf, 0, read)
       }
       Success(bldr.toString)
-    }
-    catch {
+    } catch {
       case NonFatal(err) => Failure(err)
-    }
-    finally {
+    } finally {
       fr.close
     }
   }.flatten
@@ -113,19 +121,25 @@ object Model {
 
     val vcp = oo.getOrElse(Monoid[Options].empty).getVersionConflictPolicy
 
-    def combineO[F[_]: Applicative, T](a: Option[T], b: Option[T])(fn: (T, T) => F[T]): F[Option[T]] = {
+    def combineO[F[_]: Applicative, T](a: Option[T], b: Option[T])(
+        fn: (T, T) => F[T]
+    ): F[Option[T]] = {
       def p[A](a: A): F[A] = Applicative[F].pure(a)
 
       (a, b) match {
-        case (None, right) => p(right)
-        case (left, None) => p(left)
+        case (None, right)      => p(right)
+        case (left, None)       => p(left)
         case (Some(l), Some(r)) => fn(l, r).map(Some(_))
       }
     }
 
     type AE[T] = ValidatedNel[String, T]
-    val validatedDeps = Dependencies.combine(vcp, a.dependencies, b.dependencies)
-    val validatedOptR = combineO[AE, Replacements](a.replacements, b.replacements)(Replacements.combine)
+    val validatedDeps =
+      Dependencies.combine(vcp, a.dependencies, b.dependencies)
+    val validatedOptR =
+      combineO[AE, Replacements](a.replacements, b.replacements)(
+        Replacements.combine
+      )
 
     Applicative[AE].map2(validatedDeps, validatedOptR) { (deps, reps) =>
       Model(deps, reps, oo)
@@ -135,7 +149,9 @@ object Model {
   def combine(ms: NonEmptyList[Model]): Either[NonEmptyList[String], Model] = {
     type M[T] = Either[NonEmptyList[String], T]
 
-    Foldable[List].foldM[M, Model, Model](ms.tail, ms.head)(combine(_, _).toEither)
+    Foldable[List].foldM[M, Model, Model](ms.tail, ms.head)(
+      combine(_, _).toEither
+    )
   }
 }
 
@@ -150,12 +166,18 @@ case class ArtifactOrProject(artifact: MavenArtifactId) {
 
   val splitSubprojects: List[(ArtifactOrProject, Subproject)] =
     if (artifactId.contains('-')) {
-      val indices = artifactId.iterator.zipWithIndex.collect { case (c, i) if c == '-' => i }
+      val indices = artifactId.iterator.zipWithIndex.collect {
+        case (c, i) if c == '-' => i
+      }
       indices.map { i =>
-        (ArtifactOrProject(MavenArtifactId(artifactId.substring(0, i), packaging, classifier)), Subproject(artifactId.substring(i + 1)))
+        (
+          ArtifactOrProject(
+            MavenArtifactId(artifactId.substring(0, i), packaging, classifier)
+          ),
+          Subproject(artifactId.substring(i + 1))
+        )
       }.toList
-    }
-    else Nil
+    } else Nil
 
   // This is the same as splitSubprojects but also
   // includes the null split:
@@ -164,7 +186,11 @@ case class ArtifactOrProject(artifact: MavenArtifactId) {
 
   def split(a: ArtifactOrProject): Option[Subproject] =
     if (this == a) Some(Subproject(""))
-    else if (artifactId.startsWith(a.artifactId) && artifactId.charAt(a.artifactId.length) == '-')
+    else if (
+      artifactId.startsWith(a.artifactId) && artifactId.charAt(
+        a.artifactId.length
+      ) == '-'
+    )
       Some {
         val sp = artifactId.substring(a.artifactId.length + 1) // skip the '-'
         Subproject(sp)
@@ -175,7 +201,10 @@ case class ArtifactOrProject(artifact: MavenArtifactId) {
     val str = sp.asString
     str match {
       case "" => this
-      case _ => ArtifactOrProject(MavenArtifactId(s"$artifactId-$str", packaging, classifier))
+      case _ =>
+        ArtifactOrProject(
+          MavenArtifactId(s"$artifactId-$str", packaging, classifier)
+        )
     }
   }
 }
@@ -185,7 +214,11 @@ object ArtifactOrProject {
   def apply(str: String): ArtifactOrProject = {
     ArtifactOrProject(MavenArtifactId(str))
   }
-  def apply(artifactId: String, packaging: String, classifier: Option[String]): ArtifactOrProject = {
+  def apply(
+      artifactId: String,
+      packaging: String,
+      classifier: Option[String]
+  ): ArtifactOrProject = {
     ArtifactOrProject(MavenArtifactId(artifactId, packaging, classifier))
   }
 }
@@ -219,17 +252,22 @@ object ShaValue {
       withContent(fis) { (buffer, n) =>
         if (n > 0) shaInstance.update(buffer, 0, n) else ()
       }
-      Success(ShaValue(shaInstance.digest.map("%02X".format(_)).mkString.toLowerCase, digestType))
-    }
-    catch {
+      Success(
+        ShaValue(
+          shaInstance.digest.map("%02X".format(_)).mkString.toLowerCase,
+          digestType
+        )
+      )
+    } catch {
       case NonFatal(err) => Failure(err)
-    }
-    finally {
+    } finally {
       fis.close
     }
   }.flatten
 
-  private[this] def withContent(is: InputStream)(f: (Array[Byte], Int) => Unit): Unit = {
+  private[this] def withContent(
+      is: InputStream
+  )(f: (Array[Byte], Int) => Unit): Unit = {
     val data = Array.ofDim[Byte](16384)
     var nRead = is.read(data, 0, data.length)
     while (nRead != -1) {
@@ -255,28 +293,63 @@ object ShaValue {
       .head
       .trim
       .toLowerCase
-    if (hexString.length == digestType.expectedHexLength && hexString.matches("[0-9A-Fa-f]*")) {
+    if (
+      hexString.length == digestType.expectedHexLength && hexString.matches(
+        "[0-9A-Fa-f]*"
+      )
+    ) {
       Success(ShaValue(hexString, digestType))
     } else {
-      Failure(new Exception(s"string: $hexString, not a valid ${digestType.name}"))
+      Failure(
+        new Exception(s"string: $hexString, not a valid ${digestType.name}")
+      )
     }
   }
 }
 
 case class Subproject(asString: String)
 case class Version(asString: String)
-case class StrictVisibility(enabled: Boolean)
-object StrictVisibility {
-  implicit val strictVisibilitySemiGroup: Semigroup[StrictVisibility] = Options.useRight.algebra[StrictVisibility]
+sealed trait DependencyServer {
+  def toDoc: Doc
+  def id: String
+  def url: String
 }
-case class MavenServer(id: String, contentType: String, url: String) {
+case class IvyServer(
+    id: String,
+    url: String,
+    ivyPattern: String,
+    ivyArtifactPattern: String
+) extends DependencyServer {
   def toDoc: Doc =
     packedYamlMap(
-      List(("id", quoteDoc(id)), ("type", quoteDoc(contentType)), ("url", Doc.text(url))))
+      List(
+        ("id", quoteDoc(id)),
+        ("serverType", quoteDoc("ivy")),
+        ("url", Doc.text(url)),
+        ("ivyPattern", quoteDoc(ivyPattern)),
+        ("ivyArtifactPattern", quoteDoc(ivyArtifactPattern))
+      )
+    )
+
+}
+case class MavenServer(id: String, contentType: String, url: String)
+    extends DependencyServer {
+  def toDoc: Doc =
+    packedYamlMap(
+      List(
+        ("id", quoteDoc(id)),
+        ("type", quoteDoc(contentType)),
+        ("url", Doc.text(url))
+      )
+    )
 }
 
 object JarDescriptor {
-  def computeShasOf(f: File, serverId: String, url: Option[String]): Try[JarDescriptor] =
+  def computeShasOf(
+      f: File,
+      serverId: String,
+      url: Option[String]
+  ): Try[JarDescriptor] =
     for {
       sha1 <- ShaValue.computeShaOf(DigestType.Sha1, f)
       sha256 <- ShaValue.computeShaOf(DigestType.Sha256, f)
@@ -285,21 +358,23 @@ object JarDescriptor {
         url = url,
         sha1 = Some(sha1),
         sha256 = Some(sha256),
+        fileSizeBytes = Some(f.length()),
         serverId = serverId
       )
     }
 }
 
 case class JarDescriptor(
-  url: Option[String],
-  sha1: Option[ShaValue],
-  sha256: Option[ShaValue],
-  serverId: String
+    url: Option[String],
+    sha1: Option[ShaValue],
+    sha256: Option[ShaValue],
+    fileSizeBytes: Option[Long],
+    serverId: String
 )
 
 case class ResolvedShasValue(
-  binaryJar: JarDescriptor,
-  sourceJar: Option[JarDescriptor]
+    binaryJar: JarDescriptor,
+    sourceJar: Option[JarDescriptor]
 )
 
 case class ProcessorClass(asString: String)
@@ -307,11 +382,14 @@ case class ProcessorClass(asString: String)
 object Version {
   private def isNum(c: Char): Boolean =
     ('0' <= c) && (c <= '9')
-  /**
-   * break a string into alternating runs of Longs and Strings
-   */
+
+  /** break a string into alternating runs of Longs and Strings
+    */
   private def tokenize(s: String): List[Either[String, Long]] = {
-    def append(a: List[Either[String, Long]], b: Either[List[Char], List[Char]]): List[Either[String, Long]] =
+    def append(
+        a: List[Either[String, Long]],
+        b: Either[List[Char], List[Char]]
+    ): List[Either[String, Long]] =
       b match {
         case Right(thisAcc) =>
           Right(thisAcc.reverse.mkString.toLong) :: a
@@ -320,7 +398,12 @@ object Version {
       }
 
     val (acc, toAdd) =
-      s.foldLeft((List.empty[Either[String, Long]], Option.empty[Either[List[Char], List[Char]]])) {
+      s.foldLeft(
+        (
+          List.empty[Either[String, Long]],
+          Option.empty[Either[List[Char], List[Char]]]
+        )
+      ) {
         // Here are the first characters
         case ((acc, None), c) if isNum(c) =>
           (acc, Some(Right(c :: Nil)))
@@ -329,54 +412,65 @@ object Version {
         // Here we continue with the same type
         case ((acc, Some(Right(thisAcc))), c) if isNum(c) =>
           (acc, Some(Right(c :: thisAcc)))
-        case ((acc, Some(Left(thisAcc))), c) if !isNum(c)=>
+        case ((acc, Some(Left(thisAcc))), c) if !isNum(c) =>
           (acc, Some(Left(c :: thisAcc)))
         // Here we switch type and add to the acc
-        case ((acc, Some(r@Right(thisAcc))), c) if !isNum(c)=>
+        case ((acc, Some(r @ Right(thisAcc))), c) if !isNum(c) =>
           (append(acc, r), Some(Left(c :: Nil)))
-        case ((acc, Some(l@Left(thisAcc))), c) if isNum(c) =>
+        case ((acc, Some(l @ Left(thisAcc))), c) if isNum(c) =>
           (append(acc, l), Some(Right(c :: Nil)))
       }
     toAdd.fold(acc)(append(acc, _)).reverse
   }
 
   implicit def versionOrdering: Ordering[Version] = {
-    implicit val strNumOrd: Ordering[Either[String, Long]] = new Ordering[Either[String, Long]] {
-      def compare(left: Either[String, Long], right: Either[String, Long]): Int = {
-        (left, right) match {
-          case (Right(a), Right(b)) => java.lang.Long.compare(a, b)
-          case (Right(_), Left(_)) => 1 // put non number before number (eg, "-RC" comes before 2)
-          case (Left(_), Right(_)) => -1
-          case (Left(a), Left(b)) => a.compareTo(b)
-            val commonTokens = Set("alpha", "beta", "pre", "rc", "m")
-            val al = a.toLowerCase
-            val bl = b.toLowerCase
-            if (commonTokens(al) && commonTokens(bl)) {
-              al.compareTo(bl)
-            } else a.compareTo(b)
+    implicit val strNumOrd: Ordering[Either[String, Long]] =
+      new Ordering[Either[String, Long]] {
+        def compare(
+            left: Either[String, Long],
+            right: Either[String, Long]
+        ): Int = {
+          (left, right) match {
+            case (Right(a), Right(b)) => java.lang.Long.compare(a, b)
+            case (Right(_), Left(_)) =>
+              1 // put non number before number (eg, "-RC" comes before 2)
+            case (Left(_), Right(_)) => -1
+            case (Left(a), Left(b)) =>
+              a.compareTo(b)
+              val commonTokens = Set("alpha", "beta", "pre", "rc", "m")
+              val al = a.toLowerCase
+              val bl = b.toLowerCase
+              if (commonTokens(al) && commonTokens(bl)) {
+                al.compareTo(bl)
+              } else a.compareTo(b)
+          }
         }
       }
-    }
     // In versions, if one is a prefix of the other, and the next item is
     // not a number, it is bigger.
     @annotation.tailrec
-    def prefixCompare[T: Ordering](a: List[T], b: List[T])(fn: T => Int): Int = (a, b) match {
-      case (Nil, h :: tail) => fn(h)
-      case (h :: tail, Nil) => -fn(h)
-      case (Nil, Nil) => 0
-      case (ha :: taila, hb :: tailb) =>
-        val c = Ordering[T].compare(ha, hb)
-        if (c == 0) prefixCompare(taila, tailb)(fn)
-        else c
-    }
+    def prefixCompare[T: Ordering](a: List[T], b: List[T])(fn: T => Int): Int =
+      (a, b) match {
+        case (Nil, h :: tail) => fn(h)
+        case (h :: tail, Nil) => -fn(h)
+        case (Nil, Nil)       => 0
+        case (ha :: taila, hb :: tailb) =>
+          val c = Ordering[T].compare(ha, hb)
+          if (c == 0) prefixCompare(taila, tailb)(fn)
+          else c
+      }
     Ordering.by { v: Version =>
-      v.asString.split("\\.|\\-") // note this is a regex
+      v.asString
+        .split("\\.|\\-") // note this is a regex
         .flatMap(tokenize)
         .toList
     }(new Ordering[List[Either[String, Long]]] {
-      def compare(a: List[Either[String, Long]], b: List[Either[String, Long]]) =
+      def compare(
+          a: List[Either[String, Long]],
+          b: List[Either[String, Long]]
+      ) =
         prefixCompare(a, b) {
-          case Left(_) => 1 // if see a string, the shorter one is larger
+          case Left(_)  => 1 // if see a string, the shorter one is larger
           case Right(_) => -1 // if we see a number, the shorter is smaller
         }
     })
@@ -384,37 +478,45 @@ object Version {
 }
 
 case class MavenArtifactId(
-  artifactId: String,
-  packaging: String,
-  classifier: Option[String]) {
+    artifactId: String,
+    packaging: String,
+    classifier: Option[String]
+) {
 
   def asString: String = classifier match {
     case Some(c) => s"$artifactId:$packaging:$c"
-    case None => if (packaging == MavenArtifactId.defaultPackaging) {
-      artifactId
-    } else {
-      s"$artifactId:$packaging"
-    }
+    case None =>
+      if (packaging == MavenArtifactId.defaultPackaging) {
+        artifactId
+      } else {
+        s"$artifactId:$packaging"
+      }
   }
 
-  def addSuffix(s: String): MavenArtifactId = MavenArtifactId(s"$artifactId$s", packaging, classifier)
+  def addSuffix(s: String): MavenArtifactId =
+    MavenArtifactId(s"$artifactId$s", packaging, classifier)
 }
 
 object MavenArtifactId {
   val defaultPackaging = "jar"
 
   def apply(a: ArtifactOrProject): MavenArtifactId = MavenArtifactId(a.asString)
-  def apply(a: ArtifactOrProject, s: Subproject): MavenArtifactId = MavenArtifactId(a.toArtifact(s))
+  def apply(a: ArtifactOrProject, s: Subproject): MavenArtifactId =
+    MavenArtifactId(a.toArtifact(s))
 
   // convenience: empty string classifier converted to None
-  def apply(artifact: String, packaging: String, classifier: String): MavenArtifactId = {
+  def apply(
+      artifact: String,
+      packaging: String,
+      classifier: String
+  ): MavenArtifactId = {
     assert(packaging != "")
     MavenArtifactId(
       artifact,
       packaging,
       classifier match {
         case "" => None
-        case c => Some(c)
+        case c  => Some(c)
       }
     )
   }
@@ -422,41 +524,69 @@ object MavenArtifactId {
   def apply(str: String): MavenArtifactId =
     str.split(":") match {
       case Array(a, p, c) => MavenArtifactId(a, p, Some(c))
-      case Array(a, p) => MavenArtifactId(a, p, None)
-      case Array(a) => MavenArtifactId(a, defaultPackaging, None)
-      case _ => sys.error(s"$str did not match expected format <artifactId>[:<packaging>[:<classifier>]]")
+      case Array(a, p)    => MavenArtifactId(a, p, None)
+      case Array(a)       => MavenArtifactId(a, defaultPackaging, None)
+      case _ =>
+        sys.error(
+          s"$str did not match expected format <artifactId>[:<packaging>[:<classifier>]]"
+        )
     }
 }
 
-case class MavenCoordinate(group: MavenGroup, artifact: MavenArtifactId, version: Version) {
-  def unversioned: UnversionedCoordinate = UnversionedCoordinate(group, artifact)
-  def asString: String = s"${group.asString}:${artifact.asString}:${version.asString}"
+case class MavenCoordinate(
+    group: MavenGroup,
+    artifact: MavenArtifactId,
+    version: Version
+) {
+  def unversioned: UnversionedCoordinate =
+    UnversionedCoordinate(group, artifact)
+  def asString: String =
+    s"${group.asString}:${artifact.asString}:${version.asString}"
 
   def toDependencies(l: Language): Dependencies =
-    Dependencies(Map(group ->
-      Map(ArtifactOrProject(artifact.asString) ->
-        ProjectRecord(l, Some(version), None, None, None, None, None, None))))
+    Dependencies(
+      Map(
+        group ->
+          Map(
+            ArtifactOrProject(artifact.asString) ->
+              ProjectRecord(
+                l,
+                Some(version),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None
+              )
+          )
+      )
+    )
 }
 
 object MavenCoordinate {
   def apply(s: String): MavenCoordinate =
     parse(s) match {
-      case Validated.Valid(m) => m
+      case Validated.Valid(m)                        => m
       case Validated.Invalid(NonEmptyList(msg, Nil)) => sys.error(msg)
       case _ => sys.error("unreachable (we have only a single error)")
     }
 
   def parse(s: String): ValidatedNel[String, MavenCoordinate] =
     s.split(":") match {
-      case Array(g, a, v) => Validated.valid(MavenCoordinate(MavenGroup(g), MavenArtifactId(a), Version(v)))
+      case Array(g, a, v) =>
+        Validated.valid(
+          MavenCoordinate(MavenGroup(g), MavenArtifactId(a), Version(v))
+        )
       case other => Validated.invalidNel(s"expected exactly three :, got $s")
     }
 
   def apply(u: UnversionedCoordinate, v: Version): MavenCoordinate =
     MavenCoordinate(u.group, u.artifact, v)
 
-  implicit def mvnCoordOrd: Ordering[MavenCoordinate] = Ordering.by { m: MavenCoordinate =>
-    (m.group.asString, m.artifact.asString, m.version)
+  implicit def mvnCoordOrd: Ordering[MavenCoordinate] = Ordering.by {
+    m: MavenCoordinate =>
+      (m.group.asString, m.artifact.asString, m.version)
   }
 }
 
@@ -464,10 +594,23 @@ sealed abstract class Language {
   def asString: String
   def asReversableString: String
   def asOptionsString: String
-  def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate
-  def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate
+  def mavenCoord(
+      g: MavenGroup,
+      a: ArtifactOrProject,
+      v: Version
+  ): MavenCoordinate
+  def mavenCoord(
+      g: MavenGroup,
+      a: ArtifactOrProject,
+      sp: Subproject,
+      v: Version
+  ): MavenCoordinate
   def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate
-  def unversioned(g: MavenGroup, a: ArtifactOrProject, sp: Subproject): UnversionedCoordinate
+  def unversioned(
+      g: MavenGroup,
+      a: ArtifactOrProject,
+      sp: Subproject
+  ): UnversionedCoordinate
 
   def unmangle(m: MavenCoordinate): MavenCoordinate
 }
@@ -477,16 +620,32 @@ object Language {
     def asString: String
     def asReversableString: String
     def asOptionsString = asString
-    def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
+    def mavenCoord(
+        g: MavenGroup,
+        a: ArtifactOrProject,
+        v: Version
+    ): MavenCoordinate =
       MavenCoordinate(g, MavenArtifactId(a), v)
 
-    def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate =
+    def mavenCoord(
+        g: MavenGroup,
+        a: ArtifactOrProject,
+        sp: Subproject,
+        v: Version
+    ): MavenCoordinate =
       MavenCoordinate(g, MavenArtifactId(a, sp), v)
 
-    def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate =
+    def unversioned(
+        g: MavenGroup,
+        a: ArtifactOrProject
+    ): UnversionedCoordinate =
       UnversionedCoordinate(g, MavenArtifactId(a))
 
-    def unversioned(g: MavenGroup, a: ArtifactOrProject, sp: Subproject): UnversionedCoordinate =
+    def unversioned(
+        g: MavenGroup,
+        a: ArtifactOrProject,
+        sp: Subproject
+    ): UnversionedCoordinate =
       UnversionedCoordinate(g, MavenArtifactId(a, sp))
 
     def unmangle(m: MavenCoordinate) = m
@@ -508,7 +667,7 @@ object Language {
     def asReversableString = s"${asString}:${v.asString}"
 
     val major = v.asString.split('.') match {
-      case Array("2", x) if (x.toInt >= 10) => s"2.$x"
+      case Array("2", x) if (x.toInt >= 10)    => s"2.$x"
       case Array("2", x, _) if (x.toInt >= 10) => s"2.$x"
       case _ => sys.error(s"unsupported scala version: ${v.asString}")
     }
@@ -517,27 +676,47 @@ object Language {
       if (mangle) a.addSuffix(suffix)
       else a
 
-    def unversioned(g: MavenGroup, a: ArtifactOrProject): UnversionedCoordinate =
+    def unversioned(
+        g: MavenGroup,
+        a: ArtifactOrProject
+    ): UnversionedCoordinate =
       UnversionedCoordinate(g, add(MavenArtifactId(a)))
 
-    def unversioned(g: MavenGroup, a: ArtifactOrProject, sp: Subproject): UnversionedCoordinate =
+    def unversioned(
+        g: MavenGroup,
+        a: ArtifactOrProject,
+        sp: Subproject
+    ): UnversionedCoordinate =
       UnversionedCoordinate(g, add(MavenArtifactId(a, sp)))
 
-    def mavenCoord(g: MavenGroup, a: ArtifactOrProject, v: Version): MavenCoordinate =
+    def mavenCoord(
+        g: MavenGroup,
+        a: ArtifactOrProject,
+        v: Version
+    ): MavenCoordinate =
       MavenCoordinate(g, add(MavenArtifactId(a)), v)
 
-    def mavenCoord(g: MavenGroup, a: ArtifactOrProject, sp: Subproject, v: Version): MavenCoordinate =
+    def mavenCoord(
+        g: MavenGroup,
+        a: ArtifactOrProject,
+        sp: Subproject,
+        v: Version
+    ): MavenCoordinate =
       MavenCoordinate(g, add(MavenArtifactId(a, sp)), v)
 
     def removeSuffix(s: String): Option[String] =
       if (s.endsWith(suffix)) Some(s.dropRight(suffix.size))
       else None
 
-    def removeSuffix(uv: UnversionedCoordinate) : UnversionedCoordinate = {
+    def removeSuffix(uv: UnversionedCoordinate): UnversionedCoordinate = {
       val aid = uv.artifact
       removeSuffix(aid.artifactId) match {
         case None => uv
-        case Some(a) => UnversionedCoordinate(uv.group, MavenArtifactId(a, aid.packaging, aid.classifier))
+        case Some(a) =>
+          UnversionedCoordinate(
+            uv.group,
+            MavenArtifactId(a, aid.packaging, aid.classifier)
+          )
       }
     }
 
@@ -564,50 +743,50 @@ object Language {
 
 case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
   def asString: String = s"${group.asString}:${artifact.asString}"
-  /**
-   * This is a bazel-safe name to use as a remote repo name
-   */
+
+  /** This is a bazel-safe name to use as a remote repo name
+    */
   def toBazelRepoName(namePrefix: NamePrefix): String =
     s"${namePrefix.asString}$asString".map {
-      case '.' => "_"  // todo, we should have something such that if a != b this can't be equal, but this can
-      case '-' => "_"
-      case ':' => "_"
+      case '.' =>
+        "_" // todo, we should have something such that if a != b this can't be equal, but this can
+      case '-'   => "_"
+      case ':'   => "_"
       case other => other
-    }
-    .mkString
+    }.mkString
 
-  /**
-    * The bazel-safe target name
+  /** The bazel-safe target name
     */
   def toTargetName: String =
     artifact.asString.map {
       case ':' => '_'
-      case o => o
+      case o   => o
     }
 
   def toBindingName(namePrefix: NamePrefix): String = {
     val g = group.asString.map {
       case '.' => '/'
-      case o => o
+      case o   => o
     }
     s"jar/${namePrefix.asString}$g/${toTargetName}".map {
       case '.' | '-' => '_'
-      case o => o
+      case o         => o
     }
   }
-  def bindTarget(namePrefix: NamePrefix): String = s"//external:${toBindingName(namePrefix)}"
+  def bindTarget(namePrefix: NamePrefix): String =
+    s"//external:${toBindingName(namePrefix)}"
 }
 
 case class ProjectRecord(
-  lang: Language,
-  version: Option[Version],
-  modules: Option[Set[Subproject]],
-  exports: Option[Set[(MavenGroup, ArtifactOrProject)]],
-  exclude: Option[Set[(MavenGroup, ArtifactOrProject)]],
-  generatesApi: Option[Boolean],
-  processorClasses: Option[Set[ProcessorClass]],
-  generateNeverlink: Option[Boolean]) {
-
+    lang: Language,
+    version: Option[Version],
+    modules: Option[Set[Subproject]],
+    exports: Option[Set[(MavenGroup, ArtifactOrProject)]],
+    exclude: Option[Set[(MavenGroup, ArtifactOrProject)]],
+    generatesApi: Option[Boolean],
+    processorClasses: Option[Set[ProcessorClass]],
+    generateNeverlink: Option[Boolean]
+) {
 
   // Cache this
   override lazy val hashCode: Int =
@@ -616,15 +795,16 @@ case class ProjectRecord(
   def flatten(ap: ArtifactOrProject): List[(ArtifactOrProject, ProjectRecord)] =
     getModules match {
       case Nil => List((ap, copy(modules = None)))
-      case mods => mods.map { sp =>
-        (ap.toArtifact(sp), copy(modules = None))
-      }
+      case mods =>
+        mods.map { sp =>
+          (ap.toArtifact(sp), copy(modules = None))
+        }
     }
 
   def normalizeEmptyModule: ProjectRecord =
     getModules match {
       case Subproject("") :: Nil => copy(modules = None)
-      case _ => this
+      case _                     => this
     }
 
   def withModule(m: Subproject): ProjectRecord = modules match {
@@ -636,37 +816,47 @@ case class ProjectRecord(
   }
 
   def combineModules(that: ProjectRecord): Option[ProjectRecord] =
-    if ((lang == that.lang) &&
-        (version.flatMap { v => that.version.map(_ == v) }.forall(_ == true)) &&
-        (exports == that.exports) &&
-        (exclude == that.exclude)) {
+    if (
+      (lang == that.lang) &&
+      (version.flatMap { v => that.version.map(_ == v) }.forall(_ == true)) &&
+      (exports == that.exports) &&
+      (exclude == that.exclude)
+    ) {
       val mods = (modules, that.modules) match {
         case (Some(a), Some(b)) => Some(a | b)
-        case (None, s) => s.map(_ + Subproject(""))
-        case (s, None) => s.map(_ + Subproject(""))
+        case (None, s)          => s.map(_ + Subproject(""))
+        case (s, None)          => s.map(_ + Subproject(""))
       }
 
       Some(copy(modules = mods))
     } else None
 
-  def getModules: List[Subproject] = modules.getOrElse(Set.empty).toList.sortBy(_.asString)
+  def getModules: List[Subproject] =
+    modules.getOrElse(Set.empty).toList.sortBy(_.asString)
 
-  def versionedDependencies(g: MavenGroup,
-    ap: ArtifactOrProject): List[MavenCoordinate] =
+  def versionedDependencies(
+      g: MavenGroup,
+      ap: ArtifactOrProject
+  ): List[MavenCoordinate] =
     version.fold(List.empty[MavenCoordinate]) { v =>
       getModules match {
-        case Nil => List(lang.mavenCoord(g, ap, v))
+        case Nil  => List(lang.mavenCoord(g, ap, v))
         case mods => mods.map { m => lang.mavenCoord(g, ap, m, v) }
       }
     }
 
-  def allDependencies(g: MavenGroup, ap: ArtifactOrProject): List[UnversionedCoordinate] =
+  def allDependencies(
+      g: MavenGroup,
+      ap: ArtifactOrProject
+  ): List[UnversionedCoordinate] =
     getModules match {
-      case Nil => List(lang.unversioned(g, ap))
+      case Nil  => List(lang.unversioned(g, ap))
       case mods => mods.map { m => lang.unversioned(g, ap, m) }
     }
 
-  private def toList(s: Set[(MavenGroup, ArtifactOrProject)]): List[(MavenGroup, ArtifactOrProject)] =
+  private def toList(
+      s: Set[(MavenGroup, ArtifactOrProject)]
+  ): List[(MavenGroup, ArtifactOrProject)] =
     s.toList.sortBy { case (a, b) => (a.asString, b.asString) }
 
   def toDoc: Doc = {
@@ -675,20 +865,28 @@ case class ProjectRecord(
 
     def exportsDoc(e: Set[(MavenGroup, ArtifactOrProject)]): Doc =
       if (e.isEmpty) Doc.text("[]")
-      else (Doc.line + vlist(toList(e).map { case (a, b) => colonPair(a, b) })).nested(2)
+      else
+        (Doc.line + vlist(toList(e).map { case (a, b) => colonPair(a, b) }))
+          .nested(2)
 
     def quoteEmpty(s: String): Doc =
       if (s.isEmpty) quoteDoc("") else Doc.text(s)
 
-    val record = List(List(("lang", Doc.text(lang.asString))),
+    val record = List(
+      List(("lang", Doc.text(lang.asString))),
       version.toList.map { v => ("version", quoteDoc(v.asString)) },
-      modules.toList.map { ms => ("modules", list(ms.map(_.asString).toList.sorted)(quoteDoc)) },
+      modules.toList.map { ms =>
+        ("modules", list(ms.map(_.asString).toList.sorted)(quoteDoc))
+      },
       exports.toList.map { ms => ("exports", exportsDoc(ms)) },
       exclude.toList.map { ms => ("exclude", exportsDoc(ms)) },
-      processorClasses.toList.map { pcs => ("processorClasses", list(pcs.map(_.asString).toList.sorted)(quoteDoc)) },
-      generateNeverlink.toList.map { v => ("generateNeverlink", Doc.text(v.toString)) }
-      )
-      .flatten
+      processorClasses.toList.map { pcs =>
+        ("processorClasses", list(pcs.map(_.asString).toList.sorted)(quoteDoc))
+      },
+      generateNeverlink.toList.map { v =>
+        ("generateNeverlink", Doc.text(v.toString))
+      }
+    ).flatten
       .sortBy(_._1)
     packedYamlMap(record)
   }
@@ -700,16 +898,33 @@ object ProjectRecord {
       Ordering.by { l => (l: Iterable[T]) }
 
     Ordering.by { pr =>
-      (pr.lang,
+      (
+        pr.lang,
         pr.version,
-        (pr.modules.fold(0)(_.size), pr.modules.map(_.map(_.asString).toList.sorted)),
-        (pr.exports.fold(0)(_.size), pr.exports.map(_.map { case (m, a) => (m.asString, a.asString) }.toList.sorted)),
-        (pr.exclude.fold(0)(_.size), pr.exclude.map(_.map { case (m, a) => (m.asString, a.asString) }.toList.sorted)))
+        (
+          pr.modules.fold(0)(_.size),
+          pr.modules.map(_.map(_.asString).toList.sorted)
+        ),
+        (
+          pr.exports.fold(0)(_.size),
+          pr.exports.map(_.map { case (m, a) =>
+            (m.asString, a.asString)
+          }.toList.sorted)
+        ),
+        (
+          pr.exclude.fold(0)(_.size),
+          pr.exclude.map(_.map { case (m, a) =>
+            (m.asString, a.asString)
+          }.toList.sorted)
+        )
+      )
     }
   }
 }
 
-case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]]) {
+case class Dependencies(
+    toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRecord]]
+) {
 
   def flatten: Dependencies =
     Dependencies(toMap.mapValues { map =>
@@ -717,54 +932,66 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
     })
 
   def toDoc: Doc = {
-    implicit val ordDoc: Ordering[Doc] = Ordering.by { d: Doc => d.renderWideStream.mkString }
-    val allDepDoc = toMap.toList
-      .map { case (g, map) =>
-        val parts = Dependencies.normalize(map.toList).sorted
+    implicit val ordDoc: Ordering[Doc] = Ordering.by { d: Doc =>
+      d.renderWideStream.mkString
+    }
+    val allDepDoc = toMap.toList.map { case (g, map) =>
+      val parts = Dependencies.normalize(map.toList).sorted
 
-        // This is invariant should be true at the end
-        //assert(parts.flatMap { case (a, p) => p.flatten(a) }.sorted == allProj.sorted)
+      // This is invariant should be true at the end
+      // assert(parts.flatMap { case (a, p) => p.flatten(a) }.sorted == allProj.sorted)
 
-        val groupMap = yamlMap(parts.map { case (a, p) => (a.asString, p.toDoc) })
+      val groupMap = yamlMap(parts.map { case (a, p) => (a.asString, p.toDoc) })
 
-        (g.asString, groupMap)
-      }
-      .sorted
+      (g.asString, groupMap)
+    }.sorted
 
     yamlMap(allDepDoc, 2)
   }
 
   // Returns 1 if there is exactly one candidate that matches.
-  def unversionedCoordinatesOf(g: MavenGroup, a: ArtifactOrProject): Option[UnversionedCoordinate] =
+  def unversionedCoordinatesOf(
+      g: MavenGroup,
+      a: ArtifactOrProject
+  ): Option[UnversionedCoordinate] =
     toMap.get(g).flatMap { ap =>
       a.splitSubprojects match {
         case Nil =>
           ap.get(a).map(_.allDependencies(g, a)) match {
             case Some(h :: Nil) => Some(h)
-            case other => None // 0 or more than one
+            case other          => None // 0 or more than one
           }
         case parts =>
           // This can be split, but may not be:
           val unsplit = ap.get(a).map(_.lang.unversioned(g, a)).toSet
           val uvcs = unsplit.union(parts.flatMap { case (proj, subproj) =>
             ap.get(proj)
-              .map { pr => pr.getModules.filter(_ == subproj).map((_, pr.lang)) }
+              .map { pr =>
+                pr.getModules.filter(_ == subproj).map((_, pr.lang))
+              }
               .getOrElse(Nil)
               .map { case (m, lang) => lang.unversioned(g, proj, m) }
-          }
-          .toSet)
-        if (uvcs.size == 1) Some(uvcs.head) else None
+          }.toSet)
+          if (uvcs.size == 1) Some(uvcs.head) else None
       }
     }
 
-  def exportedUnversioned(u: UnversionedCoordinate,
-    r: Replacements): Either[List[(MavenGroup, ArtifactOrProject)], List[UnversionedCoordinate]] =
-
+  def exportedUnversioned(
+      u: UnversionedCoordinate,
+      r: Replacements
+  ): Either[List[(MavenGroup, ArtifactOrProject)], List[
+    UnversionedCoordinate
+  ]] =
     recordOf(u).flatMap(_.exports) match {
       case None => Right(Nil)
       case Some(l) =>
-        def uv(g: MavenGroup, a: ArtifactOrProject): Option[UnversionedCoordinate] =
-          unversionedCoordinatesOf(g, a).orElse(r.unversionedCoordinatesOf(g, a))
+        def uv(
+            g: MavenGroup,
+            a: ArtifactOrProject
+        ): Option[UnversionedCoordinate] =
+          unversionedCoordinatesOf(g, a).orElse(
+            r.unversionedCoordinatesOf(g, a)
+          )
 
         val errs = l.filter { case (g, a) => uv(g, a).isEmpty }
         if (errs.nonEmpty) Left(l.toList)
@@ -787,14 +1014,13 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
 
   val roots: Set[MavenCoordinate] = coordToProj.keySet
   val unversionedRoots: Set[UnversionedCoordinate] =
-    unversionedToProj.iterator
-      .collect { case (uv, pr) if pr.version.isEmpty => uv }
-      .toSet
-  /**
-   * Note, if we implement this method with an unversioned coordinate,
-   * we need to potentially remove the scala version to check the
-   * ArtifactOrProject key
-   */
+    unversionedToProj.iterator.collect {
+      case (uv, pr) if pr.version.isEmpty => uv
+    }.toSet
+
+  /** Note, if we implement this method with an unversioned coordinate, we need
+    * to potentially remove the scala version to check the ArtifactOrProject key
+    */
   private def recordOf(m: UnversionedCoordinate): Option[ProjectRecord] =
     unversionedToProj.get(m)
 
@@ -813,20 +1039,26 @@ case class Dependencies(toMap: Map[MavenGroup, Map[ArtifactOrProject, ProjectRec
 }
 
 object Dependencies {
-  def empty: Dependencies = Dependencies(Map.empty[MavenGroup, Map[ArtifactOrProject, ProjectRecord]])
+  def empty: Dependencies = Dependencies(
+    Map.empty[MavenGroup, Map[ArtifactOrProject, ProjectRecord]]
+  )
 
-  /**
-   * Combine as many ProjectRecords as possible into a result
-   */
-  def normalize(candidates0: List[(ArtifactOrProject, ProjectRecord)]): List[(ArtifactOrProject, ProjectRecord)] = {
+  /** Combine as many ProjectRecords as possible into a result
+    */
+  def normalize(
+      candidates0: List[(ArtifactOrProject, ProjectRecord)]
+  ): List[(ArtifactOrProject, ProjectRecord)] = {
     type AP = (ArtifactOrProject, ProjectRecord)
 
     def group[A, B](abs: List[(A, B)]): List[(A, List[B])] =
       abs.groupBy(_._1).map { case (k, vs) => k -> vs.map(_._2) }.toList
 
-    def flatten(lp: List[AP]): List[AP] = lp.flatMap { case (a, p) => p.flatten(a) }
+    def flatten(lp: List[AP]): List[AP] = lp.flatMap { case (a, p) =>
+      p.flatten(a)
+    }
 
-    type CandidateGraph = List[(ArtifactOrProject, List[(ProjectRecord, List[(Subproject, AP)])])]
+    type CandidateGraph =
+      List[(ArtifactOrProject, List[(ProjectRecord, List[(Subproject, AP)])])]
 
     def apsIn(cs: CandidateGraph): Set[AP] =
       (for {
@@ -837,14 +1069,20 @@ object Dependencies {
 
     // each Artifact-project record pair is either in the final result, or it isn't. We
     // just build all the cases now:
-    def manyWorlds(candidates: CandidateGraph, acc: List[AP]): List[List[AP]] = {
+    def manyWorlds(
+        candidates: CandidateGraph,
+        acc: List[AP]
+    ): List[List[AP]] = {
       candidates match {
-        case Nil => List(acc)
+        case Nil                => List(acc)
         case (art, Nil) :: tail => manyWorlds(tail, acc)
-        case (art, (_, Nil) :: rest) :: tail => manyWorlds((art, rest) :: tail, acc)
+        case (art, (_, Nil) :: rest) :: tail =>
+          manyWorlds((art, rest) :: tail, acc)
         case (art, (pr, subs) :: rest) :: tail =>
           // we consider taking (art, pr) and putting it in the result:
-          val newPR = subs.foldLeft(pr) { case (pr, (sub, _)) => pr.withModule(sub) }.normalizeEmptyModule
+          val newPR = subs
+            .foldLeft(pr) { case (pr, (sub, _)) => pr.withModule(sub) }
+            .normalizeEmptyModule
 
           val finished = subs.map(_._2).toSet
           // this ArtifactOrProject has been used, so nothing in rest is legitimate
@@ -898,7 +1136,9 @@ object Dependencies {
         case nonEmpty =>
           val minimal = nonEmpty
             .filter(hasAllInputs _)
-            .groupBy(_.size) // there can be several variants with the same count
+            .groupBy(
+              _.size
+            ) // there can be several variants with the same count
             .toList
             .minBy(_._1)
             ._2
@@ -921,7 +1161,7 @@ object Dependencies {
     // they can't conflict if that minimal prefix does not conflict
     val candidates = flatten(candidates0)
     val splitToOrig: List[(String, CandidateGraph)] = {
-      val g0 = candidates.flatMap { case ap@(a, p) =>
+      val g0 = candidates.flatMap { case ap @ (a, p) =>
         require(p.modules == None) // this is an invariant true of candidates
 
         // Note that previously we allowed these splits to happen at any hyphen
@@ -930,13 +1170,18 @@ object Dependencies {
         // with lots of subprojects. The `take(2)` here restricts the split to
         // happening at the first hyphen (if at all).
         val subs = a.splitSubprojects1.toList.take(2)
-        val prefix = subs.map { case (ArtifactOrProject(MavenArtifactId(artifact, _, _)), _) => artifact }.min
+        val prefix = subs.map {
+          case (ArtifactOrProject(MavenArtifactId(artifact, _, _)), _) =>
+            artifact
+        }.min
         subs.map { case (a, sp) =>
           (prefix, (a, (p, (sp, ap))))
         }
       }
       group(g0).map { case (p, as) =>
-        p -> (group(as).map { case (a, prsub) => a -> group(prsub) }.sortBy { case (_, prs) => -prs.size })
+        p -> (group(as).map { case (a, prsub) => a -> group(prsub) }.sortBy {
+          case (_, prs) => -prs.size
+        })
       }
     }
 
@@ -946,15 +1191,18 @@ object Dependencies {
     }
   }
 
-  private[bazel_deps] def joinWith[F[_]: Applicative, K, A, B, C](m1: Map[K, A], m2: Map[K, B])(fn: Ior[A, B] => F[C]): F[Map[K, C]] = {
+  private[bazel_deps] def joinWith[F[_]: Applicative, K, A, B, C](
+      m1: Map[K, A],
+      m2: Map[K, B]
+  )(fn: Ior[A, B] => F[C]): F[Map[K, C]] = {
     val allKeys = (m1.keySet | m2.keySet).toList
     def travFn(k: K): F[(K, C)] = {
 
       def withKey(f: F[C]): F[(K, C)] = f.map((k, _))
 
       (m1.get(k), m2.get(k)) match {
-        case (Some(a), None) => withKey(fn(Ior.left(a)))
-        case (None, Some(b)) => withKey(fn(Ior.right(b)))
+        case (Some(a), None)    => withKey(fn(Ior.left(a)))
+        case (None, Some(b))    => withKey(fn(Ior.right(b)))
         case (Some(a), Some(b)) => withKey(fn(Ior.both(a, b)))
         case (None, None) => sys.error(s"somehow $k has no values in either")
       }
@@ -964,13 +1212,19 @@ object Dependencies {
     fl.map(_.toMap)
   }
 
-  private[bazel_deps] def onBoth[F[_]: Applicative, A](fn: (A, A) => F[A]): Ior[A, A] => F[A] = {
-    case Ior.Right(a) => Applicative[F].pure(a)
-    case Ior.Left(a) => Applicative[F].pure(a)
+  private[bazel_deps] def onBoth[F[_]: Applicative, A](
+      fn: (A, A) => F[A]
+  ): Ior[A, A] => F[A] = {
+    case Ior.Right(a)     => Applicative[F].pure(a)
+    case Ior.Left(a)      => Applicative[F].pure(a)
     case Ior.Both(a1, a2) => fn(a1, a2)
   }
 
-  def combine(vcp: VersionConflictPolicy, a: Dependencies, b: Dependencies): ValidatedNel[String, Dependencies] = {
+  def combine(
+      vcp: VersionConflictPolicy,
+      a: Dependencies,
+      b: Dependencies
+  ): ValidatedNel[String, Dependencies] = {
 
     type M1[T] = Map[MavenGroup, T]
 
@@ -983,11 +1237,14 @@ object Dependencies {
       Dependencies(m)
     }
 
-
-    def mergeArtifact(p1: ProjectRecord, p2: ProjectRecord): ValidatedNel[String, ProjectRecord] = {
+    def mergeArtifact(
+        p1: ProjectRecord,
+        p2: ProjectRecord
+    ): ValidatedNel[String, ProjectRecord] = {
       (p1.version, p2.version) match {
         case (None, None) => Validated.valid(p2) // right wins
-        case (Some(v1), Some(v2)) if v1 == v2 => Validated.valid(p2) // right wins
+        case (Some(v1), Some(v2)) if v1 == v2 =>
+          Validated.valid(p2) // right wins
         case (Some(v1), Some(v2)) =>
           vcp.resolve(None, Set(v1, v2)).map { v =>
             if (v == v1) p1
@@ -1005,46 +1262,68 @@ object Dependencies {
       val fn1: Ior[ProjectRecord, ProjectRecord] => AE[ProjectRecord] =
         onBoth[AE, ProjectRecord](mergeArtifact(_, _))
 
-      onBoth[AE, Artifacts](joinWith[AE, ArtifactOrProject, ProjectRecord, ProjectRecord, ProjectRecord](_, _)(fn1))
+      onBoth[AE, Artifacts](
+        joinWith[
+          AE,
+          ArtifactOrProject,
+          ProjectRecord,
+          ProjectRecord,
+          ProjectRecord
+        ](_, _)(fn1)
+      )
     }
 
     val flatA = flatten(a).toMap
     val flatB = flatten(b).toMap
 
-    joinWith[AE, MavenGroup, Artifacts, Artifacts, Artifacts](flatA, flatB)(mergeGroup)
+    joinWith[AE, MavenGroup, Artifacts, Artifacts, Artifacts](flatA, flatB)(
+      mergeGroup
+    )
       .map { map => Dependencies(map.toList: _*) }
   }
 
-  def apply(items: (MavenGroup, Map[ArtifactOrProject, ProjectRecord])*): Dependencies =
-    Dependencies(items.groupBy(_._1)
-      .map { case (g, pairs) =>
-        val finalMap = pairs.map(_._2).reduce(_ ++ _)
-        (g, finalMap)
-      }
-      .toMap)
+  def apply(
+      items: (MavenGroup, Map[ArtifactOrProject, ProjectRecord])*
+  ): Dependencies =
+    Dependencies(
+      items
+        .groupBy(_._1)
+        .map { case (g, pairs) =>
+          val finalMap = pairs.map(_._2).reduce(_ ++ _)
+          (g, finalMap)
+        }
+        .toMap
+    )
 }
 
 case class BazelTarget(asString: String)
 
-case class ReplacementRecord(
-  lang: Language,
-  target: BazelTarget) {
+case class ReplacementRecord(lang: Language, target: BazelTarget) {
 
   def toDoc: Doc =
     packedYamlMap(
-      List(("lang", Doc.text(lang.asString)),
-        ("target", quoteDoc(target.asString))))
+      List(
+        ("lang", Doc.text(lang.asString)),
+        ("target", quoteDoc(target.asString))
+      )
+    )
 }
 
-case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, ReplacementRecord]]) {
-  val unversionedToReplacementRecord: Map[UnversionedCoordinate, ReplacementRecord] =
+case class Replacements(
+    toMap: Map[MavenGroup, Map[ArtifactOrProject, ReplacementRecord]]
+) {
+  val unversionedToReplacementRecord
+      : Map[UnversionedCoordinate, ReplacementRecord] =
     toMap.flatMap { case (g, projs) =>
       projs.map { case (a, r) =>
         r.lang.unversioned(g, a) -> r
       }
     }
 
-  def unversionedCoordinatesOf(g: MavenGroup, a: ArtifactOrProject): Option[UnversionedCoordinate] =
+  def unversionedCoordinatesOf(
+      g: MavenGroup,
+      a: ArtifactOrProject
+  ): Option[UnversionedCoordinate] =
     for {
       m <- toMap.get(g)
       r <- m.get(a)
@@ -1054,18 +1333,20 @@ case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, Replacemen
     unversionedToReplacementRecord.get(uv)
 
   def toDoc: Doc = {
-    implicit val ordDoc: Ordering[Doc] = Ordering.by { d: Doc => d.renderWideStream.mkString }
-    val allDepDoc = toMap.toList
-      .map { case (g, map) =>
-        val parts: List[(ArtifactOrProject, ReplacementRecord)] =
-          map.toList
+    implicit val ordDoc: Ordering[Doc] = Ordering.by { d: Doc =>
+      d.renderWideStream.mkString
+    }
+    val allDepDoc = toMap.toList.map { case (g, map) =>
+      val parts: List[(ArtifactOrProject, ReplacementRecord)] =
+        map.toList
           .sortBy(_._1.asString)
 
-        val groupMap = yamlMap(parts.map { case (a, rr) => (a.asString, rr.toDoc) })
+      val groupMap = yamlMap(parts.map { case (a, rr) =>
+        (a.asString, rr.toDoc)
+      })
 
-        (g.asString, groupMap)
-      }
-      .sorted
+      (g.asString, groupMap)
+    }.sorted
 
     yamlMap(allDepDoc, 2)
   }
@@ -1074,12 +1355,14 @@ case class Replacements(toMap: Map[MavenGroup, Map[ArtifactOrProject, Replacemen
 object Replacements {
   def empty: Replacements = Replacements(Map.empty)
 
-  /**
-   * Combine two replacements lists. Fail if there is a collision which is not
-   * identical on both sides
-   */
-  def combine(a: Replacements, b: Replacements): ValidatedNel[String, Replacements] = {
-    import Dependencies.{ joinWith, onBoth }
+  /** Combine two replacements lists. Fail if there is a collision which is not
+    * identical on both sides
+    */
+  def combine(
+      a: Replacements,
+      b: Replacements
+  ): ValidatedNel[String, Replacements] = {
+    import Dependencies.{joinWith, onBoth}
 
     def bothMatch[A](a: A, b: A): ValidatedNel[String, A] =
       if (a == b) Validated.valid(a)
@@ -1087,100 +1370,85 @@ object Replacements {
 
     type AE[T] = ValidatedNel[String, T]
     val innerFn = onBoth[AE, ReplacementRecord](bothMatch(_, _))
-    val outerFn = onBoth[AE, Map[ArtifactOrProject, ReplacementRecord]](joinWith(_, _)(innerFn))
+    val outerFn = onBoth[AE, Map[ArtifactOrProject, ReplacementRecord]](
+      joinWith(_, _)(innerFn)
+    )
     joinWith(a.toMap, b.toMap)(outerFn)
       .map(Replacements(_))
   }
 }
 
 sealed abstract class VersionConflictPolicy(val asString: String) {
-  /**
-   * TODO we currenly only have policies that always keep roots,
-   * if this invariant changes, Normalizer will need to change
-   * the dead node elimination step
-   */
-  def resolve(root: Option[Version], s: Set[Version]): ValidatedNel[String, Version]
+
+  /** TODO we currenly only have policies that always keep roots, if this
+    * invariant changes, Normalizer will need to change the dead node
+    * elimination step
+    */
+  def resolve(
+      root: Option[Version],
+      s: Set[Version]
+  ): ValidatedNel[String, Version]
 }
 object VersionConflictPolicy {
-  /**
-   * This is a way to combine VersionConflictPolicy taking the strictest of the two
-   * it is actually a bounded semilattice (it is idempotent and commutative).
-   */
+
+  /** This is a way to combine VersionConflictPolicy taking the strictest of the
+    * two it is actually a bounded semilattice (it is idempotent and
+    * commutative).
+    */
   implicit val vcpMonoid: CommutativeMonoid[VersionConflictPolicy] =
     new CommutativeMonoid[VersionConflictPolicy] {
       def empty = Highest
       def combine(a: VersionConflictPolicy, b: VersionConflictPolicy) =
         (a, b) match {
-          case (Fail, _) => Fail
-          case (_, Fail) => Fail
-          case (Fixed, _) => Fixed
-          case (_, Fixed) => Fixed
+          case (Fail, _)          => Fail
+          case (_, Fail)          => Fail
+          case (Fixed, _)         => Fixed
+          case (_, Fixed)         => Fixed
           case (Highest, Highest) => Highest
         }
     }
 
   def default: VersionConflictPolicy = Highest
 
-  /**
-   * there must be only 1 version.
-   */
+  /** there must be only 1 version.
+    */
   case object Fail extends VersionConflictPolicy("fail") {
     def resolve(root: Option[Version], s: Set[Version]) = root match {
       case Some(v) if s.size == 1 && s(v) => Validated.valid(v)
-      case None if s.size == 1 => Validated.valid(s.head)
-      case _ => Validated.invalidNel(s"multiple versions found in Fail policy, root: $root, transitive: ${s.toList.sorted}")
+      case None if s.size == 1            => Validated.valid(s.head)
+      case _ =>
+        Validated.invalidNel(
+          s"multiple versions found in Fail policy, root: $root, transitive: ${s.toList.sorted}"
+        )
     }
   }
-  /**
-   * It a version is explicitly declared, it is always used,
-   * otherwise there must be only 1 version.
-   */
+
+  /** It a version is explicitly declared, it is always used, otherwise there
+    * must be only 1 version.
+    */
   case object Fixed extends VersionConflictPolicy("fixed") {
     def resolve(root: Option[Version], s: Set[Version]) = root match {
-      case Some(v) => Validated.valid(v)
+      case Some(v)             => Validated.valid(v)
       case None if s.size == 1 => Validated.valid(s.head)
-      case None => Validated.invalidNel(s"fixed requires 1, or a declared version, found: ${s.toList.sorted}")
+      case None =>
+        Validated.invalidNel(
+          s"fixed requires 1, or a declared version, found: ${s.toList.sorted}"
+        )
     }
   }
-  /**
-   * It a version is explicitly declared, it is always used,
-   * otherwise we take the highest version.
-   */
+
+  /** It a version is explicitly declared, it is always used, otherwise we take
+    * the highest version.
+    */
   case object Highest extends VersionConflictPolicy("highest") {
     def resolve(root: Option[Version], s: Set[Version]) = root match {
       case Some(v) => Validated.valid(v)
-      case None => Validated.valid(s.max) // there must be at least one version, so this won't throw
+      case None =>
+        Validated.valid(
+          s.max
+        ) // there must be at least one version, so this won't throw
     }
   }
-}
-
-case class DirectoryName(asString: String) {
-  def parts: List[String] =
-    asString.split('/').filter(_.nonEmpty).toList
-}
-
-object DirectoryName {
-  def default: DirectoryName = DirectoryName("3rdparty/jvm")
-
-  implicit val dirNameSemigroup: Semigroup[DirectoryName] =
-    Options.useRight.algebra[DirectoryName]
-}
-
-sealed abstract class Transitivity(val asString: String)
-object Transitivity {
-  case object RuntimeDeps extends Transitivity("runtime_deps")
-  case object Exports extends Transitivity("exports")
-
-  implicit val transitivityMonoid: CommutativeMonoid[Transitivity] =
-    new CommutativeMonoid[Transitivity] {
-      def empty = RuntimeDeps
-      def combine(a: Transitivity, b: Transitivity): Transitivity =
-        (a, b) match {
-          case (RuntimeDeps, t) => t
-          case (t, RuntimeDeps) => t
-          case (Exports, Exports) => Exports
-        }
-    }
 }
 
 sealed abstract class ResolverCache(val asString: String)
@@ -1202,81 +1470,382 @@ object NamePrefix {
     Options.useRight.algebra[NamePrefix]
 }
 
-sealed abstract class ResolverType(val asString: String)
+sealed abstract class ResolverType(val asString: String) {
+  def optionsDoc: Option[Doc]
+}
 
 object ResolverType {
-  case object Aether extends ResolverType("aether")
-  case object Coursier extends ResolverType("coursier")
+  case object Aether extends ResolverType("aether") {
+    override def optionsDoc: Option[Doc] = None
+  }
+  case object Coursier extends ResolverType("coursier") {
+    override def optionsDoc: Option[Doc] = None
+  }
+
+  case class Gradle(
+      lockFiles: Option[List[String]],
+      noContentDeps: Option[List[String]],
+      contentTypeOverride: Option[Map[String, String]],
+      ignoreDependencyEdge: Option[Set[(String, String)]]
+  ) extends ResolverType("gradle") {
+    def getLockFiles: List[String] = lockFiles.getOrElse(Nil)
+    def getNoContentDeps: Map[String, Option[Version]] = noContentDeps
+      .getOrElse(Nil)
+      .map { entry =>
+        val indx = entry.indexOf('@')
+        if (indx > 0) {
+          require(indx < entry.length - 1, "Should never end on an @")
+          (
+            entry.substring(0, indx),
+            Some(Version(entry.substring(indx + 1)))
+          )
+        } else {
+          (entry, None)
+        }
+      }
+      .toMap
+    def getContentTypeOverride: Map[String, String] =
+      contentTypeOverride.getOrElse(Map())
+
+    override def optionsDoc: Option[Doc] = {
+
+      val items = List(
+        (
+          "lockFiles",
+          lockFiles.map {
+            case Nil => Doc.text("[]")
+            case fs  => (Doc.line + vlist(fs.map(quoteDoc(_)))).nested(2)
+          }
+        ),
+        (
+          "noContentDeps",
+          noContentDeps.map {
+            case Nil => Doc.text("[]")
+            case fs  => (Doc.line + vlist(fs.map(quoteDoc(_)))).nested(2)
+          }
+        ),
+        (
+          "ignoreDependencyEdge",
+          ignoreDependencyEdge.flatMap { m =>
+            if (m.isEmpty) {
+              None
+            } else {
+              Some(
+                (Doc.line + vlist(
+                  m.toList.sorted.map { case (k, v) =>
+                    list(List(k, v)) { t: String => quoteDoc(t) }
+                  }
+                )).nested(2)
+              )
+            }
+          }
+        ),
+        (
+          "contentTypeOverride",
+          contentTypeOverride.flatMap { m =>
+            if (m.isEmpty) {
+              None
+            } else {
+              Some(
+                (Doc.line + packedDocYamlMap(
+                  m.toList.sorted.map { case (k, v) =>
+                    (quoteDoc(k), quoteDoc(v))
+                  }
+                )).nested(2)
+              )
+            }
+          }
+        )
+      ).sortBy(_._1)
+        .collect { case (k, Some(v)) => (k, v) }
+
+      // we can't pack resolvers (yet)
+      Some(packedYamlMap(items))
+    }
+  }
+
+  object Gradle {
+    def empty = Gradle(None, None, None, None)
+    implicit val gradleMonoid: Monoid[Gradle] = new Monoid[Gradle] {
+      val empty = Gradle.empty
+
+      def combine(a: Gradle, b: Gradle): Gradle = {
+        val lockFiles =
+          Monoid[Option[List[String]]].combine(a.lockFiles, b.lockFiles)
+        val noContentDeps =
+          Monoid[Option[List[String]]].combine(a.noContentDeps, b.noContentDeps)
+        val contentTypeOverride = Monoid[Option[Map[String, String]]]
+          .combine(a.contentTypeOverride, b.contentTypeOverride)
+        val ignoreDependencyEdge = Monoid[Option[Set[(String, String)]]]
+          .combine(a.ignoreDependencyEdge, b.ignoreDependencyEdge)
+
+        Gradle(
+          lockFiles = lockFiles,
+          noContentDeps = noContentDeps,
+          contentTypeOverride = contentTypeOverride,
+          ignoreDependencyEdge = ignoreDependencyEdge
+        )
+      }
+    }
+  }
 
   val default = Coursier
 
   implicit val resolverSemigroup: Semigroup[ResolverType] =
-    Options.useRight.algebra[ResolverType]
+    new Semigroup[ResolverType] {
+      override def combine(x: ResolverType, y: ResolverType): ResolverType = {
+        (x, y) match {
+          case (l: Gradle, r: Gradle) => Monoid.combine(l, r)
+          case (_, r)                 => r
+        }
+      }
+    }
+}
+
+object TryMerge {
+  def tryMerge[T: TryMerge](debugName: Option[String], a: T, b: T): Try[T] = {
+    implicitly[TryMerge[T]].tryMerge(debugName, a, b)
+  }
+
+  implicit def tryOptMerge[T: TryMerge]: TryMerge[Option[T]] =
+    new TryMerge[Option[T]] {
+      def tryMerge(debugName: Option[String], left: Option[T], right: Option[T]): Try[Option[T]] = {
+        (left, right) match {
+          case (None, None)       => Success(None)
+          case (Some(l), Some(r)) => TryMerge.tryMerge(debugName, l, r).map(Some(_))
+          case (Some(l), None)    => Success(Some(l))
+          case (None, Some(r))    => Success(Some(r))
+        }
+      }
+    }
+
+  implicit def tryStringMapMerge[T: TryMerge]: TryMerge[Map[String, T]] =
+    new TryMerge[Map[String, T]] {
+      def tryMerge(
+        debugName: Option[String],
+          left: Map[String, T],
+          right: Map[String, T]
+      ): Try[Map[String, T]] = {
+        (left.keySet ++ right.keySet).foldLeft(Try(Map[String, T]())) {
+          case (prevM, nextK) =>
+            prevM.flatMap { m =>
+              val r: Try[T] = (left.get(nextK), right.get(nextK)) match {
+                case (None, None) =>
+                  Failure(new Exception("Shouldn't happen, key was in keyset"))
+                case (Some(l), Some(r)) => TryMerge.tryMerge(Some(debugName.map{p => s"$p:$nextK"}.getOrElse(nextK)), l, r)
+                case (Some(l), None)    => Success(l)
+                case (None, Some(r))    => Success(r)
+              }
+              r.map { innerV =>
+                m + ((nextK, innerV))
+              }
+            }
+        }
+      }
+    }
+}
+sealed trait TryMerge[T] {
+  def tryMerge(debugName: Option[String], left: T, right: T): Try[T]
 }
 
 
+object GradleLockDependency {
+  sealed trait VersionState
+  case object EqualVersionSpecified extends VersionState
+  case object LeftVersion extends VersionState
+  case object RightVersion extends VersionState
+
+  def resolveVersions(dependencyName: String)(
+      left: Option[String],
+      right: Option[String]
+  ): Try[VersionState] = {
+    (left, right) match {
+      case (None, None)                   => Success(EqualVersionSpecified)
+      case (Some(l), None)                => Success(LeftVersion)
+      case (None, Some(r))                => Success(RightVersion)
+      case (Some(l), Some(r)) if (l == r) => Success(EqualVersionSpecified)
+      case (Some(l), Some(r)) => {
+        println(
+          s"This should probably not be allowed... but we are going to pick a version conflict highest if we can for $dependencyName between $l, $r"
+        )
+        VersionConflictPolicy.Highest.resolve(
+          None,
+          Set(Version(l), Version(r))
+        ) match {
+          case Validated.Valid(v) =>
+            if (v.asString == l) {
+              Success(LeftVersion)
+            } else {
+              Success(RightVersion)
+            }
+          case Validated.Invalid(iv) =>
+            Failure(new Exception(s"Unable ot combine versions, $iv"))
+        }
+      }
+    }
+  }
+
+  implicit val mergeInst = new TryMerge[GradleLockDependency] {
+    def tryMerge(
+      debugName: Option[String],
+        left: GradleLockDependency,
+        right: GradleLockDependency
+    ): Try[GradleLockDependency] = {
+      lazy val mergedDependencies = Some(
+              (left.transitive.getOrElse(Nil) ++ right.transitive.getOrElse(
+                Nil
+              )).sorted.distinct
+            ).filter(_.nonEmpty)
+
+      for {
+        v <- resolveVersions(debugName.getOrElse("Unknown"))(left.locked, right.locked)
+        _ <-
+          if (left.project == right.project) Success(())
+          else
+            Failure(
+              new Exception(
+                s"Unable to merge due to incompatible project setting, had $left, $right"
+              )
+            )
+      } yield {
+        v match {
+          case EqualVersionSpecified =>
+          GradleLockDependency(
+            locked = left.locked,
+            project = left.project,
+            transitive = mergedDependencies
+          )
+          case LeftVersion => GradleLockDependency(
+            locked = left.locked,
+            project = left.project,
+            transitive = mergedDependencies
+          )
+          case RightVersion => GradleLockDependency(
+            locked = right.locked,
+            project = right.project,
+            transitive = mergedDependencies
+          )
+        }
+
+      }
+    }
+  }
+}
+
+case class GradleLockDependency(
+    locked: Option[String],
+    project: Option[Boolean],
+    transitive: Option[List[String]]
+)
+
+object GradleLockFile {
+  implicit val mergeInst = new TryMerge[GradleLockFile] {
+    def tryMerge(
+        debugName: Option[String],
+        left: GradleLockFile,
+        right: GradleLockFile
+    ): Try[GradleLockFile] = {
+      for {
+        annotationProcessor <- TryMerge.tryMerge(
+          debugName,
+          left.annotationProcessor,
+          right.annotationProcessor
+        )
+        compileClasspath <- TryMerge.tryMerge(
+          debugName,
+          left.compileClasspath,
+          right.compileClasspath
+        )
+        resolutionRules <- TryMerge.tryMerge(
+          debugName,
+          left.resolutionRules,
+          right.resolutionRules
+        )
+        runtimeClasspath <- TryMerge.tryMerge(
+          debugName,
+          left.runtimeClasspath,
+          right.runtimeClasspath
+        )
+        testCompileClasspath <- TryMerge.tryMerge(
+          debugName,
+          left.testCompileClasspath,
+          right.testCompileClasspath
+        )
+        testRuntimeClasspath <- TryMerge.tryMerge(
+          debugName,
+          left.testRuntimeClasspath,
+          right.testRuntimeClasspath
+        )
+      } yield {
+        GradleLockFile(
+          annotationProcessor,
+          compileClasspath,
+          resolutionRules,
+          runtimeClasspath,
+          testCompileClasspath,
+          testRuntimeClasspath
+        )
+      }
+    }
+  }
+  def empty = GradleLockFile(None, None, None, None, None, None)
+}
+case class GradleLockFile(
+    annotationProcessor: Option[Map[String, GradleLockDependency]],
+    compileClasspath: Option[Map[String, GradleLockDependency]],
+    resolutionRules: Option[Map[String, GradleLockDependency]],
+    runtimeClasspath: Option[Map[String, GradleLockDependency]],
+    testCompileClasspath: Option[Map[String, GradleLockDependency]],
+    testRuntimeClasspath: Option[Map[String, GradleLockDependency]]
+)
+
 case class Options(
-  versionConflictPolicy: Option[VersionConflictPolicy],
-  thirdPartyDirectory: Option[DirectoryName],
-  languages: Option[Set[Language]],
-  resolvers: Option[List[MavenServer]],
-  transitivity: Option[Transitivity],
-  buildHeader: Option[List[String]],
-  resolverCache: Option[ResolverCache],
-  namePrefix: Option[NamePrefix],
-  licenses: Option[Set[String]],
-  resolverType: Option[ResolverType],
-  strictVisibility: Option[StrictVisibility],
-  buildFileName: Option[String],
-  authFile: Option[String]
+    versionConflictPolicy: Option[VersionConflictPolicy],
+    languages: Option[Set[Language]],
+    resolvers: Option[List[DependencyServer]],
+    resolverCache: Option[ResolverCache],
+    namePrefix: Option[NamePrefix],
+    licenses: Option[Set[String]],
+    resolverType: Option[ResolverType]
 ) {
   def isDefault: Boolean =
     versionConflictPolicy.isEmpty &&
-    thirdPartyDirectory.isEmpty &&
-    languages.isEmpty &&
-    resolvers.isEmpty &&
-    transitivity.isEmpty &&
-    buildHeader.isEmpty &&
-    resolverCache.isEmpty &&
-    namePrefix.isEmpty &&
-    licenses.isEmpty &&
-    resolverType.isEmpty &&
-    strictVisibility.isEmpty &&
-    buildFileName.isEmpty &&
-    authFile.isEmpty
+      languages.isEmpty &&
+      resolvers.isEmpty &&
+      resolverCache.isEmpty &&
+      namePrefix.isEmpty &&
+      licenses.isEmpty &&
+      resolverType.isEmpty
 
   def getLicenses: Set[String] =
     licenses.getOrElse(Set.empty)
-
-  def getThirdPartyDirectory: DirectoryName =
-    thirdPartyDirectory.getOrElse(DirectoryName.default)
 
   def getVersionConflictPolicy: VersionConflictPolicy =
     versionConflictPolicy.getOrElse(VersionConflictPolicy.default)
 
   def replaceLang(l: Language): Language = l match {
-    case Language.Java => Language.Java
+    case Language.Java   => Language.Java
     case Language.Kotlin => Language.Kotlin
-    case s@Language.Scala(_, _) =>
-      getLanguages.collectFirst { case scala: Language.Scala => scala }
+    case s @ Language.Scala(_, _) =>
+      getLanguages
+        .collectFirst { case scala: Language.Scala => scala }
         .getOrElse(s)
   }
 
   def getLanguages: List[Language] = languages match {
-    case None => List(Language.Java, Language.Scala.default)
+    case None        => List(Language.Java, Language.Scala.default)
     case Some(langs) => langs.toList.sortBy(_.asString)
   }
-  def getResolvers: List[MavenServer] =
+  def getResolvers: List[DependencyServer] =
     resolvers.getOrElse(
-      List(MavenServer("mavencentral", "default", "https://repo.maven.apache.org/maven2/")))
-
-  def getTransitivity: Transitivity =
-    transitivity.getOrElse(Transitivity.Exports)
-
-  def getBuildHeader: String = buildHeader match {
-    case Some(lines) => lines.mkString("\n")
-    case None => ""
-  }
+      List(
+        MavenServer(
+          "mavencentral",
+          "default",
+          "https://repo.maven.apache.org/maven2/"
+        )
+      )
+    )
 
   def getResolverCache: ResolverCache =
     resolverCache.getOrElse(ResolverCache.Local)
@@ -1287,35 +1856,35 @@ case class Options(
   def getResolverType: ResolverType =
     resolverType.getOrElse(ResolverType.default)
 
-  def getBuildFileName: String =
-    buildFileName.getOrElse("BUILD")
-
   def toDoc: Doc = {
     val items = List(
-      ("versionConflictPolicy",
-        versionConflictPolicy.map { p => Doc.text(p.asString) }),
-      ("thirdPartyDirectory",
-        thirdPartyDirectory.map { tpd => quoteDoc(tpd.asString) }),
-      ("resolvers",
+      (
+        "versionConflictPolicy",
+        versionConflictPolicy.map { p => Doc.text(p.asString) }
+      ),
+      (
+        "resolvers",
         resolvers.map {
           case Nil => Doc.text("[]")
-          case ms => (Doc.line + vlist(ms.map(_.toDoc))).nested(2)
-        }),
-      ("languages",
-        languages.map { ls => list(ls.map(_.asOptionsString).toList.sorted)(quoteDoc) }),
-      ("buildHeader",
-        buildHeader.map(list(_) { s => quoteDoc(s) })),
-      ("transitivity", transitivity.map { t => Doc.text(t.asString) }),
+          case ms  => (Doc.line + vlist(ms.map(_.toDoc))).nested(2)
+        }
+      ),
+      (
+        "languages",
+        languages.map { ls =>
+          list(ls.map(_.asOptionsString).toList.sorted)(quoteDoc)
+        }
+      ),
       ("resolverCache", resolverCache.map { rc => Doc.text(rc.asString) }),
       ("namePrefix", namePrefix.map { p => quoteDoc(p.asString) }),
-      ("licenses",
-        licenses.map { l => list(l.toList.sorted)(quoteDoc) }),
-      ("strictVisibility", strictVisibility.map { x => Doc.text(x.enabled.toString)}),
+      ("licenses", licenses.map { l => list(l.toList.sorted)(quoteDoc) }),
       ("resolverType", resolverType.map(r => quoteDoc(r.asString))),
-      ("buildFileName", buildFileName.map(name => Doc.text(name))),
-      ("authFile", authFile.map(name => Doc.text(name)))
+      (
+        "resolverOptions",
+        resolverType.flatMap(_.optionsDoc).map(d => (Doc.line + d).nested(2))
+      )
     ).sortBy(_._1)
-     .collect { case (k, Some(v)) => (k, v) }
+      .collect { case (k, Some(v)) => (k, v) }
 
     // we can't pack resolvers (yet)
     packedYamlMap(items)
@@ -1331,27 +1900,43 @@ object Options {
       def combineK[A](x: A, y: A): A = y
     }
 
-  /**
-   * A monoid on options that is just the point-wise monoid
-   */
+  /** A monoid on options that is just the point-wise monoid
+    */
   implicit val optionsMonoid: Monoid[Options] = new Monoid[Options] {
-    val empty = Options(None, None, None, None, None, None, None, None, None, None, None, None, None)
+    val empty = Options(
+      None,
+      None,
+      None,
+      None,
+      None,
+      None,
+      None
+    )
 
     def combine(a: Options, b: Options): Options = {
-      val vcp = Monoid[Option[VersionConflictPolicy]].combine(a.versionConflictPolicy, b.versionConflictPolicy)
-      val tpd = Monoid[Option[DirectoryName]].combine(a.thirdPartyDirectory, b.thirdPartyDirectory)
-      val langs = Monoid[Option[Set[Language]]].combine(a.languages, b.languages)
-      val resolvers = Monoid[Option[List[MavenServer]]].combine(a.resolvers, b.resolvers).map(_.distinct)
-      val trans = Monoid[Option[Transitivity]].combine(a.transitivity, b.transitivity)
-      val headers = Monoid[Option[List[String]]].combine(a.buildHeader, b.buildHeader).map(_.distinct)
-      val resolverCache = Monoid[Option[ResolverCache]].combine(a.resolverCache, b.resolverCache)
-      val namePrefix = Monoid[Option[NamePrefix]].combine(a.namePrefix, b.namePrefix)
+      val vcp = Monoid[Option[VersionConflictPolicy]]
+        .combine(a.versionConflictPolicy, b.versionConflictPolicy)
+      val langs =
+        Monoid[Option[Set[Language]]].combine(a.languages, b.languages)
+      val resolvers = Monoid[Option[List[DependencyServer]]]
+        .combine(a.resolvers, b.resolvers)
+        .map(_.distinct)
+      val resolverCache =
+        Monoid[Option[ResolverCache]].combine(a.resolverCache, b.resolverCache)
+      val namePrefix =
+        Monoid[Option[NamePrefix]].combine(a.namePrefix, b.namePrefix)
       val licenses = Monoid[Option[Set[String]]].combine(a.licenses, b.licenses)
-      val resolverType = Monoid[Option[ResolverType]].combine(a.resolverType, b.resolverType)
-      val strictVisibility = Monoid[Option[StrictVisibility]].combine(a.strictVisibility, b.strictVisibility)
-      val buildFileName = Monoid[Option[String]].combine(a.buildFileName, b.buildFileName)
-      val authFile = Monoid[Option[String]].combine(a.authFile, b.authFile)
-      Options(vcp, tpd, langs, resolvers, trans, headers, resolverCache, namePrefix, licenses, resolverType, strictVisibility, buildFileName, authFile)
+      val resolverType =
+        Monoid[Option[ResolverType]].combine(a.resolverType, b.resolverType)
+      Options(
+        vcp,
+        langs,
+        resolvers,
+        resolverCache,
+        namePrefix,
+        licenses,
+        resolverType
+      )
     }
   }
 }

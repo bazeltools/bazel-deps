@@ -3,9 +3,8 @@ package com.github.johnynek.bazel_deps
 import cats.implicits._
 import cats.{Foldable, Monad}
 import org.scalatest.FunSuite
-import org.scalatest.prop.PropertyChecks.{ forAll, PropertyCheckConfig }
-import org.scalacheck.{ Gen, Arbitrary }
-
+import org.scalatest.prop.PropertyChecks.{forAll, PropertyCheckConfig}
+import org.scalacheck.{Gen, Arbitrary}
 
 object MavenGraphGen {
 
@@ -32,7 +31,9 @@ object MavenGraphGen {
       v <- genVersion
     } yield MavenCoordinate(g, a, v)
 
-  def zip[A, B](a: Gen[A], b: Gen[B]): Gen[(A, B)] = a.flatMap { aa => b.map((aa, _)) }
+  def zip[A, B](a: Gen[A], b: Gen[B]): Gen[(A, B)] = a.flatMap { aa =>
+    b.map((aa, _))
+  }
 
   // explicitly make a DAG
   def dag[T](g: Gen[T], nodes: Int, maxDeps: Int): Gen[Graph[T, Unit]] = {
@@ -55,18 +56,26 @@ object MavenGraphGen {
     }
   }
 
-  def decorateRandomly[A, B, C](g: Graph[A, Unit], b: Gen[B])(fn: (A, B) => C): Gen[Graph[C, Unit]] =
-    Foldable[List].foldM(g.edgeIterator.toList, Graph.empty[C, Unit]) { case (g, Edge(src, dst, ())) =>
-      for {
-        v1 <- b
-        v2 <- b
-      } yield g.addEdge(Edge(fn(src, v1), fn(dst, v2), ()))
+  def decorateRandomly[A, B, C](g: Graph[A, Unit], b: Gen[B])(
+      fn: (A, B) => C
+  ): Gen[Graph[C, Unit]] =
+    Foldable[List].foldM(g.edgeIterator.toList, Graph.empty[C, Unit]) {
+      case (g, Edge(src, dst, ())) =>
+        for {
+          v1 <- b
+          v2 <- b
+        } yield g.addEdge(Edge(fn(src, v1), fn(dst, v2), ()))
     }
 
-  def genMavenGraphSized(size: Int, maxDeps: Int): Gen[Graph[MavenCoordinate, Unit]] =
+  def genMavenGraphSized(
+      size: Int,
+      maxDeps: Int
+  ): Gen[Graph[MavenCoordinate, Unit]] =
     for {
       unVDag <- dag(zip(genMavenGroup, genMavenArt), size, maxDeps)
-      vDag <- decorateRandomly(unVDag, genVersion) { case ((g, a), v) => MavenCoordinate(g, a, v) }
+      vDag <- decorateRandomly(unVDag, genVersion) { case ((g, a), v) =>
+        MavenCoordinate(g, a, v)
+      }
     } yield vDag
 
   val genMavenGraph: Gen[Graph[MavenCoordinate, Unit]] =
@@ -77,11 +86,12 @@ object MavenGraphGen {
     } yield g
 }
 
-class NormalizerTest extends FunSuite  {
+class NormalizerTest extends FunSuite {
   test("property") {
     val graphWithRoots = MavenGraphGen.genMavenGraph.flatMap { graph =>
       val allNodes = graph.nodes.toList
-      Gen.choose(0, allNodes.size)
+      Gen
+        .choose(0, allNodes.size)
         .flatMap(Gen.pick(_, allNodes))
         .map((graph, _))
     }
@@ -90,10 +100,11 @@ class NormalizerTest extends FunSuite  {
 
     forAll(graphWithRoots) { case (g, roots) =>
       Normalizer(g, roots.toSet, VersionConflictPolicy.Highest) match {
-        case None => fail(s"couldn't normalize $g")
+        case None    => fail(s"couldn't normalize $g")
         case Some(g) =>
           // Each (group, artifact) pair appears only once in the nodes:
-          g.nodes.groupBy { case MavenCoordinate(g, a, _) => (g, a) }
+          g.nodes
+            .groupBy { case MavenCoordinate(g, a, _) => (g, a) }
             .foreach { case (_, vs) =>
               assert(vs.size == 1)
             }
@@ -110,23 +121,20 @@ class NormalizerTest extends FunSuite  {
         g.addEdge(Edge(MavenCoordinate(from), MavenCoordinate(to), ()))
     }
 
-
     val cat1 = "a:cat:1.0"
     val snake1 = "a:snake:1.0"
     val bird1 = "a:bird:1.0"
     val bird2 = "a:bird:2.0"
     val seed1 = "a:seed:1.0"
     val dog1 = "a:dog:1.0"
-    /**
-     * a:cat:1.0 -> a:bird:1.0
-     * a:snake:1.0 -> a:bird:2.0
-     * a:bird:1.0 -> a:worm:1.0
-     * a:bird:2.0 -> a:seed:1.0
-     *
-     * roots: cat, snake
-     *
-     * goal: no bird:1.0 or worm:1.0
-     */
+
+    /** a:cat:1.0 -> a:bird:1.0 a:snake:1.0 -> a:bird:2.0 a:bird:1.0 ->
+      * a:worm:1.0 a:bird:2.0 -> a:seed:1.0
+      *
+      * roots: cat, snake
+      *
+      * goal: no bird:1.0 or worm:1.0
+      */
     val finalG = g
       .add(cat1, bird1)
       .add(snake1, bird2)
@@ -134,7 +142,11 @@ class NormalizerTest extends FunSuite  {
       .add(bird2, seed1)
       .addNode(MavenCoordinate(dog1))
 
-    Normalizer(finalG, Set(cat1, snake1, dog1).map(MavenCoordinate(_)), VersionConflictPolicy.default) match {
+    Normalizer(
+      finalG,
+      Set(cat1, snake1, dog1).map(MavenCoordinate(_)),
+      VersionConflictPolicy.default
+    ) match {
       case Some(normalG) =>
         val expected = g
           .add(cat1, bird2)
@@ -162,11 +174,8 @@ class NormalizerTest extends FunSuite  {
     val cat1_1 = "a:cat:1.1"
     val mouse1_1 = "a:mouse:1.1"
 
-
-    /**
-      * a:cat:1.2 -> a:mouse:1.2
-      * a:mouse:1.2 -> a:cat:1.1
-      * a:cat:1.1 -> a:mouse:1.1
+    /** a:cat:1.2 -> a:mouse:1.2 a:mouse:1.2 -> a:cat:1.1 a:cat:1.1 ->
+      * a:mouse:1.1
       *
       * roots: cat1_2, mouse1_2
       *
@@ -177,6 +186,10 @@ class NormalizerTest extends FunSuite  {
       .add(mouse1_2, cat1_1)
       .add(cat1_1, mouse1_1)
 
-    Normalizer(finalG, Set(cat1_2, mouse1_2).map(MavenCoordinate(_)), VersionConflictPolicy.default)
+    Normalizer(
+      finalG,
+      Set(cat1_2, mouse1_2).map(MavenCoordinate(_)),
+      VersionConflictPolicy.default
+    )
   }
 }

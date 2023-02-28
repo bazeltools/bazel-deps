@@ -16,7 +16,12 @@ class ParseGeneratedDocTest extends FunSuite {
 
   test("Dependencies.normalize laws") {
 
-    val genList = Gen.listOf(Gen.zip(ModelGenerators.artifactOrProjGen, ModelGenerators.projectRecordGen(Language.Java, Nil)))
+    val genList = Gen.listOf(
+      Gen.zip(
+        ModelGenerators.artifactOrProjGen,
+        ModelGenerators.projectRecordGen(Language.Java, Nil)
+      )
+    )
 
     forAll(genList) { lp =>
       val output = Dependencies.normalize(lp)
