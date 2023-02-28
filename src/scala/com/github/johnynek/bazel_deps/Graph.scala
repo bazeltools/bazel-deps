@@ -30,6 +30,9 @@ case class Graph[N, E](nodes: Set[N], edges: Map[N, Set[Edge[N, E]]]) {
     }
 
   def addNode(n: N): Graph[N, E] = Graph(nodes + n, edges)
+  def addAllNodes(n: Iterable[N]): Graph[N, E] =
+    n.foldLeft(this)(_.addNode(_))
+
   def addEdge(e: Edge[N, E]): Graph[N, E] = {
     val n = addNode(e.source).addNode(e.destination).nodes
     val sE = edges.getOrElse(e.source, Set.empty[Edge[N, E]])

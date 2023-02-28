@@ -6,10 +6,6 @@ import io.circe.{Decoder, Error, HCursor, Json, KeyDecoder, Parser}
 import io.circe.generic.auto
 
 object Decoders {
-  implicit val gradleLockDependencyDecoder: Decoder[GradleLockDependency] =
-    auto.exportDecoder[GradleLockDependency].instance
-  implicit val gradleLockFileDecoder: Decoder[GradleLockFile] =
-    auto.exportDecoder[GradleLockFile].instance
   implicit val versionDecoder: Decoder[Version] = stringWrapper(Version(_))
   implicit val processorClassDecoder: Decoder[ProcessorClass] = stringWrapper(
     ProcessorClass(_)
@@ -227,12 +223,6 @@ object Decoders {
       // we read twice, first to get the options, then parsing in the context of the options
       p.decode(str)(modDec)
     }
-
-  def decodeGradleLockFile(
-      p: Parser,
-      str: String
-  ): Either[Error, GradleLockFile] =
-    p.decode(str)(gradleLockFileDecoder)
 
   private def stringWrapper[T](fn: String => T): Decoder[T] =
     Decoder.decodeString.map(fn)
