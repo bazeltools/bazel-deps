@@ -110,12 +110,13 @@ object MakeDeps {
         lazy val coursierResolver =
           new CoursierResolver(model.getOptions.getResolvers, ec, 3600.seconds, resolverCachePath)
 
-        resolve(
-          model,
-          new GradleResolver(
+        val resolver = new GradleResolver(
             model.getOptions.getVersionConflictPolicy,
             g,
-            { ls => coursierResolver.run(coursierResolver.getShas(ls)) }))
+            { ls => coursierResolver.run(coursierResolver.getShas(ls)) })
+        // Note: this branch fully defers to GradleResolver and not
+        // the private resolve(model, resolver) method here
+        resolver.resolve(model)
     }
 
   private type Res = (
