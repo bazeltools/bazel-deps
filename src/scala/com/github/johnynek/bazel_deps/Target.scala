@@ -7,8 +7,6 @@ import com.github.johnynek.bazel_deps.IO.Result
 import org.typelevel.paiges.Doc
 import cats.implicits._
 
-import scala.util.Try
-
 object Target {
   def renderList[T](front: Doc, l: List[T], back: Doc)(show: T => Doc): Doc =
     if (l.isEmpty) Doc.empty

@@ -92,7 +92,13 @@ class ParseTest extends FunSuite {
                 resolverCache = Some(ResolverCache.BazelOutputBase),
                 namePrefix = None,
                 licenses = Some(Set("unencumbered", "permissive")),
-                resolverType = None
+                resolverType = None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None
               )
             )
           )
@@ -143,7 +149,13 @@ class ParseTest extends FunSuite {
                 resolverCache = None,
                 namePrefix = None,
                 licenses = None,
-                resolverType = None
+                resolverType = None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None
               )
             )
           )
