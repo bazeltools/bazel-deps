@@ -311,7 +311,14 @@ object MakeDeps {
     } yield ()
 
     // Here we actually run the whole thing
-    List(buildIO,artifactsIo).map(_).foldMap(IO.fileSystemExec(projectRoot)) match {
+    buildIO.foldMap(IO.fileSystemExec(projectRoot)) match {
+      case Failure(err) =>
+        logger.error("Failure during IO:", err)
+        System.exit(-1)
+      case Success(_) =>
+        println(s"wrote ${artifacts.size} targets")
+    }
+    artifactsIo.foldMap(IO.fileSystemExec(projectRoot)) match {
       case Failure(err) =>
         logger.error("Failure during IO:", err)
         System.exit(-1)

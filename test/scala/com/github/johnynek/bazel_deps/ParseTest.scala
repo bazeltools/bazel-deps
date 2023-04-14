@@ -95,10 +95,10 @@ class ParseTest extends FunSuite {
                 resolverType = None,
                 None,
                 None,
+                Some(DirectoryName.default),
                 None,
-                None,
-                None,
-                None
+                Some("BUILD.bazel"),
+                Some("$BAZEL_NETRC")
               )
             )
           )
@@ -152,7 +152,7 @@ class ParseTest extends FunSuite {
                 resolverType = None,
                 None,
                 None,
-                None,
+                Some(DirectoryName.default),
                 None,
                 None,
                 None

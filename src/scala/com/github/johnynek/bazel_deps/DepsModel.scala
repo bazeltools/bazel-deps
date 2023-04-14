@@ -1807,6 +1807,12 @@ object Options {
       val licenses = Monoid[Option[Set[String]]].combine(a.licenses, b.licenses)
       val resolverType =
         Monoid[Option[ResolverType]].combine(a.resolverType, b.resolverType)
+      val trans = Monoid[Option[Transitivity]].combine(a.transitivity, b.transitivity)
+      val headers = Monoid[Option[List[String]]].combine(a.buildHeader, b.buildHeader).map(_.distinct)
+      val tpd = Monoid[Option[DirectoryName]].combine(a.thirdPartyDirectory, b.thirdPartyDirectory)
+      val strictVisibility = Monoid[Option[StrictVisibility]].combine(a.strictVisibility, b.strictVisibility)
+      val buildFileName = Monoid[Option[String]].combine(a.buildFileName, b.buildFileName)
+      val authFile = Monoid[Option[String]].combine(a.authFile, b.authFile)
       Options(
         vcp,
         langs,
@@ -1815,12 +1821,12 @@ object Options {
         namePrefix,
         licenses,
         resolverType,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None
+        trans,
+        headers,
+        tpd,
+        strictVisibility,
+        buildFileName,
+        authFile
       )
     }
   }
