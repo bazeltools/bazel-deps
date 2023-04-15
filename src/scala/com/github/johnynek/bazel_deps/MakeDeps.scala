@@ -96,7 +96,7 @@ object MakeDeps {
         if (g.checkOnly) {
           executeCheckOnly(model, projectRoot, IO.path(workspacePath), targetFilePathOpt.map(e => IO.path(e)), enable3rdPartyInRepo, ws, targets, formatter)
         } else {
-          executeGenerate(model, projectRoot, IO.path(workspacePath), targetFilePathOpt.map(e => IO.path(e)), enable3rdPartyInRepo, ws, targets, formatter, IO.path(g.resolvedOutput),
+          executeGenerate(model, projectRoot, IO.path(workspacePath), targetFilePathOpt.map(e => IO.path(e)), enable3rdPartyInRepo, ws, targets, formatter, g.resolvedOutput.map(IO.path),
             artifacts)
         }
     }
@@ -281,7 +281,7 @@ object MakeDeps {
       workspaceContents: String,
       targets: List[Target],
       formatter: Writer.BuildFileFormatter,
-      resolvedJsonOutputPath: IO.Path,
+      resolvedJsonOutputPathOption: Option[IO.Path],
       artifacts: List[ArtifactEntry]
   ): Unit = {
     import _root_.io.circe.syntax._
@@ -298,17 +298,20 @@ object MakeDeps {
       builds <- Writer.createBuildFilesAndTargetFile(model.getOptions.getBuildHeader, targets, targetFileOpt, enable3rdPartyInRepo, model.getOptions.getThirdPartyDirectory, formatter, buildFileName)
     } yield builds
 
-    val artifactsIo = for {
-      b <- IO.exists(resolvedJsonOutputPath.parent)
-      _ <- if (b) IO.const(false) else IO.mkdirs(resolvedJsonOutputPath.parent)
-      allArtifacts = AllArtifacts(artifacts.sortBy(_.artifact))
-      artifactsJson = allArtifacts.asJson
-      _ <- if(resolvedJsonOutputPath.extension.endsWith(".gz")) {
-          IO.writeGzipUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
-      } else {
-          IO.writeUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
-      }
-    } yield ()
+    val artifactsIoOption = resolvedJsonOutputPathOption.map {
+      resolvedJsonOutputPath =>
+        for {
+          b <- IO.exists(resolvedJsonOutputPath.parent)
+          _ <- if (b) IO.const(false) else IO.mkdirs(resolvedJsonOutputPath.parent)
+          allArtifacts = AllArtifacts(artifacts.sortBy(_.artifact))
+          artifactsJson = allArtifacts.asJson
+          _ <- if (resolvedJsonOutputPath.extension.endsWith(".gz")) {
+            IO.writeGzipUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
+          } else {
+            IO.writeUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
+          }
+        } yield ()
+    }
 
     // Here we actually run the whole thing
     buildIO.foldMap(IO.fileSystemExec(projectRoot)) match {
@@ -318,12 +321,12 @@ object MakeDeps {
       case Success(_) =>
         println(s"wrote ${artifacts.size} targets")
     }
-    artifactsIo.foldMap(IO.fileSystemExec(projectRoot)) match {
+    artifactsIoOption.foreach(_.foldMap(IO.fileSystemExec(projectRoot)) match {
       case Failure(err) =>
         logger.error("Failure during IO:", err)
         System.exit(-1)
       case Success(_) =>
         println(s"wrote ${artifacts.size} targets")
-    }
+    })
   }
 }

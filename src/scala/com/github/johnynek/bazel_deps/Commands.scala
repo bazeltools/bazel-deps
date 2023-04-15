@@ -59,7 +59,7 @@ object Command {
   case class Generate(
       repoRoot: Path,
       depsFile: String,
-      resolvedOutput: String,
+      resolvedOutput: Option[String],
       shaFile: String,
       targetFile: Option[String],
       buildifier: Option[String],
@@ -96,7 +96,8 @@ object Command {
       metavar = "resolved-output",
       help =
         "relative path to the file to emit target info into (usually called resolvedOutput.json)."
-    )
+    ).orNone
+
     val shaFile = Opts.option[String](
       "sha-file",
       short = "s",
