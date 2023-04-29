@@ -94,9 +94,19 @@ object MakeDeps {
         // build the workspace
         val ws = Writer.workspace(g.depsFile, normalized, duplicates, shas, model)
         if (g.checkOnly) {
-          executeCheckOnly(model, projectRoot, IO.path(workspacePath), targetFilePathOpt.map(e => IO.path(e)), enable3rdPartyInRepo, ws, targets, formatter)
+          workspacePath match {
+            case None =>
+              logger.error("check-only requires sha-file to be set, but it was not")
+              System.exit(-1)
+            case Some(path) =>
+              // TODO we shouldn't allow you to pass options we ignore, that's the whole point of
+              // a validating CLI option parser
+              executeCheckOnly(model, projectRoot, IO.path(path), ws, targets, formatter)
+          }
         } else {
-          executeGenerate(model, projectRoot, IO.path(workspacePath), targetFilePathOpt.map(e => IO.path(e)), enable3rdPartyInRepo, ws, targets, formatter, g.resolvedOutput.map(IO.path),
+          // TODO it is possible to pass None for both targetFilePathOpt and workspacePath and then nothing will happen and it will be confusing
+          // we should require you to generate one or both, not neither
+          executeGenerate(model, projectRoot, workspacePath.map(IO.path(_)), targetFilePathOpt.map(e => IO.path(e)), enable3rdPartyInRepo, ws, targets, formatter, g.resolvedOutput.map(IO.path),
             artifacts)
         }
     }
@@ -249,7 +259,7 @@ object MakeDeps {
   case class AllArtifacts(artifacts: List[ArtifactEntry])
 
 
-  private def executeCheckOnly(model: Model, projectRoot: File, workspacePath: IO.Path, targetFileOpt: Option[IO.Path], enable3rdPartyInRepo: Boolean, workspaceContents: String, targets: List[Target], formatter: Writer.BuildFileFormatter): Unit = {
+  private def executeCheckOnly(model: Model, projectRoot: File, workspacePath: IO.Path, workspaceContents: String, targets: List[Target], formatter: Writer.BuildFileFormatter): Unit = {
     // Build up the IO operations that need to run.
     val io = for {
       wsOK <- IO.compare(workspacePath, workspaceContents)
@@ -272,10 +282,11 @@ object MakeDeps {
         }
     }
   }
+
   private def executeGenerate(
       model: Model,
       projectRoot: File,
-      workspacePath: IO.Path,
+      workspacePath: Option[IO.Path],
       targetFileOpt: Option[IO.Path],
       enable3rdPartyInRepo: Boolean,
       workspaceContents: String,
@@ -288,15 +299,17 @@ object MakeDeps {
     import _root_.io.circe.generic.auto._
 
     val buildFileName = model.getOptions.getBuildFileName
-    val buildIO = for {
-      originalBuildFile <- IO.readUtf8(workspacePath.sibling(buildFileName))
-      // If the 3rdparty directory is empty we shouldn't wipe out the current working directory.
-      _ <- if (enable3rdPartyInRepo && model.getOptions.getThirdPartyDirectory.parts.nonEmpty) IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts), false) else IO.const(0)
-      _ <- IO.mkdirs(workspacePath.parent)
-      _ <- IO.writeUtf8(workspacePath, workspaceContents)
-      _ <- IO.writeUtf8(workspacePath.sibling(buildFileName), originalBuildFile.getOrElse(""))
-      builds <- Writer.createBuildFilesAndTargetFile(model.getOptions.getBuildHeader, targets, targetFileOpt, enable3rdPartyInRepo, model.getOptions.getThirdPartyDirectory, formatter, buildFileName)
-    } yield builds
+    val buildIO = workspacePath.map { wp =>
+      for {
+        originalBuildFile <- IO.readUtf8(wp.sibling(buildFileName))
+        // If the 3rdparty directory is empty we shouldn't wipe out the current working directory.
+        _ <- if (enable3rdPartyInRepo && model.getOptions.getThirdPartyDirectory.parts.nonEmpty) IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts), false) else IO.const(0)
+        _ <- IO.mkdirs(wp.parent)
+        _ <- IO.writeUtf8(wp, workspaceContents)
+        _ <- IO.writeUtf8(wp.sibling(buildFileName), originalBuildFile.getOrElse(""))
+        builds <- Writer.createBuildFilesAndTargetFile(model.getOptions.getBuildHeader, targets, targetFileOpt, enable3rdPartyInRepo, model.getOptions.getThirdPartyDirectory, formatter, buildFileName)
+      } yield builds
+    }
 
     val artifactsIoOption = resolvedJsonOutputPathOption.map {
       resolvedJsonOutputPath =>
@@ -314,13 +327,13 @@ object MakeDeps {
     }
 
     // Here we actually run the whole thing
-    buildIO.foldMap(IO.fileSystemExec(projectRoot)) match {
+    buildIO.foreach(_.foldMap(IO.fileSystemExec(projectRoot)) match {
       case Failure(err) =>
         logger.error("Failure during IO:", err)
         System.exit(-1)
       case Success(_) =>
         println(s"wrote ${artifacts.size} targets")
-    }
+    })
     artifactsIoOption.foreach(_.foldMap(IO.fileSystemExec(projectRoot)) match {
       case Failure(err) =>
         logger.error("Failure during IO:", err)

@@ -60,7 +60,7 @@ object Command {
       repoRoot: Path,
       depsFile: String,
       resolvedOutput: Option[String],
-      shaFile: String,
+      shaFile: Option[String],
       targetFile: Option[String],
       buildifier: Option[String],
       pomFile: Option[String],
@@ -73,8 +73,8 @@ object Command {
     def absDepsFile: File =
       new File(repoRoot.toFile, depsFile)
 
-    def shaFilePath: String =
-      new File(shaFile).toString
+    def shaFilePath: Option[String] =
+      shaFile.map(new File(_).toString)
   }
   val generate = DCommand("generate", "generate transitive bazel targets") {
     val repoRoot = Opts.option[Path](
@@ -102,8 +102,7 @@ object Command {
       "sha-file",
       short = "s",
       metavar = "sha-file",
-      help = "relative path to the sha lock file (usually called workspace.bzl).")
-
+      help = "relative path to the sha lock file (usually called workspace.bzl).").orNone
 
     val targetFile = Opts.option[String](
       "target-file",
