@@ -40,6 +40,47 @@ object MakeDeps {
         logger.error("resolution and sha collection failed", err)
         System.exit(1)
       case Success((normalized, shas, duplicates)) =>
+        // creates pom xml when path is provided
+        g.pomFile.foreach { fileName => CreatePom(normalized, fileName) }
+        // build the BUILDs in thirdParty
+        val targets = Writer.targets(normalized, model) match {
+          case Right(t) => t
+          case Left(errs) =>
+            errs.toList.foreach { e => logger.error(e.message) }
+            System.exit(-1)
+            sys.error("exited already")
+        }
+        val workspacePath = g.shaFilePath
+        val targetFilePathOpt = g.targetFile
+        val projectRoot = g.repoRoot.toFile
+        val enable3rdPartyInRepo = g.enable3rdPartyInRepo
+        val formatter: Writer.BuildFileFormatter = g.buildifier match {
+          // If buildifier is provided, run it with the unformatted contents on its stdin; it will print the formatted
+          // result on stdout.
+          case Some(buildifierPath) => (p, s) => {
+            val output = new java.lang.StringBuilder()
+            val error = new java.lang.StringBuilder()
+            val processIO = new ProcessIO(
+              os => {
+                os.write(s.getBytes(IO.charset))
+                os.close()
+              },
+              BasicIO.processFully(output),
+              BasicIO.processFully(error)
+            )
+            val exit = Process(List(buildifierPath, "-path", p.asString, "-"), projectRoot).run(processIO).exitValue
+            // Blocks until the process exits.
+            if (exit != 0) {
+              logger.error(s"buildifier $buildifierPath failed (code $exit) for ${p.asString}:\n$error")
+              System.exit(-1)
+              sys.error("unreachable")
+            }
+            output.toString
+          }
+          // If no buildifier is provided, pass the contents through directly.
+          case None => (_, s) => s
+        }
+
         // build the BUILDs in thirdParty
         val artifacts =
           Writer.artifactEntries(normalized, duplicates, shas, model) match {
@@ -50,12 +91,14 @@ object MakeDeps {
               sys.error("exited already")
           }
 
-        executeGenerate(
-          model,
-          projectRoot,
-          IO.path(g.resolvedOutput),
-          artifacts
-        )
+        // build the workspace
+        val ws = Writer.workspace(g.depsFile, normalized, duplicates, shas, model)
+        if (g.checkOnly) {
+          executeCheckOnly(model, projectRoot, IO.path(workspacePath), targetFilePathOpt.map(e => IO.path(e)), enable3rdPartyInRepo, ws, targets, formatter)
+        } else {
+          executeGenerate(model, projectRoot, IO.path(workspacePath), targetFilePathOpt.map(e => IO.path(e)), enable3rdPartyInRepo, ws, targets, formatter, g.resolvedOutput.map(IO.path),
+            artifacts)
+        }
     }
   }
 
@@ -204,34 +247,86 @@ object MakeDeps {
   }
 
   case class AllArtifacts(artifacts: List[ArtifactEntry])
-  private def executeGenerate(
-      model: Model,
-      projectRoot: File,
-      resolvedJsonOutputPath: IO.Path,
-      artifacts: List[ArtifactEntry]
-  ): Unit = {
-    import _root_.io.circe.syntax._
-    import _root_.io.circe.generic.auto._
 
+
+  private def executeCheckOnly(model: Model, projectRoot: File, workspacePath: IO.Path, targetFileOpt: Option[IO.Path], enable3rdPartyInRepo: Boolean, workspaceContents: String, targets: List[Target], formatter: Writer.BuildFileFormatter): Unit = {
+    // Build up the IO operations that need to run.
     val io = for {
-      b <- IO.exists(resolvedJsonOutputPath.parent)
-      _ <- if (b) IO.const(false) else IO.mkdirs(resolvedJsonOutputPath.parent)
-      allArtifacts = AllArtifacts(artifacts.sortBy(_.artifact))
-      artifactsJson = allArtifacts.asJson
-      _ <- if(resolvedJsonOutputPath.extension.endsWith(".gz")) {
-          IO.writeGzipUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
-      } else {
-          IO.writeUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
-      }
-    } yield ()
+      wsOK <- IO.compare(workspacePath, workspaceContents)
+      wsbOK <- IO.compare(workspacePath.sibling("BUILD"), "")
+      buildsOK <- Writer.compareBuildFiles(model.getOptions.getBuildHeader, targets, formatter, model.getOptions.getBuildFileName)
+    } yield wsOK :: wsbOK :: buildsOK
 
     // Here we actually run the whole thing
     io.foldMap(IO.fileSystemExec(projectRoot)) match {
       case Failure(err) =>
         logger.error("Failure during IO:", err)
         System.exit(-1)
+      case Success(comparisons) =>
+        val mismatchedFiles = comparisons.filter(!_.ok)
+        if (mismatchedFiles.isEmpty) {
+          println(s"all ${comparisons.size} generated files are up-to-date")
+        } else {
+          logger.error(s"some generated files are not up-to-date:\n${mismatchedFiles.map(_.path.asString).sorted.mkString("\n")}")
+          System.exit(2)
+        }
+    }
+  }
+  private def executeGenerate(
+      model: Model,
+      projectRoot: File,
+      workspacePath: IO.Path,
+      targetFileOpt: Option[IO.Path],
+      enable3rdPartyInRepo: Boolean,
+      workspaceContents: String,
+      targets: List[Target],
+      formatter: Writer.BuildFileFormatter,
+      resolvedJsonOutputPathOption: Option[IO.Path],
+      artifacts: List[ArtifactEntry]
+  ): Unit = {
+    import _root_.io.circe.syntax._
+    import _root_.io.circe.generic.auto._
+
+    val buildFileName = model.getOptions.getBuildFileName
+    val buildIO = for {
+      originalBuildFile <- IO.readUtf8(workspacePath.sibling(buildFileName))
+      // If the 3rdparty directory is empty we shouldn't wipe out the current working directory.
+      _ <- if (enable3rdPartyInRepo && model.getOptions.getThirdPartyDirectory.parts.nonEmpty) IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts), false) else IO.const(0)
+      _ <- IO.mkdirs(workspacePath.parent)
+      _ <- IO.writeUtf8(workspacePath, workspaceContents)
+      _ <- IO.writeUtf8(workspacePath.sibling(buildFileName), originalBuildFile.getOrElse(""))
+      builds <- Writer.createBuildFilesAndTargetFile(model.getOptions.getBuildHeader, targets, targetFileOpt, enable3rdPartyInRepo, model.getOptions.getThirdPartyDirectory, formatter, buildFileName)
+    } yield builds
+
+    val artifactsIoOption = resolvedJsonOutputPathOption.map {
+      resolvedJsonOutputPath =>
+        for {
+          b <- IO.exists(resolvedJsonOutputPath.parent)
+          _ <- if (b) IO.const(false) else IO.mkdirs(resolvedJsonOutputPath.parent)
+          allArtifacts = AllArtifacts(artifacts.sortBy(_.artifact))
+          artifactsJson = allArtifacts.asJson
+          _ <- if (resolvedJsonOutputPath.extension.endsWith(".gz")) {
+            IO.writeGzipUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
+          } else {
+            IO.writeUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
+          }
+        } yield ()
+    }
+
+    // Here we actually run the whole thing
+    buildIO.foldMap(IO.fileSystemExec(projectRoot)) match {
+      case Failure(err) =>
+        logger.error("Failure during IO:", err)
+        System.exit(-1)
       case Success(_) =>
         println(s"wrote ${artifacts.size} targets")
     }
+    artifactsIoOption.foreach(_.foldMap(IO.fileSystemExec(projectRoot)) match {
+      case Failure(err) =>
+        logger.error("Failure during IO:", err)
+        System.exit(-1)
+      case Success(_) =>
+        println(s"wrote ${artifacts.size} targets")
+    })
   }
 }

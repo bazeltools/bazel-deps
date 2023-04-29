@@ -141,6 +141,22 @@ object Decoders {
         case other      => Left(s"unrecogized resolverType: $other")
       }
     }
+    implicit val transitivityDecoder: Decoder[Transitivity] = {
+      Decoder.decodeString.emap{
+        case "runtime_deps" => Right(Transitivity.RuntimeDeps)
+        case "exports" => Right(Transitivity.Exports)
+        case other => Left(s"unrecogized transitivity: $other")
+      }
+    }
+
+    implicit val directoryNameDecoder: Decoder[DirectoryName] = {
+      Decoder.decodeString.map(str => DirectoryName(str))
+    }
+
+    implicit val strictVisibilityDecoder: Decoder[StrictVisibility] = {
+      Decoder.decodeBoolean.map(bool => StrictVisibility(bool))
+    }
+
     implicit val gradleDecoder =
       auto.exportDecoder[ResolverType.Gradle].instance
     val baseOptions = auto.exportDecoder[Options].instance

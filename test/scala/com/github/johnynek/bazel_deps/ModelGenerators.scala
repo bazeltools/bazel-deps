@@ -122,7 +122,13 @@ object ModelGenerators {
     cache,
     prefix,
     licenses,
-    resolverType
+    resolverType,
+    None,
+    None,
+    None,
+    None,
+    None,
+    None
   )
 
   val modelGen: Gen[Model] = for {

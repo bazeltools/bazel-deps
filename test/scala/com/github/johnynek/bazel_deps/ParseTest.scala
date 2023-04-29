@@ -92,7 +92,13 @@ class ParseTest extends FunSuite {
                 resolverCache = Some(ResolverCache.BazelOutputBase),
                 namePrefix = None,
                 licenses = Some(Set("unencumbered", "permissive")),
-                resolverType = None
+                resolverType = None,
+                None,
+                None,
+                Some(DirectoryName.default),
+                None,
+                Some("BUILD.bazel"),
+                Some("$BAZEL_NETRC")
               )
             )
           )
@@ -110,6 +116,13 @@ class ParseTest extends FunSuite {
                 |options:
                 |  languages: ["scala:2.11.7", java]
                 |  thirdPartyDirectory: 3rdparty/jvm
+                |  transitivity: runtime_deps
+                |  versionConflictPolicy: fail
+                |  buildHeader:
+                |    - load("@io_bazel_rules_scala//scala:scala_import.bzl", "scala_import")
+                |  strictVisibility: false
+                |  buildFileName: "BUILD.bazel"
+                |  authFile: $BAZEL_NETRC
                 |""".stripMargin('|')
 
     assert(
@@ -135,7 +148,7 @@ class ParseTest extends FunSuite {
             None,
             Some(
               Options(
-                versionConflictPolicy = None,
+                Some(VersionConflictPolicy.Fail),
                 languages = Some(
                   Set(Language.Scala(Version("2.11.7"), true), Language.Java)
                 ),
@@ -143,7 +156,13 @@ class ParseTest extends FunSuite {
                 resolverCache = None,
                 namePrefix = None,
                 licenses = None,
-                resolverType = None
+                resolverType = None,
+                Some(Transitivity.RuntimeDeps),
+                Some(List("load(\"@io_bazel_rules_scala//scala:scala_import.bzl\", \"scala_import\")")),
+                Some(DirectoryName.default),
+                Some(StrictVisibility(false)),
+                Some("BUILD.bazel"),
+                Some("$BAZEL_NETRC")
               )
             )
           )

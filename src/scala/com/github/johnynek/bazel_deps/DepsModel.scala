@@ -1,22 +1,14 @@
 package com.github.johnynek.bazel_deps
 
-import java.io.{
-  BufferedReader,
-  ByteArrayOutputStream,
-  File,
-  FileInputStream,
-  FileReader,
-  InputStream
-}
+import java.io.{BufferedReader, ByteArrayOutputStream, File, FileInputStream, FileReader, InputStream}
 import java.security.MessageDigest
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
-
 import org.typelevel.paiges.Doc
 import cats.kernel.{CommutativeMonoid, Monoid, Semigroup}
 import cats.implicits._
-import cats.{Applicative, Functor, Foldable, Id, SemigroupK}
-import cats.data.{Validated, ValidatedNel, Ior, NonEmptyList}
+import cats.{Applicative, Foldable, Functor, Id, SemigroupK}
+import cats.data.{Ior, NonEmptyList, Validated, ValidatedNel}
 
 /** These should be upstreamed to paiges
   */
@@ -94,6 +86,15 @@ case class Model(
       2
     ) + Doc.line
   }
+
+  def hasAuthFile: Boolean = options.exists(_.authFile.nonEmpty)
+
+  def getAuthFile: Option[String] =
+    options.flatMap(_.authFile).map { auth =>
+      if (auth.startsWith("$"))
+        sys.env.getOrElse(auth.substring(1), s"env var ${auth} not found")
+      else auth
+    }
 }
 
 object Model {
@@ -331,6 +332,11 @@ case class IvyServer(
       )
     )
 
+}
+
+case class StrictVisibility(enabled: Boolean)
+object StrictVisibility {
+  implicit val strictVisibilitySemiGroup: Semigroup[StrictVisibility] = Options.useRight.algebra[StrictVisibility]
 }
 case class MavenServer(id: String, contentType: String, url: String)
     extends DependencyServer {
@@ -1451,6 +1457,35 @@ object VersionConflictPolicy {
   }
 }
 
+case class DirectoryName(asString: String) {
+  def parts: List[String] =
+    asString.split('/').filter(_.nonEmpty).toList
+}
+
+object DirectoryName {
+  def default: DirectoryName = DirectoryName("3rdparty/jvm")
+
+  implicit val dirNameSemigroup: Semigroup[DirectoryName] =
+    Options.useRight.algebra[DirectoryName]
+}
+
+sealed abstract class Transitivity(val asString: String)
+object Transitivity {
+  case object RuntimeDeps extends Transitivity("runtime_deps")
+  case object Exports extends Transitivity("exports")
+
+  implicit val transitivityMonoid: CommutativeMonoid[Transitivity] =
+    new CommutativeMonoid[Transitivity] {
+      def empty = RuntimeDeps
+      def combine(a: Transitivity, b: Transitivity): Transitivity =
+        (a, b) match {
+          case (RuntimeDeps, t) => t
+          case (t, RuntimeDeps) => t
+          case (Exports, Exports) => Exports
+        }
+    }
+}
+
 sealed abstract class ResolverCache(val asString: String)
 object ResolverCache {
   case object Local extends ResolverCache("local")
@@ -1609,19 +1644,35 @@ case class Options(
     resolverCache: Option[ResolverCache],
     namePrefix: Option[NamePrefix],
     licenses: Option[Set[String]],
-    resolverType: Option[ResolverType]
+    resolverType: Option[ResolverType],
+    transitivity: Option[Transitivity],
+    buildHeader: Option[List[String]],
+    thirdPartyDirectory: Option[DirectoryName],
+    strictVisibility: Option[StrictVisibility],
+    buildFileName: Option[String],
+    authFile: Option[String]
 ) {
   def isDefault: Boolean =
     versionConflictPolicy.isEmpty &&
+      thirdPartyDirectory.isEmpty &&
       languages.isEmpty &&
       resolvers.isEmpty &&
+      transitivity.isEmpty &&
+      buildHeader.isEmpty &&
       resolverCache.isEmpty &&
       namePrefix.isEmpty &&
       licenses.isEmpty &&
-      resolverType.isEmpty
+      resolverType.isEmpty &&
+      strictVisibility.isEmpty &&
+      buildFileName.isEmpty &&
+      authFile.isEmpty
 
   def getLicenses: Set[String] =
     licenses.getOrElse(Set.empty)
+
+
+  def getThirdPartyDirectory: DirectoryName =
+    thirdPartyDirectory.getOrElse(DirectoryName.default)
 
   def getVersionConflictPolicy: VersionConflictPolicy =
     versionConflictPolicy.getOrElse(VersionConflictPolicy.default)
@@ -1659,6 +1710,17 @@ case class Options(
   def getResolverType: ResolverType =
     resolverType.getOrElse(ResolverType.default)
 
+  def getTransitivity: Transitivity =
+    transitivity.getOrElse(Transitivity.Exports)
+
+  def getBuildHeader: String = buildHeader match {
+    case Some(lines) => lines.mkString("\n")
+    case None => ""
+  }
+
+  def getBuildFileName: String =
+    buildFileName.getOrElse("BUILD")
+
   def toDoc: Doc = {
     val items = List(
       (
@@ -1685,7 +1747,15 @@ case class Options(
       (
         "resolverOptions",
         resolverType.flatMap(_.optionsDoc).map(d => (Doc.line + d).nested(2))
-      )
+      ),
+      ("thirdPartyDirectory",
+        thirdPartyDirectory.map { tpd => quoteDoc(tpd.asString) }),
+      ("buildHeader",
+        buildHeader.map(list(_) { s => quoteDoc(s) })),
+      ("transitivity", transitivity.map { t => Doc.text(t.asString) }),
+      ("strictVisibility", strictVisibility.map { x => Doc.text(x.enabled.toString) }),
+      ("buildFileName", buildFileName.map(name => Doc.text(name))),
+      ("authFile", authFile.map(name => Doc.text(name)))
     ).sortBy(_._1)
       .collect { case (k, Some(v)) => (k, v) }
 
@@ -1713,6 +1783,12 @@ object Options {
       None,
       None,
       None,
+      None,
+      None,
+      None,
+      None,
+      None,
+      None,
       None
     )
 
@@ -1731,6 +1807,12 @@ object Options {
       val licenses = Monoid[Option[Set[String]]].combine(a.licenses, b.licenses)
       val resolverType =
         Monoid[Option[ResolverType]].combine(a.resolverType, b.resolverType)
+      val trans = Monoid[Option[Transitivity]].combine(a.transitivity, b.transitivity)
+      val headers = Monoid[Option[List[String]]].combine(a.buildHeader, b.buildHeader).map(_.distinct)
+      val tpd = Monoid[Option[DirectoryName]].combine(a.thirdPartyDirectory, b.thirdPartyDirectory)
+      val strictVisibility = Monoid[Option[StrictVisibility]].combine(a.strictVisibility, b.strictVisibility)
+      val buildFileName = Monoid[Option[String]].combine(a.buildFileName, b.buildFileName)
+      val authFile = Monoid[Option[String]].combine(a.authFile, b.authFile)
       Options(
         vcp,
         langs,
@@ -1738,7 +1820,13 @@ object Options {
         resolverCache,
         namePrefix,
         licenses,
-        resolverType
+        resolverType,
+        trans,
+        headers,
+        tpd,
+        strictVisibility,
+        buildFileName,
+        authFile
       )
     }
   }

@@ -59,11 +59,22 @@ object Command {
   case class Generate(
       repoRoot: Path,
       depsFile: String,
-      resolvedOutput: String,
-      verbosity: Verbosity
+      resolvedOutput: Option[String],
+      shaFile: String,
+      targetFile: Option[String],
+      buildifier: Option[String],
+      pomFile: Option[String],
+      checkOnly: Boolean,
+      verbosity: Verbosity,
+      disable3rdPartyInRepo: Boolean
   ) extends Command {
+
+    def enable3rdPartyInRepo: Boolean = !disable3rdPartyInRepo
     def absDepsFile: File =
       new File(repoRoot.toFile, depsFile)
+
+    def shaFilePath: String =
+      new File(shaFile).toString
   }
   val generate = DCommand("generate", "generate transitive bazel targets") {
     val repoRoot = Opts.option[Path](
@@ -85,10 +96,43 @@ object Command {
       metavar = "resolved-output",
       help =
         "relative path to the file to emit target info into (usually called resolvedOutput.json)."
-    )
+    ).orNone
 
-    (repoRoot |@| depsFile |@| resolvedOutput |@| Verbosity.opt)
-      .map(Generate(_, _, _, _))
+    val shaFile = Opts.option[String](
+      "sha-file",
+      short = "s",
+      metavar = "sha-file",
+      help = "relative path to the sha lock file (usually called workspace.bzl).")
+
+
+    val targetFile = Opts.option[String](
+      "target-file",
+      short = "t",
+      metavar = "target-file",
+      help = "relative path to the file to emit target info into (usually called target_file.bzl).").orNone
+
+
+    val buildifier = Opts.option[String](
+      "buildifier",
+      metavar = "buildifier",
+      help = "absolute path to buildifier binary, which will be called to format each generated BUILD file").orNone
+
+    val pomFile = Opts.option[String](
+      "pom-file",
+      short = "p",
+      metavar = "pom-file",
+      help = "absolute path to the pom xml file").orNone
+
+    val checkOnly = Opts.flag(
+      "check-only",
+      help = "if set, the generated files are checked against the existing files but are not written; exits 0 if the files match").orFalse
+
+
+    val disable3rdPartyInRepos = Opts.flag(
+      "disable-3rdparty-in-repo",
+      help = "If set it controls if we should print out the 3rdparty source tree in the repo or not.").orFalse
+
+    (repoRoot |@| depsFile |@| resolvedOutput |@| shaFile |@| targetFile |@| buildifier |@| pomFile |@| checkOnly |@| Verbosity.opt |@| disable3rdPartyInRepos).map(Generate(_, _, _, _, _, _, _, _, _, _))
   }
 
   case class FormatDeps(deps: Path, overwrite: Boolean, verbosity: Verbosity)
