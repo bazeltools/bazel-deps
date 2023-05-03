@@ -115,6 +115,7 @@ object Writer {
         IO.compare(bf, data(bf))
     }
   }
+
   def createBuildFilesAndTargetFile(buildHeader: String, ts: List[Target], targetFileOpt: Option[IO.Path], enable3rdPartyInRepo: Boolean, thirdPartyDirectory: DirectoryName, formatter: BuildFileFormatter, buildFileName: String): Result[Int] = {
     val with3rdpartyPrinted = if (enable3rdPartyInRepo) {
       createBuildFiles(buildHeader, ts, formatter, buildFileName)
