@@ -15,7 +15,7 @@ object MakeDeps {
 
   private[this] val logger = LoggerFactory.getLogger("MakeDeps")
 
-  def apply(g: Command.Gen): Unit = {
+  def apply(g: Command.GenerateLike): Unit = {
 
     val content: String = Model.readFile(g.absDepsFile) match {
       case Success(str) => str

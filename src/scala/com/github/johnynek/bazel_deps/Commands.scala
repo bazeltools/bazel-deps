@@ -56,7 +56,7 @@ sealed abstract class Command {
 }
 
 object Command {
-  sealed abstract class Gen extends Command {
+  sealed abstract class GenerateLike extends Command {
     def absDepsFile: File
     def buildifier: Option[String]
     def depsFile: String
@@ -73,7 +73,7 @@ object Command {
       pomFile: Option[String],
       verbosity: Verbosity,
       disable3rdPartyInRepo: Boolean
-  ) extends Gen {
+  ) extends GenerateLike {
 
     def enable3rdPartyInRepo: Boolean = !disable3rdPartyInRepo
     def absDepsFile: File =
@@ -89,7 +89,7 @@ object Command {
       shaFile: String,
       buildifier: Option[String],
       verbosity: Verbosity
-  ) extends Gen {
+  ) extends GenerateLike {
     def absDepsFile: File =
       new File(repoRoot.toFile, depsFile)
 
