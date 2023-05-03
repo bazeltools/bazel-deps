@@ -15,7 +15,7 @@ object MakeDeps {
 
   private[this] val logger = LoggerFactory.getLogger("MakeDeps")
 
-  def apply(g: Command.Generate): Unit = {
+  def apply(g: Command.GenerateLike): Unit = {
 
     val content: String = Model.readFile(g.absDepsFile) match {
       case Success(str) => str
@@ -40,8 +40,6 @@ object MakeDeps {
         logger.error("resolution and sha collection failed", err)
         System.exit(1)
       case Success((normalized, shas, duplicates)) =>
-        // creates pom xml when path is provided
-        g.pomFile.foreach { fileName => CreatePom(normalized, fileName) }
         // build the BUILDs in thirdParty
         val targets = Writer.targets(normalized, model) match {
           case Right(t) => t
@@ -50,10 +48,7 @@ object MakeDeps {
             System.exit(-1)
             sys.error("exited already")
         }
-        val workspacePath = g.shaFilePath
-        val targetFilePathOpt = g.targetFile
         val projectRoot = g.repoRoot.toFile
-        val enable3rdPartyInRepo = g.enable3rdPartyInRepo
         val formatter: Writer.BuildFileFormatter = g.buildifier match {
           // If buildifier is provided, run it with the unformatted contents on its stdin; it will print the formatted
           // result on stdout.
@@ -93,21 +88,14 @@ object MakeDeps {
 
         // build the workspace
         val ws = Writer.workspace(g.depsFile, normalized, duplicates, shas, model)
-        if (g.checkOnly) {
-          workspacePath match {
-            case None =>
-              logger.error("check-only requires sha-file to be set, but it was not")
-              System.exit(-1)
-            case Some(path) =>
-              // TODO we shouldn't allow you to pass options we ignore, that's the whole point of
-              // a validating CLI option parser
-              executeCheckOnly(model, projectRoot, IO.path(path), ws, targets, formatter)
-          }
-        } else {
-          // TODO it is possible to pass None for both targetFilePathOpt and workspacePath and then nothing will happen and it will be confusing
-          // we should require you to generate one or both, not neither
-          executeGenerate(model, projectRoot, workspacePath.map(IO.path(_)), targetFilePathOpt.map(e => IO.path(e)), enable3rdPartyInRepo, ws, targets, formatter, g.resolvedOutput.map(IO.path),
-            artifacts)
+        g match {
+          case check: Command.CheckGen =>
+            executeCheckOnly(model, projectRoot, IO.path(check.shaFilePath), ws, targets, formatter)
+          case g: Command.Generate =>
+            // creates pom xml when path is provided
+            g.pomFile.foreach { fileName => CreatePom(normalized, fileName) }
+            executeGenerate(model, projectRoot, g.shaFilePath.map(IO.path(_)), g.targetFile.map(IO.path(_)), g.enable3rdPartyInRepo, ws, targets, formatter, g.resolvedOutput.map(IO.path),
+              artifacts)
         }
     }
   }
@@ -259,7 +247,13 @@ object MakeDeps {
   case class AllArtifacts(artifacts: List[ArtifactEntry])
 
 
-  private def executeCheckOnly(model: Model, projectRoot: File, workspacePath: IO.Path, workspaceContents: String, targets: List[Target], formatter: Writer.BuildFileFormatter): Unit = {
+  private def executeCheckOnly(
+      model: Model,
+      projectRoot: File,
+      workspacePath: IO.Path, 
+      workspaceContents: String,
+      targets: List[Target],
+      formatter: Writer.BuildFileFormatter): Unit = {
     // Build up the IO operations that need to run.
     val io = for {
       wsOK <- IO.compare(workspacePath, workspaceContents)

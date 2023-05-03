@@ -13,7 +13,7 @@ object ParseProject {
         val level = command.verbosity.repr.toUpperCase
         System.setProperty(DEFAULT_LOG_LEVEL_KEY, level)
         command match {
-          case gen: Command.Generate =>
+          case gen: Command.GenerateLike =>
             MakeDeps(gen)
           case gen: Command.FormatDeps =>
             FormatDeps(gen.deps.toFile, gen.overwrite)
