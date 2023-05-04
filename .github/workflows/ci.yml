@@ -23,3 +23,4 @@ jobs:
         run: |
           ./bazel build //...
           ./bazel test --test_output=errors //... --test_env=COURSIER_CACHE="${{ github.workspace }}/.coursier-cache"
+          ./bazel run //:parse -- generate -r `pwd` -s 3rdparty/workspace.bzl -d dependencies.yaml -t 3rdparty/target_file.bzl -p pom.xml --check-only

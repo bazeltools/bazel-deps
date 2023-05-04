@@ -33,7 +33,7 @@ edit these by hand, and instead have a separate directory for any exceptions tha
 along with [Replacements](#replacements). For instance, this project is setup with:
 
 ```bash
-bazel run //:parse -- generate -r `pwd` -s 3rdparty/workspace.bzl -d dependencies.yaml
+./bazel run //:parse -- generate -r `pwd` -s 3rdparty/workspace.bzl -d dependencies.yaml
 ```
 
 We give three arguments: the path to the file we will include in our workspace. The path to the root
@@ -53,7 +53,7 @@ dependencies you need to do the following:
 
 ```bash
 cd $BAZEL_DEPS
-bazel run //:parse generate -- --repo-root "$MY_PROJ_DIR" --sha-file 3rdparty/workspace.bzl --deps dependencies.yaml
+./bazel run //:parse generate -- --repo-root "$MY_PROJ_DIR" --sha-file 3rdparty/workspace.bzl --deps dependencies.yaml
 ```
 
 The final result in `MY_PROJ_DIR` will look like this
@@ -71,6 +71,12 @@ MY_PROJ_DIR
 Whenever you update the dependencies declared in dependencies.yaml you will need to regenerate the
 contents of the `3rdparty` directory by re-running `$BAZEL_DEPS/gen_maven_deps.sh generate`.
 
+### CI integration
+In a CI, you will often want to make sure there is alignment between the configuration file for bazel-deps
+and the resulting generated files or directories, you can run `generate` with `--check-only` and it will
+check that each file matches bit-for-bit, but does not generate. If something does not match what would have
+been generated, you get a non-zero return value and a list of the mismatches logged to error.
+
 ### Alternate outputs, external repo
 Bazel-deps can also prepare the outputs, not as a file tree but an external repo. With this one would refer to targets as
 `@third_party//foo:bar` rather than `//3rdparty/jvm/foo/bar`. This is useful if you do not want to check in generated code to your
@@ -84,7 +90,7 @@ in the repo `B` `Jackson27` will be on the classpath rather than `circe`.
 To use this option you would execute bazel-deps like:
  ```bash
  cd $BAZEL_DEPS
- bazel run //:parse generate -- --repo-root "$MY_PROJ_DIR" --sha-file 3rdparty/workspace.bzl --deps dependencies.yaml --target-file 3rdparty/target_file.bzl --disable-3rdparty-in-repo
+ ./bazel run //:parse generate -- --repo-root "$MY_PROJ_DIR" --sha-file 3rdparty/workspace.bzl --deps dependencies.yaml --target-file 3rdparty/target_file.bzl --disable-3rdparty-in-repo
 ```
 
 In your `dependencies.yaml` file you will likely want:
@@ -97,6 +103,15 @@ load("//3rdparty:target_file.bzl", "build_external_workspace")
 
 build_external_workspace(name = "third_party")
 ```
+
+### Customized integration
+If you want to fully control how you create your third party dependencies, you can use bazel deps simply
+to normalize all the jars into a single canonical version for each artifact and present a json lock file
+which has the hashes and dependencies of each artifact. To do this you would do:
+```
+./bazel run //:parse -- generate -r `pwd` -d dependencies.yaml --resolved-output lock.json
+```
+The schema of the lock file should be rather obvious and it has all the information you would need.
 
 ## Assumptions and usage
 This tool will generate one canonical version for every jar in the transitive dependencies of

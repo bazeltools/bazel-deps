@@ -56,13 +56,6 @@ sealed abstract class Command {
 }
 
 object Command {
-  sealed abstract class GenerateLike extends Command {
-    def absDepsFile: File
-    def buildifier: Option[String]
-    def depsFile: String
-    def repoRoot: Path
-  }
-
   case class Generate(
       repoRoot: Path,
       depsFile: String,
@@ -72,8 +65,9 @@ object Command {
       buildifier: Option[String],
       pomFile: Option[String],
       verbosity: Verbosity,
-      disable3rdPartyInRepo: Boolean
-  ) extends GenerateLike {
+      disable3rdPartyInRepo: Boolean,
+      checkOnly: Boolean
+  ) extends Command {
 
     def enable3rdPartyInRepo: Boolean = !disable3rdPartyInRepo
     def absDepsFile: File =
@@ -81,19 +75,6 @@ object Command {
 
     def shaFilePath: Option[String] =
       shaFile.map(new File(_).toString)
-  }
-
-  case class CheckGen(
-      repoRoot: Path,
-      depsFile: String,
-      shaFile: String,
-      buildifier: Option[String],
-      verbosity: Verbosity
-  ) extends GenerateLike {
-    def absDepsFile: File =
-      new File(repoRoot.toFile, depsFile)
-
-    def shaFilePath: String = new File(shaFile).toString
   }
 
   val generate = DCommand("generate", "generate transitive bazel targets") {
@@ -144,23 +125,20 @@ object Command {
 
     val checkOnly = Opts.flag(
       "check-only",
-      help = "if set, the generated BUILD files are checked against the existing files but are not written; exits 0 if the files match")
+      help = "if set, the generated files are checked against the existing files but are not written; exits 0 if the files match").orFalse
 
     val disable3rdPartyInRepos = Opts.flag(
       "disable-3rdparty-in-repo",
       help = "If set it controls if we should print out the 3rdparty source tree in the repo or not.").orFalse
 
-    (repoRoot |@| depsFile |@| resolvedOutput |@| shaFile.orNone |@| targetFile |@| buildifier |@| pomFile |@| Verbosity.opt |@| disable3rdPartyInRepos)
-      .map(Generate(_, _, _, _, _, _, _, _, _))
+    (repoRoot |@| depsFile |@| resolvedOutput |@| shaFile.orNone |@| targetFile |@| buildifier |@| pomFile |@| Verbosity.opt |@| disable3rdPartyInRepos |@| checkOnly)
+      .map(Generate(_, _, _, _, _, _, _, _, _, _))
       .validate("at least one of pom-file, resolved-output or sha-file must be set") { g =>
         g.shaFile.isDefined || g.resolvedOutput.isDefined || g.pomFile.isDefined  
       }
       .validate("if target-file is set, sha-file must be set") { g =>
         g.targetFile.isEmpty || g.shaFile.isDefined
       }
-      .orElse(
-        (repoRoot |@| depsFile |@| shaFile |@| buildifier |@| Verbosity.opt).map(CheckGen(_, _, _, _, _))
-      )
   }
 
   case class FormatDeps(deps: Path, overwrite: Boolean, verbosity: Verbosity)

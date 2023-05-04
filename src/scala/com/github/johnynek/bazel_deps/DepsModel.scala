@@ -1137,15 +1137,15 @@ object Dependencies {
         inputs == flatten(lp).toSet
 
       // We want the result that has all inputs and is smallest
-      manyWorlds(cs, Nil) match {
+      manyWorlds(cs, Nil).filter(hasAllInputs _) match {
         case Nil => Nil
         case nonEmpty =>
           val minimal = nonEmpty
-            .filter(hasAllInputs _)
             .groupBy(
               _.size
             ) // there can be several variants with the same count
             .toList
+            // we know this is non-empty so minBy is safe
             .minBy(_._1)
             ._2
           // after first taking the minimal number, we want

@@ -4,7 +4,7 @@ import coursier.util.Task
 import io.circe.jawn.JawnParser
 import java.io.File
 import java.nio.file.{Path, Paths}
-import org.slf4j.LoggerFactory
+import org.slf4j.{Logger, LoggerFactory}
 import scala.collection.immutable.SortedMap
 import scala.sys.process.{BasicIO, Process, ProcessIO}
 import scala.util.{Failure, Success, Try}
@@ -13,9 +13,9 @@ import cats.implicits._
 
 object MakeDeps {
 
-  private[this] val logger = LoggerFactory.getLogger("MakeDeps")
+  private[this] val logger: Logger = LoggerFactory.getLogger("MakeDeps")
 
-  def apply(g: Command.GenerateLike): Unit = {
+  def apply(g: Command.Generate): Unit = {
 
     val content: String = Model.readFile(g.absDepsFile) match {
       case Success(str) => str
@@ -88,16 +88,48 @@ object MakeDeps {
 
         // build the workspace
         val ws = Writer.workspace(g.depsFile, normalized, duplicates, shas, model)
-        g match {
-          case check: Command.CheckGen =>
-            executeCheckOnly(model, projectRoot, IO.path(check.shaFilePath), ws, targets, formatter)
-          case g: Command.Generate =>
-            // creates pom xml when path is provided
-            g.pomFile.foreach { fileName => CreatePom(normalized, fileName) }
-            executeGenerate(model, projectRoot, g.shaFilePath.map(IO.path(_)), g.targetFile.map(IO.path(_)), g.enable3rdPartyInRepo, ws, targets, formatter, g.resolvedOutput.map(IO.path),
-              artifacts)
+        // creates pom xml when path is provided
+        val pomIO = IO.orUnit(g.pomFile.map { fileName => CreatePom.writeIO(normalized, IO.path(fileName)) })
+        val io = executeGenerate(
+          model,
+          g.shaFilePath.map(IO.path(_)),
+          g.targetFile.map(IO.path(_)),
+          g.enable3rdPartyInRepo,
+          ws,
+          targets,
+          formatter,
+          g.resolvedOutput.map(IO.path),
+          artifacts) >> pomIO
+
+        if (g.checkOnly) {
+          val check = new IO.ReadCheckExec(projectRoot)
+          io.foldMap(check) match {
+            case Failure(err) =>
+              logger.error("Failure during IO:", err)
+              val errs = check.logErrorCount { ce => logger.error(ce.message) }
+              logger.error(s"found $errs errors.")
+              System.exit(-1)
+            case Success(_) =>
+              println(s"checked ${artifacts.size} targets")
+              val errs = check.logErrorCount { ce => logger.error(ce.message) }
+              if (errs != 0) {
+                logger.error(s"found $errs errors.")
+                System.exit(2) // this error got assigned error 2 somehow
+              }
+          }
         }
-    }
+        else {
+          val exec = new IO.ReadWriteExec(projectRoot)
+          // Here we actually run the whole thing
+          io.foldMap(exec) match {
+            case Failure(err) =>
+              logger.error("Failure during IO:", err)
+              System.exit(-1)
+            case Success(_) =>
+              println(s"wrote ${artifacts.size} targets")
+          }
+        }
+      }
   }
 
   private def resolverCachePath(model: Model, projectRoot: File): Try[Path] =
@@ -246,40 +278,8 @@ object MakeDeps {
 
   case class AllArtifacts(artifacts: List[ArtifactEntry])
 
-
-  private def executeCheckOnly(
-      model: Model,
-      projectRoot: File,
-      workspacePath: IO.Path, 
-      workspaceContents: String,
-      targets: List[Target],
-      formatter: Writer.BuildFileFormatter): Unit = {
-    // Build up the IO operations that need to run.
-    val io = for {
-      wsOK <- IO.compare(workspacePath, workspaceContents)
-      wsbOK <- IO.compare(workspacePath.sibling("BUILD"), "")
-      buildsOK <- Writer.compareBuildFiles(model.getOptions.getBuildHeader, targets, formatter, model.getOptions.getBuildFileName)
-    } yield wsOK :: wsbOK :: buildsOK
-
-    // Here we actually run the whole thing
-    io.foldMap(IO.fileSystemExec(projectRoot)) match {
-      case Failure(err) =>
-        logger.error("Failure during IO:", err)
-        System.exit(-1)
-      case Success(comparisons) =>
-        val mismatchedFiles = comparisons.filter(!_.ok)
-        if (mismatchedFiles.isEmpty) {
-          println(s"all ${comparisons.size} generated files are up-to-date")
-        } else {
-          logger.error(s"some generated files are not up-to-date:\n${mismatchedFiles.map(_.path.asString).sorted.mkString("\n")}")
-          System.exit(2)
-        }
-    }
-  }
-
   private def executeGenerate(
       model: Model,
-      projectRoot: File,
       workspacePath: Option[IO.Path],
       targetFileOpt: Option[IO.Path],
       enable3rdPartyInRepo: Boolean,
@@ -288,52 +288,37 @@ object MakeDeps {
       formatter: Writer.BuildFileFormatter,
       resolvedJsonOutputPathOption: Option[IO.Path],
       artifacts: List[ArtifactEntry]
-  ): Unit = {
+  ): IO.Result[Unit] = {
     import _root_.io.circe.syntax._
     import _root_.io.circe.generic.auto._
 
     val buildFileName = model.getOptions.getBuildFileName
-    val buildIO = workspacePath.map { wp =>
-      for {
-        originalBuildFile <- IO.readUtf8(wp.sibling(buildFileName))
-        // If the 3rdparty directory is empty we shouldn't wipe out the current working directory.
-        _ <- if (enable3rdPartyInRepo && model.getOptions.getThirdPartyDirectory.parts.nonEmpty) IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts), false) else IO.const(0)
-        _ <- IO.mkdirs(wp.parent)
-        _ <- IO.writeUtf8(wp, workspaceContents)
-        _ <- IO.writeUtf8(wp.sibling(buildFileName), originalBuildFile.getOrElse(""))
-        builds <- Writer.createBuildFilesAndTargetFile(model.getOptions.getBuildHeader, targets, targetFileOpt, enable3rdPartyInRepo, model.getOptions.getThirdPartyDirectory, formatter, buildFileName)
-      } yield builds
-    }
 
-    val artifactsIoOption = resolvedJsonOutputPathOption.map {
-      resolvedJsonOutputPath =>
+    for {
+      _ <- IO.orUnit(workspacePath.map { wp =>
+        for {
+          originalBuildFile <- IO.readUtf8(wp.sibling(buildFileName))
+          _ <- IO.mkdirs(wp.parent)
+          _ <- IO.writeUtf8(wp, workspaceContents)
+          _ <- IO.writeUtf8(wp.sibling(buildFileName), originalBuildFile.getOrElse(""))
+        } yield ()
+      })
+      // If the 3rdparty directory is empty we shouldn't wipe out the current working directory.
+      _ <- if (enable3rdPartyInRepo && model.getOptions.getThirdPartyDirectory.parts.nonEmpty) IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts), false) else IO.const(0)
+      _ <- Writer.createBuildFilesAndTargetFile(model.getOptions.getBuildHeader, targets, targetFileOpt, enable3rdPartyInRepo, model.getOptions.getThirdPartyDirectory, formatter, buildFileName)
+      _ <- IO.orUnit(resolvedJsonOutputPathOption.map { resolvedJsonOutputPath =>
         for {
           b <- IO.exists(resolvedJsonOutputPath.parent)
           _ <- if (b) IO.const(false) else IO.mkdirs(resolvedJsonOutputPath.parent)
           allArtifacts = AllArtifacts(artifacts.sortBy(_.artifact))
-          artifactsJson = allArtifacts.asJson
+          artifactsJson = allArtifacts.asJson.spaces2
           _ <- if (resolvedJsonOutputPath.extension.endsWith(".gz")) {
-            IO.writeGzipUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
+            IO.writeGzipUtf8(resolvedJsonOutputPath, artifactsJson)
           } else {
-            IO.writeUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
+            IO.writeUtf8(resolvedJsonOutputPath, artifactsJson)
           }
         } yield ()
-    }
-
-    // Here we actually run the whole thing
-    buildIO.foreach(_.foldMap(IO.fileSystemExec(projectRoot)) match {
-      case Failure(err) =>
-        logger.error("Failure during IO:", err)
-        System.exit(-1)
-      case Success(_) =>
-        println(s"wrote ${artifacts.size} targets")
-    })
-    artifactsIoOption.foreach(_.foldMap(IO.fileSystemExec(projectRoot)) match {
-      case Failure(err) =>
-        logger.error("Failure during IO:", err)
-        System.exit(-1)
-      case Success(_) =>
-        println(s"wrote ${artifacts.size} targets")
-    })
+      })
+    } yield ()
   }
 }
