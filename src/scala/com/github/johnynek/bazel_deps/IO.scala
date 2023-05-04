@@ -41,13 +41,15 @@ object IO {
     }
   }
 
+  object Path {
+    implicit val orderingPath: Ordering[Path] = Ordering.by { (p: Path) => p.parts }
+  }
+
   def path(s: String): Path =
     Path(s.split(Pattern.quote(pathSeparator)).toList match {
       case "" :: rest => rest
       case list       => list
     })
-
-  case class FileComparison(path: Path, ok: Boolean)
 
   sealed abstract class Ops[+T]
   case class Exists(path: Path) extends Ops[Boolean]
@@ -98,12 +100,6 @@ object IO {
   // Reads the contents of `f`, returning None if file doesn't exist
   def readUtf8(f: Path): Result[Option[String]] =
     liftF[Ops, Option[String]](ReadFile(f))
-
-  // Checks if the path at `f` exists and has the content `s`
-  def compare(f: Path, s: => String): Result[FileComparison] =
-    readUtf8(f).map { contents =>
-      FileComparison(f, contents.map(s == _).getOrElse(false))
-    }
 
   def run[A](io: Result[A], root: File)(resume: A => Unit): Unit =
     io.foldMap(IO.fileSystemExec(root)) match {
@@ -219,24 +215,33 @@ object IO {
     }
   }
 
-  sealed abstract class CheckException(message: String) extends Exception(message) {
+  sealed abstract class CheckException(val message: String) extends Exception(message) {
     def path: IO.Path
   }
 
   object CheckException {
     case class DirectoryMissing(path: IO.Path) extends CheckException(s"directory ${path.asString} expected but missing")
     case class WriteMismatch(path: IO.Path, current: Option[String], expected: String, compressed: Boolean) extends CheckException(
-      (if (compressed) "compressed " else "") + "file ${path.asString} didn't match."
+      (if (compressed) "compressed " else "") + s"file ${path.asString} didn't match."
     )
   }
   // This reads, but doesn't write. Instead it errors if the
   // write has not already been done bit-for-bit identically
   class ReadCheckExec(root: File) extends ReadOnlyExec(root) {
+    private[this] val lock = new AnyRef
+    private[this] var ces: Vector[CheckException] = Vector.empty
+    def checkExceptions(): Vector[CheckException] = lock.synchronized { ces }
+    private def add(ce: CheckException): Unit =
+      lock.synchronized { ces = ces :+ ce }
+
     override def apply[A](o: Ops[A]): Try[A] = o match {
       case MkDirs(f) =>
         try {
           if (fileFor(f).exists()) Success(false)
-          else Failure(CheckException.DirectoryMissing(f))
+          else {
+            add(CheckException.DirectoryMissing(f))
+            Success(true)
+          }
         }
         catch {
           case NonFatal(e) => Failure(e)
@@ -248,12 +253,14 @@ object IO {
           val ff = fileFor(f)
           if (ff.exists) {
             val found = new String(Files.readAllBytes(ff.toPath), charset)
-            if (found == expected) successUnit
-            else Failure(CheckException.WriteMismatch(f, Some(found), expected, compressed = false)) 
+            if (found != expected) {
+              add(CheckException.WriteMismatch(f, Some(found), expected, compressed = false))
+            }
           }
           else {
-            Failure(CheckException.WriteMismatch(f, None, expected, compressed = false)) 
+            add(CheckException.WriteMismatch(f, None, expected, compressed = false)) 
           }
+          successUnit
         }
         catch {
           case NonFatal(e) => Failure(e)
@@ -279,12 +286,14 @@ object IO {
               }
             }
             val found = new String(readAll(), charset)
-            if (found == expected) successUnit
-            else Failure(CheckException.WriteMismatch(f, Some(found), expected, compressed = true)) 
+            if (found != expected) {
+              add(CheckException.WriteMismatch(f, Some(found), expected, compressed = true)) 
+            }
           }
           else {
-            Failure(CheckException.WriteMismatch(f, None, expected, compressed = true)) 
+            add(CheckException.WriteMismatch(f, None, expected, compressed = true)) 
           }
+          successUnit
         }
         catch {
           case NonFatal(e) => Failure(e)

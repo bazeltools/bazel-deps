@@ -15,7 +15,7 @@ object MakeDeps {
 
   private[this] val logger = LoggerFactory.getLogger("MakeDeps")
 
-  def apply(g: Command.GenerateLike): Unit = {
+  def apply(g: Command.Generate): Unit = {
 
     val content: String = Model.readFile(g.absDepsFile) match {
       case Success(str) => str
@@ -88,33 +88,61 @@ object MakeDeps {
 
         // build the workspace
         val ws = Writer.workspace(g.depsFile, normalized, duplicates, shas, model)
-        g match {
-          case check: Command.CheckGen =>
-            executeCheckOnly(model, projectRoot, IO.path(check.shaFilePath), ws, targets, formatter)
-          case g: Command.Generate =>
-            // creates pom xml when path is provided
-            val pomIO = IO.orUnit(g.pomFile.map { fileName => CreatePom.writeIO(normalized, IO.path(fileName)) })
-            val io = executeGenerate(
-              model,
-              g.shaFilePath.map(IO.path(_)),
-              g.targetFile.map(IO.path(_)),
-              g.enable3rdPartyInRepo,
-              ws,
-              targets,
-              formatter,
-              g.resolvedOutput.map(IO.path),
-              artifacts) >> pomIO
+        // creates pom xml when path is provided
+        val pomIO = IO.orUnit(g.pomFile.map { fileName => CreatePom.writeIO(normalized, IO.path(fileName)) })
+        val io = executeGenerate(
+          model,
+          g.shaFilePath.map(IO.path(_)),
+          g.targetFile.map(IO.path(_)),
+          g.enable3rdPartyInRepo,
+          ws,
+          targets,
+          formatter,
+          g.resolvedOutput.map(IO.path),
+          artifacts) >> pomIO
 
-            // Here we actually run the whole thing
-            io.foldMap(IO.fileSystemExec(projectRoot)) match {
-              case Failure(err) =>
-                logger.error("Failure during IO:", err)
-                System.exit(-1)
-              case Success(_) =>
-                println(s"wrote ${artifacts.size} targets")
+        if (g.checkOnly) {
+          val check = new IO.ReadCheckExec(projectRoot)
+          val res = io.foldMap(check)
+
+          def show(): Int = {
+            // this is reading mutable state, so it has to run
+            // after foldMap
+            val errs = check.checkExceptions()
+            val sz = errs.size
+            if (sz != 0) {
+              logger.error(s"found $sz errors")
+              check.checkExceptions().sortBy(_.path).foreach { ce =>
+                logger.error(s"${ce.message}")
+              }
             }
+
+            sz
+          }
+
+          res match {
+            case Failure(err) =>
+              logger.error("Failure during IO:", err)
+              show()
+              System.exit(-1)
+            case Success(_) =>
+              println(s"checked ${artifacts.size} targets")
+              val errs = show()
+              if (errs != 0) System.exit(2) // this error got assigned error 2 somehow
+          }
         }
-    }
+        else {
+          val exec = new IO.ReadWriteExec(projectRoot)
+          // Here we actually run the whole thing
+          io.foldMap(exec) match {
+            case Failure(err) =>
+              logger.error("Failure during IO:", err)
+              System.exit(-1)
+            case Success(_) =>
+              println(s"wrote ${artifacts.size} targets")
+          }
+        }
+      }
   }
 
   private def resolverCachePath(model: Model, projectRoot: File): Try[Path] =
@@ -262,37 +290,6 @@ object MakeDeps {
   }
 
   case class AllArtifacts(artifacts: List[ArtifactEntry])
-
-
-  private def executeCheckOnly(
-      model: Model,
-      projectRoot: File,
-      workspacePath: IO.Path, 
-      workspaceContents: String,
-      targets: List[Target],
-      formatter: Writer.BuildFileFormatter): Unit = {
-    // Build up the IO operations that need to run.
-    val io = for {
-      wsOK <- IO.compare(workspacePath, workspaceContents)
-      wsbOK <- IO.compare(workspacePath.sibling("BUILD"), "")
-      buildsOK <- Writer.compareBuildFiles(model.getOptions.getBuildHeader, targets, formatter, model.getOptions.getBuildFileName)
-    } yield wsOK :: wsbOK :: buildsOK
-
-    // Here we actually run the whole thing
-    io.foldMap(IO.fileSystemExec(projectRoot)) match {
-      case Failure(err) =>
-        logger.error("Failure during IO:", err)
-        System.exit(-1)
-      case Success(comparisons) =>
-        val mismatchedFiles = comparisons.filter(!_.ok)
-        if (mismatchedFiles.isEmpty) {
-          println(s"all ${comparisons.size} generated files are up-to-date")
-        } else {
-          logger.error(s"some generated files are not up-to-date:\n${mismatchedFiles.map(_.path.asString).sorted.mkString("\n")}")
-          System.exit(2)
-        }
-    }
-  }
 
   private def executeGenerate(
       model: Model,

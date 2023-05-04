@@ -104,18 +104,6 @@ object Writer {
       .mkString(withNewline(buildHeader), "\n\n", "\n"))
   }
 
-  def compareBuildFiles(buildHeader: String, ts: List[Target], formatter: BuildFileFormatter, buildFileName: String): Result[List[IO.FileComparison]] = {
-    val pathGroups = ts.groupBy(_.name.path).toList
-
-    Traverse[List].traverse(pathGroups) {
-      case (filePath, ts) =>
-        def data(bf: IO.Path) = buildFileContents(bf, buildHeader, ts, formatter)
-
-        val bf = filePath.child(buildFileName)
-        IO.compare(bf, data(bf))
-    }
-  }
-
   def createBuildFilesAndTargetFile(buildHeader: String, ts: List[Target], targetFileOpt: Option[IO.Path], enable3rdPartyInRepo: Boolean, thirdPartyDirectory: DirectoryName, formatter: BuildFileFormatter, buildFileName: String): Result[Int] = {
     val with3rdpartyPrinted = if (enable3rdPartyInRepo) {
       createBuildFiles(buildHeader, ts, formatter, buildFileName)
