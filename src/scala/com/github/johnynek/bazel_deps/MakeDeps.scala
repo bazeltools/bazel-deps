@@ -4,7 +4,7 @@ import coursier.util.Task
 import io.circe.jawn.JawnParser
 import java.io.File
 import java.nio.file.{Path, Paths}
-import org.slf4j.LoggerFactory
+import org.slf4j.{Logger, LoggerFactory}
 import scala.collection.immutable.SortedMap
 import scala.sys.process.{BasicIO, Process, ProcessIO}
 import scala.util.{Failure, Success, Try}
@@ -13,7 +13,7 @@ import cats.implicits._
 
 object MakeDeps {
 
-  private[this] val logger = LoggerFactory.getLogger("MakeDeps")
+  private[this] val logger: Logger = LoggerFactory.getLogger("MakeDeps")
 
   def apply(g: Command.Generate): Unit = {
 
@@ -103,32 +103,19 @@ object MakeDeps {
 
         if (g.checkOnly) {
           val check = new IO.ReadCheckExec(projectRoot)
-          val res = io.foldMap(check)
-
-          def show(): Int = {
-            // this is reading mutable state, so it has to run
-            // after foldMap
-            val errs = check.checkExceptions()
-            val sz = errs.size
-            if (sz != 0) {
-              logger.error(s"found $sz errors")
-              check.checkExceptions().sortBy(_.path).foreach { ce =>
-                logger.error(s"${ce.message}")
-              }
-            }
-
-            sz
-          }
-
-          res match {
+          io.foldMap(check) match {
             case Failure(err) =>
               logger.error("Failure during IO:", err)
-              show()
+              val errs = check.logErrorCount { ce => logger.error(ce.message) }
+              logger.error(s"found $errs errors.")
               System.exit(-1)
             case Success(_) =>
               println(s"checked ${artifacts.size} targets")
-              val errs = show()
-              if (errs != 0) System.exit(2) // this error got assigned error 2 somehow
+              val errs = check.logErrorCount { ce => logger.error(ce.message) }
+              if (errs != 0) {
+                logger.error(s"found $errs errors.")
+                System.exit(2) // this error got assigned error 2 somehow
+              }
           }
         }
         else {

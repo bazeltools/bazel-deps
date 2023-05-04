@@ -101,27 +101,16 @@ object IO {
   def readUtf8(f: Path): Result[Option[String]] =
     liftF[Ops, Option[String]](ReadFile(f))
 
-  def run[A](io: Result[A], root: File)(resume: A => Unit): Unit =
-    io.foldMap(IO.fileSystemExec(root)) match {
-      case Failure(err) =>
-        logger.error("Failure during IO:", err)
-        System.exit(-1)
-      case Success(result) =>
-        resume(result)
-        System.exit(0)
-    }
-
-  def orConst[A](optIO: Option[Result[A]], a: A): Result[A] =
+  def orUnit(optIO: Option[Result[Unit]]): Result[Unit] =
     optIO match {
       case Some(io) => io
-      case None => IO.const(a)
+      case None => IO.const(())
     }
-
-  def orUnit(optIO: Option[Result[Unit]]): Result[Unit] =
-    orConst(optIO, ())
 
   def fileSystemExec(root: File): FunctionK[Ops, Try] =
     new ReadWriteExec(root)
+
+  final case class ReadOnlyException[A](op: Ops[A]) extends Exception(s"invalid op = $op in read-only mode")
 
   class ReadOnlyExec(root: File) extends FunctionK[Ops, Try] {
     require(root.isAbsolute, s"Absolute path required, found: $root")
@@ -142,10 +131,7 @@ object IO {
         })
       case Failed(err) => Failure(err)
       // The following are not read only
-      case MkDirs(f) => Try(!fileFor(f).exists())
-      case RmRf(_, _) => successUnit
-      case WriteFile(_, _) => successUnit
-      case WriteGzipFile(_, _) => successUnit
+      case _ => Failure(ReadOnlyException(o))
     }
   }
 
@@ -156,7 +142,6 @@ object IO {
         Try {
           // get the java path
           val file = fileFor(f)
-          // require(file.isDirectory, s"$f is not a directory")
           val path = file.toPath
           if (!removeHidden) {
             Files.walkFileTree(
@@ -222,7 +207,7 @@ object IO {
   object CheckException {
     case class DirectoryMissing(path: IO.Path) extends CheckException(s"directory ${path.asString} expected but missing")
     case class WriteMismatch(path: IO.Path, current: Option[String], expected: String, compressed: Boolean) extends CheckException(
-      (if (compressed) "compressed " else "") + s"file ${path.asString} didn't match."
+      (if (compressed) "compressed " else "") + s"file ${path.asString} does not " + (if (current.isEmpty) "exist." else "match.")
     )
   }
   // This reads, but doesn't write. Instead it errors if the
@@ -234,6 +219,13 @@ object IO {
     private def add(ce: CheckException): Unit =
       lock.synchronized { ces = ces :+ ce }
 
+    def logErrorCount(onEx: CheckException => Unit): Int = {
+      // this is reading mutable state, so it has to run
+      // after foldMap
+      val errs = checkExceptions()
+      errs.sortBy(_.path).foreach(onEx)
+      errs.size
+    }
     override def apply[A](o: Ops[A]): Try[A] = o match {
       case MkDirs(f) =>
         try {
