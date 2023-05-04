@@ -1,4 +1,5 @@
 # Do not edit. bazel-deps autogenerates this file from.
+
 _JAVA_LIBRARY_TEMPLATE = """
 java_library(
   name = "{name}",
