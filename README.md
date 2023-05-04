@@ -33,7 +33,7 @@ edit these by hand, and instead have a separate directory for any exceptions tha
 along with [Replacements](#replacements). For instance, this project is setup with:
 
 ```bash
-bazel run //:parse -- generate -r `pwd` -s 3rdparty/workspace.bzl -d dependencies.yaml
+./bazel run //:parse -- generate -r `pwd` -s 3rdparty/workspace.bzl -d dependencies.yaml
 ```
 
 We give three arguments: the path to the file we will include in our workspace. The path to the root
@@ -53,7 +53,7 @@ dependencies you need to do the following:
 
 ```bash
 cd $BAZEL_DEPS
-bazel run //:parse generate -- --repo-root "$MY_PROJ_DIR" --sha-file 3rdparty/workspace.bzl --deps dependencies.yaml
+./bazel run //:parse generate -- --repo-root "$MY_PROJ_DIR" --sha-file 3rdparty/workspace.bzl --deps dependencies.yaml
 ```
 
 The final result in `MY_PROJ_DIR` will look like this

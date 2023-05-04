@@ -93,9 +93,26 @@ object MakeDeps {
             executeCheckOnly(model, projectRoot, IO.path(check.shaFilePath), ws, targets, formatter)
           case g: Command.Generate =>
             // creates pom xml when path is provided
-            g.pomFile.foreach { fileName => CreatePom(normalized, fileName) }
-            executeGenerate(model, projectRoot, g.shaFilePath.map(IO.path(_)), g.targetFile.map(IO.path(_)), g.enable3rdPartyInRepo, ws, targets, formatter, g.resolvedOutput.map(IO.path),
-              artifacts)
+            val pomIO = IO.orUnit(g.pomFile.map { fileName => CreatePom.writeIO(normalized, IO.path(fileName)) })
+            val io = executeGenerate(
+              model,
+              g.shaFilePath.map(IO.path(_)),
+              g.targetFile.map(IO.path(_)),
+              g.enable3rdPartyInRepo,
+              ws,
+              targets,
+              formatter,
+              g.resolvedOutput.map(IO.path),
+              artifacts) >> pomIO
+
+            // Here we actually run the whole thing
+            io.foldMap(IO.fileSystemExec(projectRoot)) match {
+              case Failure(err) =>
+                logger.error("Failure during IO:", err)
+                System.exit(-1)
+              case Success(_) =>
+                println(s"wrote ${artifacts.size} targets")
+            }
         }
     }
   }
@@ -279,7 +296,6 @@ object MakeDeps {
 
   private def executeGenerate(
       model: Model,
-      projectRoot: File,
       workspacePath: Option[IO.Path],
       targetFileOpt: Option[IO.Path],
       enable3rdPartyInRepo: Boolean,
@@ -288,52 +304,37 @@ object MakeDeps {
       formatter: Writer.BuildFileFormatter,
       resolvedJsonOutputPathOption: Option[IO.Path],
       artifacts: List[ArtifactEntry]
-  ): Unit = {
+  ): IO.Result[Unit] = {
     import _root_.io.circe.syntax._
     import _root_.io.circe.generic.auto._
 
     val buildFileName = model.getOptions.getBuildFileName
-    val buildIO = workspacePath.map { wp =>
-      for {
-        originalBuildFile <- IO.readUtf8(wp.sibling(buildFileName))
-        // If the 3rdparty directory is empty we shouldn't wipe out the current working directory.
-        _ <- if (enable3rdPartyInRepo && model.getOptions.getThirdPartyDirectory.parts.nonEmpty) IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts), false) else IO.const(0)
-        _ <- IO.mkdirs(wp.parent)
-        _ <- IO.writeUtf8(wp, workspaceContents)
-        _ <- IO.writeUtf8(wp.sibling(buildFileName), originalBuildFile.getOrElse(""))
-        builds <- Writer.createBuildFilesAndTargetFile(model.getOptions.getBuildHeader, targets, targetFileOpt, enable3rdPartyInRepo, model.getOptions.getThirdPartyDirectory, formatter, buildFileName)
-      } yield builds
-    }
 
-    val artifactsIoOption = resolvedJsonOutputPathOption.map {
-      resolvedJsonOutputPath =>
+    for {
+      _ <- IO.orUnit(workspacePath.map { wp =>
+        for {
+          originalBuildFile <- IO.readUtf8(wp.sibling(buildFileName))
+          _ <- IO.mkdirs(wp.parent)
+          _ <- IO.writeUtf8(wp, workspaceContents)
+          _ <- IO.writeUtf8(wp.sibling(buildFileName), originalBuildFile.getOrElse(""))
+        } yield ()
+      })
+      // If the 3rdparty directory is empty we shouldn't wipe out the current working directory.
+      _ <- if (enable3rdPartyInRepo && model.getOptions.getThirdPartyDirectory.parts.nonEmpty) IO.recursiveRmF(IO.Path(model.getOptions.getThirdPartyDirectory.parts), false) else IO.const(0)
+      _ <- Writer.createBuildFilesAndTargetFile(model.getOptions.getBuildHeader, targets, targetFileOpt, enable3rdPartyInRepo, model.getOptions.getThirdPartyDirectory, formatter, buildFileName)
+      _ <- IO.orUnit(resolvedJsonOutputPathOption.map { resolvedJsonOutputPath =>
         for {
           b <- IO.exists(resolvedJsonOutputPath.parent)
           _ <- if (b) IO.const(false) else IO.mkdirs(resolvedJsonOutputPath.parent)
           allArtifacts = AllArtifacts(artifacts.sortBy(_.artifact))
-          artifactsJson = allArtifacts.asJson
+          artifactsJson = allArtifacts.asJson.spaces2
           _ <- if (resolvedJsonOutputPath.extension.endsWith(".gz")) {
-            IO.writeGzipUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
+            IO.writeGzipUtf8(resolvedJsonOutputPath, artifactsJson)
           } else {
-            IO.writeUtf8(resolvedJsonOutputPath, artifactsJson.spaces2)
+            IO.writeUtf8(resolvedJsonOutputPath, artifactsJson)
           }
         } yield ()
-    }
-
-    // Here we actually run the whole thing
-    buildIO.foreach(_.foldMap(IO.fileSystemExec(projectRoot)) match {
-      case Failure(err) =>
-        logger.error("Failure during IO:", err)
-        System.exit(-1)
-      case Success(_) =>
-        println(s"wrote ${artifacts.size} targets")
-    })
-    artifactsIoOption.foreach(_.foldMap(IO.fileSystemExec(projectRoot)) match {
-      case Failure(err) =>
-        logger.error("Failure during IO:", err)
-        System.exit(-1)
-      case Success(_) =>
-        println(s"wrote ${artifacts.size} targets")
-    })
+      })
+    } yield ()
   }
 }

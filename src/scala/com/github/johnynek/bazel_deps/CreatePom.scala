@@ -30,6 +30,9 @@ object CreatePom {
     p.format(pomXml)
   }
 
+  def writeIO(dependencies: Graph[MavenCoordinate, Unit], path: IO.Path): IO.Result[Unit] =
+    IO.writeUtf8(path, translate(dependencies))
+
   def apply(dependencies: Graph[MavenCoordinate, Unit], path: String): Unit = {
     scala.xml.XML.save(
       path,

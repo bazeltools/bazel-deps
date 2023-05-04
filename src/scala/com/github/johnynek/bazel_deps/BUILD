@@ -281,6 +281,7 @@ scala_library(
     deps = [
         ":depsmodel",
         ":graph",
+        ":io",
         "//3rdparty/jvm/org/scala_lang/modules:scala_xml",
     ],
 )
