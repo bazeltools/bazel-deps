@@ -2,14 +2,89 @@
   <modelVersion>4.0.0</modelVersion>
   <dependencies>
     <dependency>
-      <groupId>org.sonatype.plexus</groupId>
-      <artifactId>plexus-cipher</artifactId>
-      <version>1.7</version>
+      <groupId>com.chuusai</groupId>
+      <artifactId>shapeless_2.11</artifactId>
+      <version>2.3.3</version>
     </dependency>
     <dependency>
-      <groupId>org.eclipse.aether</groupId>
-      <artifactId>aether-impl</artifactId>
-      <version>1.1.0</version>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-annotations</artifactId>
+      <version>2.10.5</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-core</artifactId>
+      <version>2.10.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.10.5.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-yaml</artifactId>
+      <version>2.10.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.github.alexarchambault</groupId>
+      <artifactId>argonaut-shapeless_6.2_2.11</artifactId>
+      <version>1.2.0-M11</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>18.0</version>
+    </dependency>
+    <dependency>
+      <groupId>com.monovore</groupId>
+      <artifactId>decline_2.11</artifactId>
+      <version>1.2.0</version>
+    </dependency>
+    <dependency>
+      <groupId>commons-codec</groupId>
+      <artifactId>commons-codec</artifactId>
+      <version>1.6</version>
+    </dependency>
+    <dependency>
+      <groupId>io.argonaut</groupId>
+      <artifactId>argonaut_2.11</artifactId>
+      <version>6.2.3</version>
+    </dependency>
+    <dependency>
+      <groupId>io.circe</groupId>
+      <artifactId>circe-core_2.11</artifactId>
+      <version>0.11.2</version>
+    </dependency>
+    <dependency>
+      <groupId>io.circe</groupId>
+      <artifactId>circe-generic_2.11</artifactId>
+      <version>0.11.2</version>
+    </dependency>
+    <dependency>
+      <groupId>io.circe</groupId>
+      <artifactId>circe-jackson210_2.11</artifactId>
+      <version>0.11.2</version>
+    </dependency>
+    <dependency>
+      <groupId>io.circe</groupId>
+      <artifactId>circe-jawn_2.11</artifactId>
+      <version>0.11.2</version>
+    </dependency>
+    <dependency>
+      <groupId>io.circe</groupId>
+      <artifactId>circe-numbers_2.11</artifactId>
+      <version>0.11.2</version>
+    </dependency>
+    <dependency>
+      <groupId>io.get-coursier</groupId>
+      <artifactId>coursier-cache_2.11</artifactId>
+      <version>2.0.0-RC4-1</version>
+    </dependency>
+    <dependency>
+      <groupId>io.get-coursier</groupId>
+      <artifactId>coursier-core_2.11</artifactId>
+      <version>2.0.0-RC4-1</version>
     </dependency>
     <dependency>
       <groupId>io.get-coursier</groupId>
@@ -17,9 +92,49 @@
       <version>2.0.0-RC4-1</version>
     </dependency>
     <dependency>
-      <groupId>org.yaml</groupId>
-      <artifactId>snakeyaml</artifactId>
-      <version>1.24</version>
+      <groupId>io.get-coursier</groupId>
+      <artifactId>coursier_2.11</artifactId>
+      <version>2.0.0-RC4-1</version>
+    </dependency>
+    <dependency>
+      <groupId>javax.annotation</groupId>
+      <artifactId>jsr250-api</artifactId>
+      <version>1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>javax.enterprise</groupId>
+      <artifactId>cdi-api</artifactId>
+      <version>1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>javax.inject</groupId>
+      <artifactId>javax.inject</artifactId>
+      <version>1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.4</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient</artifactId>
+      <version>4.3.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpcore</artifactId>
+      <version>4.3.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-aether-provider</artifactId>
+      <version>3.3.9</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-artifact</artifactId>
+      <version>3.3.9</version>
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
@@ -27,54 +142,84 @@
       <version>3.3.9</version>
     </dependency>
     <dependency>
-      <groupId>org.typelevel</groupId>
-      <artifactId>cats-effect_2.11</artifactId>
-      <version>2.0.0</version>
-    </dependency>
-    <dependency>
-      <groupId>io.get-coursier</groupId>
-      <artifactId>coursier_2.11</artifactId>
-      <version>2.0.0-RC4-1</version>
-    </dependency>
-    <dependency>
-      <groupId>org.scala-sbt</groupId>
-      <artifactId>test-interface</artifactId>
-      <version>1.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.typelevel</groupId>
-      <artifactId>cats-kernel_2.11</artifactId>
-      <version>2.0.0</version>
-    </dependency>
-    <dependency>
       <groupId>org.apache.maven</groupId>
       <artifactId>maven-model</artifactId>
       <version>3.3.9</version>
     </dependency>
     <dependency>
-      <groupId>org.scala-lang.modules</groupId>
-      <artifactId>scala-parser-combinators_2.11</artifactId>
-      <version>1.0.4</version>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-model-builder</artifactId>
+      <version>3.3.9</version>
     </dependency>
     <dependency>
-      <groupId>org.spire-math</groupId>
-      <artifactId>kind-projector_2.11</artifactId>
-      <version>0.9.7</version>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-repository-metadata</artifactId>
+      <version>3.3.9</version>
     </dependency>
     <dependency>
-      <groupId>org.scala-lang</groupId>
-      <artifactId>scala-reflect</artifactId>
-      <version>2.11.12</version>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-settings</artifactId>
+      <version>3.3.9</version>
     </dependency>
     <dependency>
-      <groupId>org.typelevel</groupId>
-      <artifactId>jawn-parser_2.11</artifactId>
-      <version>0.14.1</version>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-settings-builder</artifactId>
+      <version>3.3.9</version>
     </dependency>
     <dependency>
-      <groupId>io.circe</groupId>
-      <artifactId>circe-jackson210_2.11</artifactId>
-      <version>0.11.2</version>
+      <groupId>org.codehaus.plexus</groupId>
+      <artifactId>plexus-classworlds</artifactId>
+      <version>2.5.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.plexus</groupId>
+      <artifactId>plexus-component-annotations</artifactId>
+      <version>1.6</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.plexus</groupId>
+      <artifactId>plexus-interpolation</artifactId>
+      <version>1.21</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.plexus</groupId>
+      <artifactId>plexus-utils</artifactId>
+      <version>3.0.22</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.aether</groupId>
+      <artifactId>aether-api</artifactId>
+      <version>1.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.aether</groupId>
+      <artifactId>aether-connector-basic</artifactId>
+      <version>1.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.aether</groupId>
+      <artifactId>aether-impl</artifactId>
+      <version>1.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.aether</groupId>
+      <artifactId>aether-spi</artifactId>
+      <version>1.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.aether</groupId>
+      <artifactId>aether-transport-file</artifactId>
+      <version>1.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.aether</groupId>
+      <artifactId>aether-transport-http</artifactId>
+      <version>1.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.aether</groupId>
+      <artifactId>aether-util</artifactId>
+      <version>1.1.0</version>
     </dependency>
     <dependency>
       <groupId>org.eclipse.sisu</groupId>
@@ -87,29 +232,79 @@
       <version>0.3.0</version>
     </dependency>
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>1.7.25</version>
-    </dependency>
-    <dependency>
-      <groupId>javax.inject</groupId>
-      <artifactId>javax.inject</artifactId>
-      <version>1</version>
-    </dependency>
-    <dependency>
-      <groupId>io.circe</groupId>
-      <artifactId>circe-jawn_2.11</artifactId>
-      <version>0.11.2</version>
-    </dependency>
-    <dependency>
       <groupId>org.scala-lang</groupId>
       <artifactId>scala-compiler</artifactId>
       <version>2.11.12</version>
     </dependency>
     <dependency>
-      <groupId>org.eclipse.aether</groupId>
-      <artifactId>aether-api</artifactId>
-      <version>1.1.0</version>
+      <groupId>org.scala-lang</groupId>
+      <artifactId>scala-library</artifactId>
+      <version>2.11.12</version>
+    </dependency>
+    <dependency>
+      <groupId>org.scala-lang</groupId>
+      <artifactId>scala-reflect</artifactId>
+      <version>2.11.12</version>
+    </dependency>
+    <dependency>
+      <groupId>org.scala-lang.modules</groupId>
+      <artifactId>scala-parser-combinators_2.11</artifactId>
+      <version>1.0.4</version>
+    </dependency>
+    <dependency>
+      <groupId>org.scala-lang.modules</groupId>
+      <artifactId>scala-xml_2.11</artifactId>
+      <version>1.0.6</version>
+    </dependency>
+    <dependency>
+      <groupId>org.scala-sbt</groupId>
+      <artifactId>test-interface</artifactId>
+      <version>1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.scalacheck</groupId>
+      <artifactId>scalacheck_2.11</artifactId>
+      <version>1.13.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.scalactic</groupId>
+      <artifactId>scalactic_2.11</artifactId>
+      <version>3.0.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.scalatest</groupId>
+      <artifactId>scalatest_2.11</artifactId>
+      <version>3.0.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>jcl-over-slf4j</artifactId>
+      <version>1.6.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.25</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>1.7.25</version>
+    </dependency>
+    <dependency>
+      <groupId>org.sonatype.plexus</groupId>
+      <artifactId>plexus-cipher</artifactId>
+      <version>1.7</version>
+    </dependency>
+    <dependency>
+      <groupId>org.sonatype.plexus</groupId>
+      <artifactId>plexus-sec-dispatcher</artifactId>
+      <version>1.3</version>
+    </dependency>
+    <dependency>
+      <groupId>org.spire-math</groupId>
+      <artifactId>kind-projector_2.11</artifactId>
+      <version>0.9.7</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
@@ -118,183 +313,8 @@
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
-      <artifactId>macro-compat_2.11</artifactId>
-      <version>1.1.1</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-lang3</artifactId>
-      <version>3.4</version>
-    </dependency>
-    <dependency>
-      <groupId>org.typelevel</groupId>
-      <artifactId>paiges-core_2.11</artifactId>
-      <version>0.2.1</version>
-    </dependency>
-    <dependency>
-      <groupId>org.scala-lang.modules</groupId>
-      <artifactId>scala-xml_2.11</artifactId>
-      <version>1.0.6</version>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-simple</artifactId>
-      <version>1.7.25</version>
-    </dependency>
-    <dependency>
-      <groupId>io.circe</groupId>
-      <artifactId>circe-numbers_2.11</artifactId>
-      <version>0.11.2</version>
-    </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-annotations</artifactId>
-      <version>2.10.5</version>
-    </dependency>
-    <dependency>
-      <groupId>com.monovore</groupId>
-      <artifactId>decline_2.11</artifactId>
-      <version>1.2.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.sonatype.plexus</groupId>
-      <artifactId>plexus-sec-dispatcher</artifactId>
-      <version>1.3</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.maven</groupId>
-      <artifactId>maven-model-builder</artifactId>
-      <version>3.3.9</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.maven</groupId>
-      <artifactId>maven-artifact</artifactId>
-      <version>3.3.9</version>
-    </dependency>
-    <dependency>
-      <groupId>org.scala-lang</groupId>
-      <artifactId>scala-library</artifactId>
-      <version>2.11.12</version>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.aether</groupId>
-      <artifactId>aether-transport-http</artifactId>
-      <version>1.1.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.httpcomponents</groupId>
-      <artifactId>httpclient</artifactId>
-      <version>4.3.5</version>
-    </dependency>
-    <dependency>
-      <groupId>commons-codec</groupId>
-      <artifactId>commons-codec</artifactId>
-      <version>1.6</version>
-    </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.dataformat</groupId>
-      <artifactId>jackson-dataformat-yaml</artifactId>
-      <version>2.10.1</version>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.aether</groupId>
-      <artifactId>aether-transport-file</artifactId>
-      <version>1.1.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-databind</artifactId>
-      <version>2.10.5.1</version>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>jcl-over-slf4j</artifactId>
-      <version>1.6.2</version>
-    </dependency>
-    <dependency>
-      <groupId>org.codehaus.plexus</groupId>
-      <artifactId>plexus-utils</artifactId>
-      <version>3.0.22</version>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.aether</groupId>
-      <artifactId>aether-connector-basic</artifactId>
-      <version>1.1.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.scalactic</groupId>
-      <artifactId>scalactic_2.11</artifactId>
-      <version>3.0.5</version>
-    </dependency>
-    <dependency>
-      <groupId>javax.annotation</groupId>
-      <artifactId>jsr250-api</artifactId>
-      <version>1.0</version>
-    </dependency>
-    <dependency>
-      <groupId>io.circe</groupId>
-      <artifactId>circe-generic_2.11</artifactId>
-      <version>0.11.2</version>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.aether</groupId>
-      <artifactId>aether-spi</artifactId>
-      <version>1.1.0</version>
-    </dependency>
-    <dependency>
-      <groupId>javax.enterprise</groupId>
-      <artifactId>cdi-api</artifactId>
-      <version>1.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.codehaus.plexus</groupId>
-      <artifactId>plexus-component-annotations</artifactId>
-      <version>1.6</version>
-    </dependency>
-    <dependency>
-      <groupId>org.scalatest</groupId>
-      <artifactId>scalatest_2.11</artifactId>
-      <version>3.0.5</version>
-    </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-core</artifactId>
-      <version>2.10.1</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.httpcomponents</groupId>
-      <artifactId>httpcore</artifactId>
-      <version>4.3.2</version>
-    </dependency>
-    <dependency>
-      <groupId>org.codehaus.plexus</groupId>
-      <artifactId>plexus-interpolation</artifactId>
-      <version>1.21</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.maven</groupId>
-      <artifactId>maven-settings-builder</artifactId>
-      <version>3.3.9</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.maven</groupId>
-      <artifactId>maven-aether-provider</artifactId>
-      <version>3.3.9</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.maven</groupId>
-      <artifactId>maven-settings</artifactId>
-      <version>3.3.9</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.maven</groupId>
-      <artifactId>maven-repository-metadata</artifactId>
-      <version>3.3.9</version>
-    </dependency>
-    <dependency>
-      <groupId>io.argonaut</groupId>
-      <artifactId>argonaut_2.11</artifactId>
-      <version>6.2.3</version>
+      <artifactId>cats-effect_2.11</artifactId>
+      <version>2.0.0</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
@@ -303,53 +323,33 @@
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
+      <artifactId>cats-kernel_2.11</artifactId>
+      <version>2.0.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.typelevel</groupId>
       <artifactId>cats-macros_2.11</artifactId>
       <version>2.0.0</version>
     </dependency>
     <dependency>
-      <groupId>org.codehaus.plexus</groupId>
-      <artifactId>plexus-classworlds</artifactId>
-      <version>2.5.2</version>
+      <groupId>org.typelevel</groupId>
+      <artifactId>jawn-parser_2.11</artifactId>
+      <version>0.14.1</version>
     </dependency>
     <dependency>
-      <groupId>io.get-coursier</groupId>
-      <artifactId>coursier-cache_2.11</artifactId>
-      <version>2.0.0-RC4-1</version>
+      <groupId>org.typelevel</groupId>
+      <artifactId>macro-compat_2.11</artifactId>
+      <version>1.1.1</version>
     </dependency>
     <dependency>
-      <groupId>com.github.alexarchambault</groupId>
-      <artifactId>argonaut-shapeless_6.2_2.11</artifactId>
-      <version>1.2.0-M11</version>
+      <groupId>org.typelevel</groupId>
+      <artifactId>paiges-core_2.11</artifactId>
+      <version>0.2.1</version>
     </dependency>
     <dependency>
-      <groupId>org.scalacheck</groupId>
-      <artifactId>scalacheck_2.11</artifactId>
-      <version>1.13.5</version>
-    </dependency>
-    <dependency>
-      <groupId>io.get-coursier</groupId>
-      <artifactId>coursier-core_2.11</artifactId>
-      <version>2.0.0-RC4-1</version>
-    </dependency>
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <version>18.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.chuusai</groupId>
-      <artifactId>shapeless_2.11</artifactId>
-      <version>2.3.3</version>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.aether</groupId>
-      <artifactId>aether-util</artifactId>
-      <version>1.1.0</version>
-    </dependency>
-    <dependency>
-      <groupId>io.circe</groupId>
-      <artifactId>circe-core_2.11</artifactId>
-      <version>0.11.2</version>
+      <groupId>org.yaml</groupId>
+      <artifactId>snakeyaml</artifactId>
+      <version>1.24</version>
     </dependency>
   </dependencies>
 </project>
