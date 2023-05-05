@@ -3,7 +3,7 @@ package com.github.johnynek.bazel_deps
 import java.util.regex.Pattern
 
 import cats.Traverse
-import com.github.johnynek.bazel_deps.IO.Result
+import com.github.johnynek.bazel_deps.FS.Result
 import org.typelevel.paiges.Doc
 import cats.implicits._
 
@@ -27,11 +27,11 @@ object Target {
   sealed abstract class Kind(override val toString: String)
   object Kind {
     def parse(str: String): Result[Kind] = str match {
-      case "library" => IO.const(Library)
-      case "import" => IO.const(Import)
-      case "test" => IO.const(Test)
-      case "binary" => IO.const(Binary)
-      case other => IO.failed(new IllegalArgumentException(s"unexpected library kind: $other"))
+      case "library" => FS.const(Library)
+      case "import" => FS.const(Import)
+      case "test" => FS.const(Test)
+      case "binary" => FS.const(Binary)
+      case other => FS.failed(new IllegalArgumentException(s"unexpected library kind: $other"))
     }
   }
   case object Library extends Kind("library")
@@ -45,10 +45,10 @@ object Target {
   }
   object SourceList {
     def parseStringList(l: List[String]): Result[SourceList] = l match {
-      case Nil => IO.const(SourceList.Empty)
-      case "E" :: t => IO.const(SourceList.Explicit(t.toSet))
-      case "G" :: t => IO.const(SourceList.Globs(t))
-      case o => IO.failed(new Exception(s"Unable to parse $o as a Source list."))
+      case Nil => FS.const(SourceList.Empty)
+      case "E" :: t => FS.const(SourceList.Explicit(t.toSet))
+      case "G" :: t => FS.const(SourceList.Globs(t))
+      case o => FS.failed(new Exception(s"Unable to parse $o as a Source list."))
     }
 
     case object Empty extends SourceList {
@@ -85,47 +85,47 @@ object Target {
     case class SubPackages(of: Label) extends Visibility(s"${of.packageLabel.fromRoot}:__subpackages__")
     def parse(str: String): Result[Visibility] =
       str match {
-        case "//visibility:public" => IO.const(Public)
-        case e if e.endsWith(":__subpackages__") => IO.const(SubPackages(Label.parse(e.dropRight(":__subpackages__".size))))
-        case o => IO.failed(new Exception(s"Unable to parse visibility: $o"))
+        case "//visibility:public" => FS.const(Public)
+        case e if e.endsWith(":__subpackages__") => FS.const(SubPackages(Label.parse(e.dropRight(":__subpackages__".size))))
+        case o => FS.failed(new Exception(s"Unable to parse visibility: $o"))
       }
   }
 
   private[this] def parseLanguage(language: String): Result[Language] = language match {
-    case "kotlin" => IO.const(Language.Kotlin)
-    case "java" => IO.const(Language.Java)
+    case "kotlin" => FS.const(Language.Kotlin)
+    case "java" => FS.const(Language.Java)
     case e if e.startsWith("scala") =>
       e.split(":").toList match {
-        case "scala" :: v :: Nil => IO.const(Language.Scala(Version.apply(v), true))
-        case "scala/unmangled" :: v :: Nil => IO.const(Language.Scala(Version.apply(v), true))
-        case o => IO.failed(new Exception(s"Unable to parse scala configuration string: $e"))
+        case "scala" :: v :: Nil => FS.const(Language.Scala(Version.apply(v), true))
+        case "scala/unmangled" :: v :: Nil => FS.const(Language.Scala(Version.apply(v), true))
+        case o => FS.failed(new Exception(s"Unable to parse scala configuration string: $e"))
       }
-    case o => IO.failed(new Exception(s"Unable to parse language for $o"))
+    case o => FS.failed(new Exception(s"Unable to parse language for $o"))
   }
 
   def fromListStringEncoding(rawSep: String, encodedContent: List[String]): Result[Target] = {
     val seperator = Pattern.quote(rawSep)
     val resultV: Result[Map[String, List[String]]] = Traverse[List].traverse(encodedContent) { ln: String =>
       val res: Result[(String, List[String])] = ln.split(seperator).toList match {
-        case Nil => IO.failed(new Exception("Got empty content"))
-        case h :: "" :: e :: Nil => IO.const((h, List(e)))
-        case h :: "B" :: e :: Nil => IO.const((h, List(e)))
-        case h :: "L" :: t => IO.const((h, t))
-        case o => IO.failed(new Exception(s"Unable to parse passed input: $o"))
+        case Nil => FS.failed(new Exception("Got empty content"))
+        case h :: "" :: e :: Nil => FS.const((h, List(e)))
+        case h :: "B" :: e :: Nil => FS.const((h, List(e)))
+        case h :: "L" :: t => FS.const((h, t))
+        case o => FS.failed(new Exception(s"Unable to parse passed input: $o"))
       }
       res
     }.map(_.toMap)
     resultV.flatMap { entries =>
       def get(name: String): Result[List[String]] =
         entries.get(name) match {
-          case Some(e) => IO.const(e)
-          case None => IO.failed(new Exception(s"Unable to find $name in input map, likely invalid data"))
+          case Some(e) => FS.const(e)
+          case None => FS.failed(new Exception(s"Unable to find $name in input map, likely invalid data"))
         }
 
 
       def optionToResult[T](opt: Option[T]): Result[T] = opt match {
-        case Some(e) => IO.const(e)
-        case None => IO.failed(new Exception("Error accessing empty option"))
+        case Some(e) => FS.const(e)
+        case None => FS.failed(new Exception("Error accessing empty option"))
       }
 
       def getS(name: String): Result[String] =
@@ -133,9 +133,9 @@ object Target {
 
       def getBoolean(name: String): Result[Boolean] =
         getS(name).flatMap {
-          case "true" => IO.const(true)
-          case "false" => IO.const(false)
-          case o => IO.failed(new Exception(s"unable to parse boolean as value $o"))
+          case "true" => FS.const(true)
+          case "false" => FS.const(false)
+          case o => FS.failed(new Exception(s"unable to parse boolean as value $o"))
         }
 
       for {
@@ -195,8 +195,8 @@ case class Target(
   def listStringEncoding(separator: String): Result[List[String]] = {
     def validate(strV: String): Result[Unit] =
       if(strV.contains("|")) {
-        IO.failed(new Exception(s"Unable to encode ${strV} contains a | which isn't supported for bzl file encoding."))
-      } else IO.unit
+        FS.failed(new Exception(s"Unable to encode ${strV} contains a | which isn't supported for bzl file encoding."))
+      } else FS.unit
 
     def withName(name: String, v: String): Result[String] =
       validate(v).map {_ => s"${name}${separator}${separator}$v"}
@@ -210,7 +210,7 @@ case class Target(
       }
 
     def withNameB(name: String, v: Boolean): Result[String] =
-      IO.const(s"${name}${separator}B${separator}$v")
+      FS.const(s"${name}${separator}B${separator}$v")
 
     Traverse[List].sequence(List[Result[String]](
       withName("lang", lang.asReversableString),

@@ -15,11 +15,11 @@ import scala.util.control.NonFatal
 
 import cats.implicits._
 
-/** To enable mocking and testing, we keep IO abstract and then plug in
+/** To enable mocking and testing, we keep file system actions abstract and then plug in
   * implementations
   */
 
-object IO {
+object FS {
   private[this] val logger = LoggerFactory.getLogger("IO")
 
   val charset = "UTF-8"
@@ -104,7 +104,7 @@ object IO {
   def orUnit(optIO: Option[Result[Unit]]): Result[Unit] =
     optIO match {
       case Some(io) => io
-      case None => IO.const(())
+      case None => const(())
     }
 
   def fileSystemExec(root: JPath): FunctionK[Ops, Try] =
@@ -207,12 +207,12 @@ object IO {
   }
 
   sealed abstract class CheckException(val message: String) extends Exception(message) {
-    def path: IO.Path
+    def path: Path
   }
 
   object CheckException {
-    case class DirectoryMissing(path: IO.Path) extends CheckException(s"directory ${path.asString} expected but missing")
-    case class WriteMismatch(path: IO.Path, current: Option[String], expected: String, compressed: Boolean) extends CheckException(
+    case class DirectoryMissing(path: Path) extends CheckException(s"directory ${path.asString} expected but missing")
+    case class WriteMismatch(path: Path, current: Option[String], expected: String, compressed: Boolean) extends CheckException(
       (if (compressed) "compressed " else "") + s"file ${path.asString} does not " + (if (current.isEmpty) "exist." else "match.")
     )
   }

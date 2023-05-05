@@ -7,7 +7,7 @@ object WriterGenerators {
 
   val labelGen: Gen[Label] = for {
     workspace <- Gen.option(Gen.identifier)
-    path <- Gen.listOf(Gen.identifier).map { l => IO.Path(l) }
+    path <- Gen.listOf(Gen.identifier).map { l => FS.Path(l) }
     name <- Gen.identifier
   } yield Label(workspace, path, name)
 
