@@ -9,14 +9,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-18.04]
+        os: [macos-latest, ubuntu-20.04]
         include:
           - os: macos-latest
             graal_url: https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-20.0.0/graalvm-ce-java11-darwin-amd64-20.0.0.tar.gz
             artifact: bazel-deps-macos
             bazel_installer_sha: 967189ebadd6b65b1dd25464fdd4d2fcff7a00e0b776be425b19e283432d7862
             bazel_version: 4.2.1
-          - os: ubuntu-18.04
+          - os: ubuntu-20.04
             graal_url: https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-20.0.0/graalvm-ce-java11-linux-amd64-20.0.0.tar.gz
             artifact: bazel-deps-linux
             bazel_installer_sha: 35f398ad93af2b5eadd4b6b4fd4d4803b726029e572f40c4e1fe736db3de944b
@@ -48,12 +48,18 @@ jobs:
           BAZEL_VERSION: ${{ matrix.bazel_version }}
           BAZEL_INSTALLER_SHA: ${{ matrix.bazel_installer_sha }}
           BAZEL_BIN_LOC: "${{ github.workspace }}/.bazel-cache/bazel-bin"
+      - name: Prepare outputs from platform run
+        run: ./ci_scripts/prepare_output.sh bazel-deps.jar bazel-deps.jar staging-directory
+      - uses: actions/upload-artifact@master
+        with:
+          name: bazel-deps.jar
+          path: staging-directory
       - uses: olafurpg/setup-scala@v10
       - run: jabba install graal-custom@20.0=tgz+${{ matrix.graal_url }}
       - name: Make native image
         run: ./ci_scripts/make_native_artifact.sh  ${{ matrix.graal_url }}
       - name: Prepare outputs from platform run
-        run: ./ci_scripts/prepare_output.sh ${{ matrix.artifact }} staging-directory
+        run: ./ci_scripts/prepare_output.sh bazel-deps ${{ matrix.artifact }} staging-directory
       - uses: actions/upload-artifact@master
         with:
           name: ${{ matrix.artifact }}
@@ -61,7 +67,7 @@ jobs:
   make_release:
     name: Make release
     needs: native-image
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
       - name: Download linux bazel-deps
@@ -73,6 +79,11 @@ jobs:
         uses: actions/download-artifact@v1
         with:
           name: bazel-deps-macos
+          path: downloads
+      - name: Download bazel-deps.jar
+        uses: actions/download-artifact@v1
+        with:
+          name: bazel-deps.jar
           path: downloads
       - name: show downloads
         run : ls -R downloads
@@ -89,5 +100,7 @@ jobs:
             downloads/bazel-deps-macos.sha256
             downloads/bazel-deps-linux
             downloads/bazel-deps-linux.sha256
+            downloads/bazel-deps.jar
+            downloads/bazel-deps.jar.sha256
             update_dependencies.sh
         id: "automatic_releases"
