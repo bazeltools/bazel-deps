@@ -1,14 +1,10 @@
 set -e
 
-
-ARTIFACT_NAME=$1
-OUTPUT_PATH=$2
-
-BINARY=bazel-deps
-
+BINARY=$1
+ARTIFACT_NAME=$2
+OUTPUT_PATH=$3
 
 GENERATED_SHA_256=$(shasum -a 256 $BINARY | awk '{print $1}')
-
 
 mkdir $OUTPUT_PATH
 
