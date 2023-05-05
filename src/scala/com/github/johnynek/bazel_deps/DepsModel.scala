@@ -342,7 +342,7 @@ object JarDescriptor {
         url = url,
         sha1 = Some(sha1),
         sha256 = Some(sha256),
-        fileSizeBytes = Some(f.toFile.length()),
+        fileSizeBytes = Some(Files.size(f)),
         serverId = serverId
       )
     }

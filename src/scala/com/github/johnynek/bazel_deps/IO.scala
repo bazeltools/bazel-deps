@@ -121,11 +121,11 @@ object IO {
       p.parts.foldLeft(root) { (p, element) => p.resolve(element) }
 
     def apply[A](o: Ops[A]): Try[A] = o match {
-      case Exists(f) => Try(jpathFor(f).toFile.exists())
+      case Exists(f) => Try(Files.exists(jpathFor(f)))
       case ReadFile(f) =>
         Try({
           val ff = jpathFor(f)
-          if (ff.toFile.exists)
+          if (Files.exists(ff))
             Some(new String(Files.readAllBytes(ff), charset))
           else None
         })
@@ -137,7 +137,14 @@ object IO {
 
   class ReadWriteExec(root: JPath) extends ReadOnlyExec(root) {
     override def apply[A](o: Ops[A]): Try[A] = o match {
-      case MkDirs(f) => Try(jpathFor(f).toFile.mkdirs())
+      case MkDirs(f) => Try {
+        val path = jpathFor(f)
+        if (Files.exists(path)) false
+        else {
+          Files.createDirectories(path)
+          true
+        }
+      }
       case RmRf(f, removeHidden) =>
         Try {
           // get the java path
@@ -228,7 +235,7 @@ object IO {
     override def apply[A](o: Ops[A]): Try[A] = o match {
       case MkDirs(f) =>
         try {
-          if (jpathFor(f).toFile.exists()) Success(false)
+          if (Files.exists(jpathFor(f))) Success(false)
           else {
             add(CheckException.DirectoryMissing(f))
             Success(true)
@@ -242,7 +249,7 @@ object IO {
         try {
           val expected = d.value
           val ff = jpathFor(f)
-          if (ff.toFile.exists) {
+          if (Files.exists(ff)) {
             val found = new String(Files.readAllBytes(ff), charset)
             if (found != expected) {
               add(CheckException.WriteMismatch(f, Some(found), expected, compressed = false))
@@ -258,11 +265,11 @@ object IO {
         }
       case WriteGzipFile(f, d) =>
         try {
-          val ff = jpathFor(f).toFile
+          val ff = jpathFor(f)
           val expected = d.value
-          if (ff.exists) {
+          if (Files.exists(ff)) {
             import java.util.zip.GZIPInputStream;
-            val is = new GZIPInputStream(new FileInputStream(ff))
+            val is = new GZIPInputStream(new FileInputStream(ff.toFile))
             val os = new ByteArrayOutputStream
             val buffer = new Array[Byte](1 << 12) // 4k
             @annotation.tailrec

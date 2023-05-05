@@ -1,7 +1,7 @@
 package com.github.johnynek.bazel_deps
 
 import java.net.URI
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
 import java.util
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
 import org.apache.maven.settings.Server
@@ -202,7 +202,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path)
                         )
                         .toString
                     ),
-                    fileSizeBytes = Some(f.toFile.length()),
+                    fileSizeBytes = Some(Files.size(f)),
                     sha1 = Some(sha1),
                     sha256 = Some(sha256),
                     serverId = r.getRepository.getId
