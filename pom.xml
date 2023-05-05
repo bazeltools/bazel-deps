@@ -3,7 +3,7 @@
   <dependencies>
     <dependency>
       <groupId>com.chuusai</groupId>
-      <artifactId>shapeless_2.11</artifactId>
+      <artifactId>shapeless_2.12</artifactId>
       <version>2.3.3</version>
     </dependency>
     <dependency>
@@ -28,7 +28,7 @@
     </dependency>
     <dependency>
       <groupId>com.github.alexarchambault</groupId>
-      <artifactId>argonaut-shapeless_6.2_2.11</artifactId>
+      <artifactId>argonaut-shapeless_6.2_2.12</artifactId>
       <version>1.2.0-M11</version>
     </dependency>
     <dependency>
@@ -38,7 +38,7 @@
     </dependency>
     <dependency>
       <groupId>com.monovore</groupId>
-      <artifactId>decline_2.11</artifactId>
+      <artifactId>decline_2.12</artifactId>
       <version>1.2.0</version>
     </dependency>
     <dependency>
@@ -48,52 +48,52 @@
     </dependency>
     <dependency>
       <groupId>io.argonaut</groupId>
-      <artifactId>argonaut_2.11</artifactId>
+      <artifactId>argonaut_2.12</artifactId>
       <version>6.2.3</version>
     </dependency>
     <dependency>
       <groupId>io.circe</groupId>
-      <artifactId>circe-core_2.11</artifactId>
+      <artifactId>circe-core_2.12</artifactId>
       <version>0.11.2</version>
     </dependency>
     <dependency>
       <groupId>io.circe</groupId>
-      <artifactId>circe-generic_2.11</artifactId>
+      <artifactId>circe-generic_2.12</artifactId>
       <version>0.11.2</version>
     </dependency>
     <dependency>
       <groupId>io.circe</groupId>
-      <artifactId>circe-jackson210_2.11</artifactId>
+      <artifactId>circe-jackson210_2.12</artifactId>
       <version>0.11.2</version>
     </dependency>
     <dependency>
       <groupId>io.circe</groupId>
-      <artifactId>circe-jawn_2.11</artifactId>
+      <artifactId>circe-jawn_2.12</artifactId>
       <version>0.11.2</version>
     </dependency>
     <dependency>
       <groupId>io.circe</groupId>
-      <artifactId>circe-numbers_2.11</artifactId>
+      <artifactId>circe-numbers_2.12</artifactId>
       <version>0.11.2</version>
     </dependency>
     <dependency>
       <groupId>io.get-coursier</groupId>
-      <artifactId>coursier-cache_2.11</artifactId>
+      <artifactId>coursier-cache_2.12</artifactId>
       <version>2.0.0-RC4-1</version>
     </dependency>
     <dependency>
       <groupId>io.get-coursier</groupId>
-      <artifactId>coursier-core_2.11</artifactId>
+      <artifactId>coursier-core_2.12</artifactId>
       <version>2.0.0-RC4-1</version>
     </dependency>
     <dependency>
       <groupId>io.get-coursier</groupId>
-      <artifactId>coursier-util_2.11</artifactId>
+      <artifactId>coursier-util_2.12</artifactId>
       <version>2.0.0-RC4-1</version>
     </dependency>
     <dependency>
       <groupId>io.get-coursier</groupId>
-      <artifactId>coursier_2.11</artifactId>
+      <artifactId>coursier_2.12</artifactId>
       <version>2.0.0-RC4-1</version>
     </dependency>
     <dependency>
@@ -234,26 +234,21 @@
     <dependency>
       <groupId>org.scala-lang</groupId>
       <artifactId>scala-compiler</artifactId>
-      <version>2.11.12</version>
+      <version>2.12.6</version>
     </dependency>
     <dependency>
       <groupId>org.scala-lang</groupId>
       <artifactId>scala-library</artifactId>
-      <version>2.11.12</version>
+      <version>2.12.10</version>
     </dependency>
     <dependency>
       <groupId>org.scala-lang</groupId>
       <artifactId>scala-reflect</artifactId>
-      <version>2.11.12</version>
+      <version>2.12.8</version>
     </dependency>
     <dependency>
       <groupId>org.scala-lang.modules</groupId>
-      <artifactId>scala-parser-combinators_2.11</artifactId>
-      <version>1.0.4</version>
-    </dependency>
-    <dependency>
-      <groupId>org.scala-lang.modules</groupId>
-      <artifactId>scala-xml_2.11</artifactId>
+      <artifactId>scala-xml_2.12</artifactId>
       <version>1.0.6</version>
     </dependency>
     <dependency>
@@ -263,17 +258,17 @@
     </dependency>
     <dependency>
       <groupId>org.scalacheck</groupId>
-      <artifactId>scalacheck_2.11</artifactId>
+      <artifactId>scalacheck_2.12</artifactId>
       <version>1.13.5</version>
     </dependency>
     <dependency>
       <groupId>org.scalactic</groupId>
-      <artifactId>scalactic_2.11</artifactId>
+      <artifactId>scalactic_2.12</artifactId>
       <version>3.0.5</version>
     </dependency>
     <dependency>
       <groupId>org.scalatest</groupId>
-      <artifactId>scalatest_2.11</artifactId>
+      <artifactId>scalatest_2.12</artifactId>
       <version>3.0.5</version>
     </dependency>
     <dependency>
@@ -303,47 +298,47 @@
     </dependency>
     <dependency>
       <groupId>org.spire-math</groupId>
-      <artifactId>kind-projector_2.11</artifactId>
+      <artifactId>kind-projector_2.12</artifactId>
       <version>0.9.7</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
-      <artifactId>cats-core_2.11</artifactId>
+      <artifactId>cats-core_2.12</artifactId>
       <version>2.0.0</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
-      <artifactId>cats-effect_2.11</artifactId>
+      <artifactId>cats-effect_2.12</artifactId>
       <version>2.0.0</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
-      <artifactId>cats-free_2.11</artifactId>
+      <artifactId>cats-free_2.12</artifactId>
       <version>2.0.0</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
-      <artifactId>cats-kernel_2.11</artifactId>
+      <artifactId>cats-kernel_2.12</artifactId>
       <version>2.0.0</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
-      <artifactId>cats-macros_2.11</artifactId>
+      <artifactId>cats-macros_2.12</artifactId>
       <version>2.0.0</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
-      <artifactId>jawn-parser_2.11</artifactId>
+      <artifactId>jawn-parser_2.12</artifactId>
       <version>0.14.1</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
-      <artifactId>macro-compat_2.11</artifactId>
+      <artifactId>macro-compat_2.12</artifactId>
       <version>1.1.1</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
-      <artifactId>paiges-core_2.11</artifactId>
+      <artifactId>paiges-core_2.12</artifactId>
       <version>0.2.1</version>
     </dependency>
     <dependency>

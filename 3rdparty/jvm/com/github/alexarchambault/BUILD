@@ -3,7 +3,7 @@ load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 scala_import(
     name = "argonaut_shapeless_6_2",
     jars = [
-        "//external:jar/com/github/alexarchambault/argonaut_shapeless_6_2_2_11"
+        "//external:jar/com/github/alexarchambault/argonaut_shapeless_6_2_2_12"
     ],
     runtime_deps = [
         "//3rdparty/jvm/com/chuusai:shapeless",
