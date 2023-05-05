@@ -4,13 +4,13 @@ import cats.data.{NonEmptyList, Validated, ValidatedNel}
 import cats.Foldable
 import cats.implicits._
 import io.circe.jawn.JawnParser
-import java.io.{File, PrintWriter}
+import java.io.PrintWriter
 import scala.util.{Failure, Success}
 import java.nio.file.Path
 
 object MergeDeps {
   private def load(f: Path): ValidatedNel[String, Model] =
-    FormatDeps.readModel(f.toFile) match {
+    FormatDeps.readModel(f) match {
       case Right(m)  => Validated.valid(m)
       case Left(err) => Validated.invalidNel(err)
     }

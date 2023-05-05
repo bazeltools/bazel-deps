@@ -1,6 +1,7 @@
 package com.github.johnynek.bazel_deps
 
-import java.io.{BufferedReader, ByteArrayOutputStream, File, FileInputStream, FileReader, InputStream}
+import java.io.{ByteArrayOutputStream, FileInputStream, InputStream}
+import java.nio.file.{Path, Files}
 import java.security.MessageDigest
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
@@ -98,24 +99,8 @@ case class Model(
 }
 
 object Model {
-  def readFile(f: File): Try[String] = Try {
-    val fr = new FileReader(f)
-    try {
-      val buf = new BufferedReader(fr)
-      val bldr = new java.lang.StringBuilder
-      val cbuf = new Array[Char](1024)
-      var read = 0
-      while (read >= 0) {
-        read = buf.read(cbuf, 0, 1024)
-        if (read > 0) bldr.append(cbuf, 0, read)
-      }
-      Success(bldr.toString)
-    } catch {
-      case NonFatal(err) => Failure(err)
-    } finally {
-      fr.close
-    }
-  }.flatten
+  def readFile(f: Path): Try[String] =
+    Try(new String(Files.readAllBytes(f), "UTF-8"))
 
   def combine(a: Model, b: Model): ValidatedNel[String, Model] = {
     val oo = Monoid[Option[Options]].combine(a.options, b.options)
@@ -246,8 +231,8 @@ case class ShaValue(toHex: String, digestType: DigestType)
 
 object ShaValue {
 
-  def computeShaOf(digestType: DigestType, f: File): Try[ShaValue] = Try {
-    val fis = new FileInputStream(f)
+  def computeShaOf(digestType: DigestType, f: Path): Try[ShaValue] = Try {
+    val fis = new FileInputStream(f.toFile)
     try {
       val shaInstance = digestType.getDigestInstance
       withContent(fis) { (buffer, n) =>
@@ -277,15 +262,8 @@ object ShaValue {
     }
   }
 
-  def parseFile(digestType: DigestType, file: File): Try[ShaValue] = {
-    val fis = new FileInputStream(file)
-    val baos = new ByteArrayOutputStream()
-    withContent(fis) { (buffer, n) =>
-      baos.write(buffer, 0, n)
-    }
-    val s = new String(baos.toByteArray, "UTF-8")
-    parseData(digestType, s)
-  }
+  def parseFile(digestType: DigestType, file: Path): Try[ShaValue] =
+    Model.readFile(file).flatMap(parseData(digestType, _))
 
   def parseData(digestType: DigestType, contents: String): Try[ShaValue] = {
     val hexString = contents
@@ -352,7 +330,7 @@ case class MavenServer(id: String, contentType: String, url: String)
 
 object JarDescriptor {
   def computeShasOf(
-      f: File,
+      f: Path,
       serverId: String,
       url: Option[String]
   ): Try[JarDescriptor] =
@@ -364,7 +342,7 @@ object JarDescriptor {
         url = url,
         sha1 = Some(sha1),
         sha256 = Some(sha256),
-        fileSizeBytes = Some(f.length()),
+        fileSizeBytes = Some(Files.size(f)),
         serverId = serverId
       )
     }

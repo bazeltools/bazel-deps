@@ -16,7 +16,7 @@ object ParseProject {
           case gen: Command.Generate =>
             MakeDeps(gen)
           case gen: Command.FormatDeps =>
-            FormatDeps(gen.deps.toFile, gen.overwrite)
+            FormatDeps(gen.deps, gen.overwrite)
           case Command.MergeDeps(ms, out, _) =>
             MergeDeps(ms, out)
           case Command.AddDep(yaml, lang, coords, _) =>

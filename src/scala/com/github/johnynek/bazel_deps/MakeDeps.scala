@@ -2,7 +2,6 @@ package com.github.johnynek.bazel_deps
 
 import coursier.util.Task
 import io.circe.jawn.JawnParser
-import java.io.File
 import java.nio.file.{Path, Paths}
 import org.slf4j.{Logger, LoggerFactory}
 import scala.collection.immutable.SortedMap
@@ -33,7 +32,7 @@ object MakeDeps {
         System.exit(1)
         sys.error("unreachable")
     }
-    val projectRoot = g.repoRoot.toFile
+    val projectRoot = g.repoRoot
 
     resolverCachePath(model, projectRoot).flatMap(runResolve(model, _)) match {
       case Failure(err) =>
@@ -48,7 +47,6 @@ object MakeDeps {
             System.exit(-1)
             sys.error("exited already")
         }
-        val projectRoot = g.repoRoot.toFile
         val formatter: Writer.BuildFileFormatter = g.buildifier match {
           // If buildifier is provided, run it with the unformatted contents on its stdin; it will print the formatted
           // result on stdout.
@@ -63,7 +61,7 @@ object MakeDeps {
               BasicIO.processFully(output),
               BasicIO.processFully(error)
             )
-            val exit = Process(List(buildifierPath, "-path", p.asString, "-"), projectRoot).run(processIO).exitValue
+            val exit = Process(List(buildifierPath, "-path", p.asString, "-"), projectRoot.toFile).run(processIO).exitValue
             // Blocks until the process exits.
             if (exit != 0) {
               logger.error(s"buildifier $buildifierPath failed (code $exit) for ${p.asString}:\n$error")
@@ -132,12 +130,12 @@ object MakeDeps {
       }
   }
 
-  private def resolverCachePath(model: Model, projectRoot: File): Try[Path] =
+  private def resolverCachePath(model: Model, projectRoot: Path): Try[Path] =
     (model.getOptions.getResolverCache match {
       case ResolverCache.Local => Try(Paths.get("target/local-repo"))
       case ResolverCache.BazelOutputBase =>
         Try(
-          Process(List("bazel", "info", "output_base"), projectRoot) !!
+          Process(List("bazel", "info", "output_base"), projectRoot.toFile) !!
         ) match {
           case Success(path) =>
             Try(Paths.get(path.trim, "bazel-deps/local-repo"))

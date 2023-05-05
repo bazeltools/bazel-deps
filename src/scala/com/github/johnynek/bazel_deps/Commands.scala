@@ -3,8 +3,7 @@ package com.github.johnynek.bazel_deps
 import cats.data.{NonEmptyList, Validated, ValidatedNel}
 import cats.implicits._
 import com.monovore.decline.{Argument, Command => DCommand, _}
-import java.io.File
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 
 sealed abstract class Verbosity(val repr: String, val level: Int)
 
@@ -70,11 +69,11 @@ object Command {
   ) extends Command {
 
     def enable3rdPartyInRepo: Boolean = !disable3rdPartyInRepo
-    def absDepsFile: File =
-      new File(repoRoot.toFile, depsFile)
+    def absDepsFile: Path =
+      repoRoot.resolve(depsFile)
 
     def shaFilePath: Option[String] =
-      shaFile.map(new File(_).toString)
+      shaFile.map(Paths.get(_).toString)
   }
 
   val generate = DCommand("generate", "generate transitive bazel targets") {
