@@ -40,9 +40,9 @@ scala_import(
 
 
 scala_import(
-    name = "circe_jackson25",
+    name = "circe_jackson210",
     jars = [
-        "//external:jar/io/circe/circe_jackson25_2_11"
+        "//external:jar/io/circe/circe_jackson210_2_11"
     ],
     runtime_deps = [
         "//3rdparty/jvm/com/fasterxml/jackson/core:jackson_core",
@@ -64,7 +64,7 @@ scala_import(
     ],
     runtime_deps = [
         "//3rdparty/jvm/org/scala_lang:scala_library",
-        "//3rdparty/jvm/org/spire_math:jawn_parser",
+        "//3rdparty/jvm/org/typelevel:jawn_parser",
         ":circe_core"
     ],
     visibility = [

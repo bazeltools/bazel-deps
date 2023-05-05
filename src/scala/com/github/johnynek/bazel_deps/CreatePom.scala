@@ -14,7 +14,7 @@ object CreatePom {
   }
 
   def translate(dependencies: Graph[MavenCoordinate, Unit]): String = {
-    val mavenCoordinateXml = dependencies.nodes.toList.map { d =>
+    val mavenCoordinateXml = dependencies.nodes.toList.sorted.map { d =>
       d.toXml
     }
 

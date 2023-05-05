@@ -45,12 +45,12 @@ dependencies:
           </dependency>
           <dependency>
             <groupId>org.xhtmlrenderer</groupId>
-            <artifactId>flying-saucer-pdf</artifactId>
+            <artifactId>flying-saucer-core</artifactId>
             <version>9.0.3</version>
           </dependency>
           <dependency>
             <groupId>org.xhtmlrenderer</groupId>
-            <artifactId>flying-saucer-core</artifactId>
+            <artifactId>flying-saucer-pdf</artifactId>
             <version>9.0.3</version>
           </dependency>
         </dependencies>

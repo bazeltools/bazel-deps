@@ -17,25 +17,29 @@ dependencies:
       lang: scala
 
   com.fasterxml.jackson.core:
-    jackson:
+    jackson-databind:
       lang: java
-      modules: [ "core", "databind" ]
+      version: "2.10.5.1"
+
+    jackson-core:
+      lang: java
+      version: "2.10.1"
 
   com.fasterxml.jackson.dataformat:
     jackson-dataformat-yaml:
       lang: java
-      version: "2.5.3"
+      version: "2.10.1"
 
   com.monovore:
     decline:
       lang: scala
-      version: "0.4.2"
+      version: "1.2.0"
 
   io.circe:
     circe:
       lang: scala
       modules: [ "core", "jawn" ]
-      version: "0.9.3"
+      version: "0.11.2"
     circe-generic:
       exports:
         - "com.chuusai:shapeless"
@@ -43,10 +47,10 @@ dependencies:
         - "org.typelevel:cats-kernel"
         - "org.typelevel:macro-compat"
       lang: scala
-      version: "0.9.3"
-    circe-jackson25:
+      version: "0.11.2"
+    circe-jackson210:
       lang: scala
-      version: "0.9.0"
+      version: "0.11.2"
 
   io.get-coursier:
     coursier:
@@ -117,12 +121,15 @@ dependencies:
     cats:
       lang: scala
       modules: [ "free", "kernel", "macros" ]
-      version: "1.1.0"
+      version: "2.0.0"
     cats-core:
       exports:
         - "org.typelevel:cats-kernel"
       lang: scala
-      version: "1.1.0"
+      version: "2.0.0"
+    cats-effect:
+      lang: scala
+      version: "2.0.0"
     macro-compat:
       lang: scala
     paiges-core:

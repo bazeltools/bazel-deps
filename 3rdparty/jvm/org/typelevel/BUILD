@@ -10,8 +10,23 @@ scala_import(
     ],
     runtime_deps = [
         "//3rdparty/jvm/org/scala_lang:scala_library",
-        ":cats_macros",
-        ":machinist"
+        ":cats_macros"
+    ],
+    visibility = [
+        "//visibility:public"
+    ]
+)
+
+
+
+scala_import(
+    name = "cats_effect",
+    jars = [
+        "//external:jar/org/typelevel/cats_effect_2_11"
+    ],
+    runtime_deps = [
+        "//3rdparty/jvm/org/scala_lang:scala_library",
+        ":cats_core"
     ],
     visibility = [
         "//visibility:public"
@@ -28,8 +43,7 @@ scala_import(
     runtime_deps = [
         "//3rdparty/jvm/org/scala_lang:scala_library",
         ":cats_core",
-        ":cats_macros",
-        ":machinist"
+        ":cats_macros"
     ],
     visibility = [
         "//visibility:public"
@@ -59,8 +73,7 @@ scala_import(
         "//external:jar/org/typelevel/cats_macros_2_11"
     ],
     runtime_deps = [
-        "//3rdparty/jvm/org/scala_lang:scala_library",
-        ":machinist"
+        "//3rdparty/jvm/org/scala_lang:scala_library"
     ],
     visibility = [
         "//visibility:public"
@@ -70,13 +83,12 @@ scala_import(
 
 
 scala_import(
-    name = "machinist",
+    name = "jawn_parser",
     jars = [
-        "//external:jar/org/typelevel/machinist_2_11"
+        "//external:jar/org/typelevel/jawn_parser_2_11"
     ],
     runtime_deps = [
-        "//3rdparty/jvm/org/scala_lang:scala_library",
-        "//3rdparty/jvm/org/scala_lang:scala_reflect"
+        "//3rdparty/jvm/org/scala_lang:scala_library"
     ],
     visibility = [
         "//3rdparty/jvm:__subpackages__"
