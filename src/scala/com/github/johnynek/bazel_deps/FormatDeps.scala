@@ -1,11 +1,12 @@
 package com.github.johnynek.bazel_deps
 
-import java.io.{File, PrintWriter}
+import java.io.PrintWriter
+import java.nio.file.Path
 import io.circe.jawn.JawnParser
 import scala.util.{Failure, Success}
 
 object FormatDeps {
-  def readModel(path: File): Either[String, Model] = {
+  def readModel(path: Path): Either[String, Model] = {
     val content: Either[String, String] =
       Model.readFile(path) match {
         case Success(str) => Right(str)
@@ -22,7 +23,7 @@ object FormatDeps {
     }
   }
 
-  def apply(path: File, overwrite: Boolean): Unit = {
+  def apply(path: Path, overwrite: Boolean): Unit = {
     val model = readModel(path) match {
       case Left(msg) =>
         System.err.println(msg)
@@ -33,7 +34,7 @@ object FormatDeps {
 
     val stream = model.toDoc.renderStreamTrim(100)
     if (overwrite) {
-      val pw = new PrintWriter(path)
+      val pw = new PrintWriter(path.toFile)
       stream.foreach(pw.print(_))
       pw.flush
       pw.close

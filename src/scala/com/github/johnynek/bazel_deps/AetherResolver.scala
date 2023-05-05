@@ -1,6 +1,5 @@
 package com.github.johnynek.bazel_deps
 
-import java.io.File
 import java.net.URI
 import java.nio.file.Path
 import java.util
@@ -166,9 +165,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path)
     ): SortedMap[K, Try[V]] =
       ms.map { coord => coord -> tmap.flatMap(_(coord)) }(breakOut)
 
-    def getExt(ms: Seq[MavenCoordinate], ext: String)(
-        toSha: File => Try[ShaValue]
-    ): SortedMap[MavenCoordinate, Try[JarDescriptor]] =
+    def getExt(ms: Seq[MavenCoordinate], ext: String): SortedMap[MavenCoordinate, Try[JarDescriptor]] =
       liftKeys(
         ms,
         Try {
@@ -205,7 +202,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path)
                         )
                         .toString
                     ),
-                    fileSizeBytes = Some(f.length()),
+                    fileSizeBytes = Some(f.toFile.length()),
                     sha1 = Some(sha1),
                     sha256 = Some(sha256),
                     serverId = r.getRepository.getId
@@ -217,12 +214,12 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path)
         }
       )
 
-    val shas = getExt(m.toList, "sha1")(readShaContents)
+    val shas = getExt(m.toList, "sha1")
     val computes =
       getExt(
         shas.collect { case (m, Failure(_)) => m }.toList,
         "" /* no suffix */
-      )(ShaValue.computeShaOf(DigestType.Sha1, _))
+      )
 
     // this is sequence but this version of cats does not have traverse on SortedMap
     Foldable[List].foldM(
@@ -239,7 +236,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path)
       m: MavenCoordinate,
       ext: String,
       a: ArtifactResult
-  ): Try[File] =
+  ): Try[Path] =
     a.getArtifact match {
       case null =>
         Failure(
@@ -256,11 +253,8 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path)
           Failure(
             ResolveFailure("null file", m, ext, a.getExceptions.asScala.toList)
           )
-        } else Success(f)
+        } else Success(f.toPath)
     }
-
-  private def readShaContents(f: File): Try[ShaValue] =
-    Model.readFile(f).flatMap(ShaValue.parseData(DigestType.Sha1, _))
 
   type Node = MavenCoordinate
 

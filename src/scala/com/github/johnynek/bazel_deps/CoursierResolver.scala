@@ -142,7 +142,7 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
                 // println(s"Tried to download $artifact but failed.")
                 Failure(FileErrorException(error))
               case Right(file) =>
-                ShaValue.computeShaOf(digestType, file).map { sha =>
+                ShaValue.computeShaOf(digestType, file.toPath).map { sha =>
                   (artifact, sha, file.length())
                 }
             })
