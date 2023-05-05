@@ -149,8 +149,8 @@ scala_library(
 )
 
 scala_library(
-    name = "io",
-    srcs = ["IO.scala"],
+    name = "fs",
+    srcs = ["FS.scala"],
     visibility = ["//visibility:public"],
     exports = [
         "//3rdparty/jvm/org/typelevel:cats_free",
@@ -185,7 +185,7 @@ scala_library(
     deps = [
         ":depsmodel",
         ":graph",
-        ":io",
+        ":fs",
         "//3rdparty/jvm/io/circe:circe_core",
         "//3rdparty/jvm/io/circe:circe_generic",
         "//3rdparty/jvm/org/slf4j:slf4j_api",
@@ -213,7 +213,7 @@ scala_library(
         ":depsmodel",
         ":gradle_resolver",
         ":graph",
-        ":io",
+        ":fs",
         ":normalizer",
         ":resolver",
         ":writer",
@@ -281,7 +281,7 @@ scala_library(
     deps = [
         ":depsmodel",
         ":graph",
-        ":io",
+        ":fs",
         "//3rdparty/jvm/org/scala_lang/modules:scala_xml",
     ],
 )

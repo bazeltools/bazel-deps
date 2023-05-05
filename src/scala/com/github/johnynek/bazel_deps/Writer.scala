@@ -3,7 +3,7 @@ package com.github.johnynek.bazel_deps
 import cats.Traverse
 import cats.data.NonEmptyList
 import cats.implicits._
-import com.github.johnynek.bazel_deps.IO.{Path, Result}
+import com.github.johnynek.bazel_deps.FS.{Path, Result}
 import org.slf4j.LoggerFactory
 
 import scala.io.Source
@@ -92,9 +92,9 @@ object Writer {
    * Takes a BUILD file path and generated contents, and returns the formatted version of those contents (e.g. with
    * buildifier).
    */
-  type BuildFileFormatter = ((IO.Path, String) => String)
+  type BuildFileFormatter = ((FS.Path, String) => String)
 
-  private def buildFileContents(buildFilePath: IO.Path, buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): String = {
+  private def buildFileContents(buildFilePath: FS.Path, buildHeader: String, ts: List[Target], formatter: BuildFileFormatter): String = {
     def withNewline(s: String): String =
       if (s.isEmpty) ""
       else s + "\n"
@@ -104,14 +104,14 @@ object Writer {
       .mkString(withNewline(buildHeader), "\n\n", "\n"))
   }
 
-  def createBuildFilesAndTargetFile(buildHeader: String, ts: List[Target], targetFileOpt: Option[IO.Path], enable3rdPartyInRepo: Boolean, thirdPartyDirectory: DirectoryName, formatter: BuildFileFormatter, buildFileName: String): Result[Int] = {
+  def createBuildFilesAndTargetFile(buildHeader: String, ts: List[Target], targetFileOpt: Option[FS.Path], enable3rdPartyInRepo: Boolean, thirdPartyDirectory: DirectoryName, formatter: BuildFileFormatter, buildFileName: String): Result[Int] = {
     val with3rdpartyPrinted = if (enable3rdPartyInRepo) {
       createBuildFiles(buildHeader, ts, formatter, buildFileName)
-    } else IO.const(0)
+    } else FS.const(0)
 
     val withTargetFilePrinted = targetFileOpt match {
       case Some(tfp) => createBuildTargetFile(buildHeader, ts, tfp, thirdPartyDirectory)
-      case None => IO.const(0)
+      case None => FS.const(0)
     }
 
     with3rdpartyPrinted.flatMap(e => withTargetFilePrinted.map { u => u + e })
@@ -122,13 +122,13 @@ object Writer {
 
     Traverse[List].traverse(pathGroups) {
       case (filePath, ts) =>
-        def data(bf: IO.Path) = buildFileContents(bf, buildHeader, ts, formatter)
+        def data(bf: FS.Path) = buildFileContents(bf, buildHeader, ts, formatter)
 
         for {
-          b <- IO.exists(filePath)
-          _ <- if (b) IO.const(false) else IO.mkdirs(filePath)
+          b <- FS.exists(filePath)
+          _ <- if (b) FS.const(false) else FS.mkdirs(filePath)
           bf = filePath.child(buildFileName)
-          _ <- IO.writeUtf8(bf, data(bf))
+          _ <- FS.writeUtf8(bf, data(bf))
         } yield ()
     }
       .map(_.size)
@@ -136,10 +136,10 @@ object Writer {
 
   def createBuildTargetFile(buildHeader: String, ts: List[Target], tfp: Path, thirdPartyDirectory: DirectoryName): Result[Int] =
     for {
-      b <- IO.exists(tfp.parent)
-      _ <- if (b) IO.const(false) else IO.mkdirs(tfp.parent)
+      b <- FS.exists(tfp.parent)
+      _ <- if (b) FS.const(false) else FS.mkdirs(tfp.parent)
       buildFileContent <- createBuildTargetFileContents(buildHeader, ts, thirdPartyDirectory)
-      _ <- IO.writeUtf8(tfp, buildFileContent)
+      _ <- FS.writeUtf8(tfp, buildFileContent)
     } yield ts.size
 
   def createBuildTargetFileContents(buildHeader: String, ts: List[Target], thirdPartyDirectory: DirectoryName): Result[String] = {

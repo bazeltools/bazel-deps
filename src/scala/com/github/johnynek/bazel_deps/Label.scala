@@ -1,6 +1,6 @@
 package com.github.johnynek.bazel_deps
 
-import IO.Path
+import FS.Path
 
 case class Label(workspace: Option[String], path: Path, name: String) {
   def packageLabel: Label = Label(workspace, path, "")

@@ -31,7 +31,7 @@ scala_library(name = "writergen",
            srcs = ["WriterGenerators.scala"],
            deps = ["//src/scala/com/github/johnynek/bazel_deps:depsmodel",
                    "//src/scala/com/github/johnynek/bazel_deps:writer",
-                   "//src/scala/com/github/johnynek/bazel_deps:io",
+                   "//src/scala/com/github/johnynek/bazel_deps:fs",
                    "//3rdparty/jvm/org/typelevel:paiges_core",
                    "//3rdparty/jvm/org/scalacheck",
                    ":modelgen"])
