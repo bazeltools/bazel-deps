@@ -6,7 +6,7 @@ scala_import(
         "//3rdparty/jvm/org/scalactic:scalactic"
     ],
     jars = [
-        "//external:jar/org/scalatest/scalatest_2_11"
+        "//external:jar/org/scalatest/scalatest_2_12"
     ],
     runtime_deps = [
         "//3rdparty/jvm/org/scala_lang/modules:scala_xml",
