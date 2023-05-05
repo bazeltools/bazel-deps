@@ -17,14 +17,19 @@
       <version>2.0.0-RC4-1</version>
     </dependency>
     <dependency>
+      <groupId>org.yaml</groupId>
+      <artifactId>snakeyaml</artifactId>
+      <version>1.24</version>
+    </dependency>
+    <dependency>
       <groupId>org.apache.maven</groupId>
       <artifactId>maven-builder-support</artifactId>
       <version>3.3.9</version>
     </dependency>
     <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-core</artifactId>
-      <version>2.5.5</version>
+      <groupId>org.typelevel</groupId>
+      <artifactId>cats-effect_2.11</artifactId>
+      <version>2.0.0</version>
     </dependency>
     <dependency>
       <groupId>io.get-coursier</groupId>
@@ -32,14 +37,14 @@
       <version>2.0.0-RC4-1</version>
     </dependency>
     <dependency>
-      <groupId>io.circe</groupId>
-      <artifactId>circe-core_2.11</artifactId>
-      <version>0.9.3</version>
-    </dependency>
-    <dependency>
       <groupId>org.scala-sbt</groupId>
       <artifactId>test-interface</artifactId>
       <version>1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.typelevel</groupId>
+      <artifactId>cats-kernel_2.11</artifactId>
+      <version>2.0.0</version>
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
@@ -62,24 +67,19 @@
       <version>2.11.12</version>
     </dependency>
     <dependency>
-      <groupId>org.eclipse.sisu</groupId>
-      <artifactId>org.eclipse.sisu.inject</artifactId>
-      <version>0.3.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.yaml</groupId>
-      <artifactId>snakeyaml</artifactId>
-      <version>1.12</version>
-    </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-annotations</artifactId>
-      <version>2.5.0</version>
+      <groupId>org.typelevel</groupId>
+      <artifactId>jawn-parser_2.11</artifactId>
+      <version>0.14.1</version>
     </dependency>
     <dependency>
       <groupId>io.circe</groupId>
-      <artifactId>circe-jawn_2.11</artifactId>
-      <version>0.9.3</version>
+      <artifactId>circe-jackson210_2.11</artifactId>
+      <version>0.11.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.sisu</groupId>
+      <artifactId>org.eclipse.sisu.inject</artifactId>
+      <version>0.3.0</version>
     </dependency>
     <dependency>
       <groupId>org.eclipse.sisu</groupId>
@@ -92,14 +92,14 @@
       <version>1.7.25</version>
     </dependency>
     <dependency>
-      <groupId>com.fasterxml.jackson.dataformat</groupId>
-      <artifactId>jackson-dataformat-yaml</artifactId>
-      <version>2.5.3</version>
-    </dependency>
-    <dependency>
       <groupId>javax.inject</groupId>
       <artifactId>javax.inject</artifactId>
       <version>1</version>
+    </dependency>
+    <dependency>
+      <groupId>io.circe</groupId>
+      <artifactId>circe-jawn_2.11</artifactId>
+      <version>0.11.2</version>
     </dependency>
     <dependency>
       <groupId>org.scala-lang</groupId>
@@ -107,29 +107,14 @@
       <version>2.11.12</version>
     </dependency>
     <dependency>
-      <groupId>io.circe</groupId>
-      <artifactId>circe-numbers_2.11</artifactId>
-      <version>0.9.3</version>
-    </dependency>
-    <dependency>
-      <groupId>com.monovore</groupId>
-      <artifactId>decline_2.11</artifactId>
-      <version>0.4.2</version>
-    </dependency>
-    <dependency>
       <groupId>org.eclipse.aether</groupId>
       <artifactId>aether-api</artifactId>
       <version>1.1.0</version>
     </dependency>
     <dependency>
-      <groupId>org.spire-math</groupId>
-      <artifactId>jawn-parser_2.11</artifactId>
-      <version>0.11.1</version>
-    </dependency>
-    <dependency>
       <groupId>org.typelevel</groupId>
-      <artifactId>cats-kernel_2.11</artifactId>
-      <version>1.1.0</version>
+      <artifactId>cats-core_2.11</artifactId>
+      <version>2.0.0</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
@@ -157,6 +142,21 @@
       <version>1.7.25</version>
     </dependency>
     <dependency>
+      <groupId>io.circe</groupId>
+      <artifactId>circe-numbers_2.11</artifactId>
+      <version>0.11.2</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-annotations</artifactId>
+      <version>2.10.5</version>
+    </dependency>
+    <dependency>
+      <groupId>com.monovore</groupId>
+      <artifactId>decline_2.11</artifactId>
+      <version>1.2.0</version>
+    </dependency>
+    <dependency>
       <groupId>org.sonatype.plexus</groupId>
       <artifactId>plexus-sec-dispatcher</artifactId>
       <version>1.3</version>
@@ -167,19 +167,9 @@
       <version>3.3.9</version>
     </dependency>
     <dependency>
-      <groupId>org.typelevel</groupId>
-      <artifactId>cats-macros_2.11</artifactId>
-      <version>1.1.0</version>
-    </dependency>
-    <dependency>
       <groupId>org.apache.maven</groupId>
       <artifactId>maven-artifact</artifactId>
       <version>3.3.9</version>
-    </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-databind</artifactId>
-      <version>2.5.5</version>
     </dependency>
     <dependency>
       <groupId>org.scala-lang</groupId>
@@ -202,9 +192,19 @@
       <version>1.6</version>
     </dependency>
     <dependency>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-yaml</artifactId>
+      <version>2.10.1</version>
+    </dependency>
+    <dependency>
       <groupId>org.eclipse.aether</groupId>
       <artifactId>aether-transport-file</artifactId>
       <version>1.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.10.5.1</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
@@ -232,13 +232,13 @@
       <version>1.0</version>
     </dependency>
     <dependency>
-      <groupId>org.eclipse.aether</groupId>
-      <artifactId>aether-spi</artifactId>
-      <version>1.1.0</version>
+      <groupId>io.circe</groupId>
+      <artifactId>circe-generic_2.11</artifactId>
+      <version>0.11.2</version>
     </dependency>
     <dependency>
-      <groupId>org.typelevel</groupId>
-      <artifactId>cats-core_2.11</artifactId>
+      <groupId>org.eclipse.aether</groupId>
+      <artifactId>aether-spi</artifactId>
       <version>1.1.0</version>
     </dependency>
     <dependency>
@@ -257,14 +257,14 @@
       <version>3.0.5</version>
     </dependency>
     <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-core</artifactId>
+      <version>2.10.1</version>
+    </dependency>
+    <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpcore</artifactId>
       <version>4.3.2</version>
-    </dependency>
-    <dependency>
-      <groupId>org.typelevel</groupId>
-      <artifactId>machinist_2.11</artifactId>
-      <version>0.6.2</version>
     </dependency>
     <dependency>
       <groupId>org.codehaus.plexus</groupId>
@@ -282,19 +282,9 @@
       <version>3.3.9</version>
     </dependency>
     <dependency>
-      <groupId>io.circe</groupId>
-      <artifactId>circe-jackson25_2.11</artifactId>
-      <version>0.9.0</version>
-    </dependency>
-    <dependency>
       <groupId>org.apache.maven</groupId>
       <artifactId>maven-settings</artifactId>
       <version>3.3.9</version>
-    </dependency>
-    <dependency>
-      <groupId>io.circe</groupId>
-      <artifactId>circe-generic_2.11</artifactId>
-      <version>0.9.3</version>
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
@@ -305,6 +295,16 @@
       <groupId>io.argonaut</groupId>
       <artifactId>argonaut_2.11</artifactId>
       <version>6.2.3</version>
+    </dependency>
+    <dependency>
+      <groupId>org.typelevel</groupId>
+      <artifactId>cats-free_2.11</artifactId>
+      <version>2.0.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.typelevel</groupId>
+      <artifactId>cats-macros_2.11</artifactId>
+      <version>2.0.0</version>
     </dependency>
     <dependency>
       <groupId>org.codehaus.plexus</groupId>
@@ -337,11 +337,6 @@
       <version>18.0</version>
     </dependency>
     <dependency>
-      <groupId>org.typelevel</groupId>
-      <artifactId>cats-free_2.11</artifactId>
-      <version>1.1.0</version>
-    </dependency>
-    <dependency>
       <groupId>com.chuusai</groupId>
       <artifactId>shapeless_2.11</artifactId>
       <version>2.3.3</version>
@@ -350,6 +345,11 @@
       <groupId>org.eclipse.aether</groupId>
       <artifactId>aether-util</artifactId>
       <version>1.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>io.circe</groupId>
+      <artifactId>circe-core_2.11</artifactId>
+      <version>0.11.2</version>
     </dependency>
   </dependencies>
 </project>
