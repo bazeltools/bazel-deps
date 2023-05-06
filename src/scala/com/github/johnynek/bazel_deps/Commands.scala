@@ -130,8 +130,8 @@ object Command {
       "disable-3rdparty-in-repo",
       help = "If set it controls if we should print out the 3rdparty source tree in the repo or not.").orFalse
 
-    (repoRoot |@| depsFile |@| resolvedOutput |@| shaFile.orNone |@| targetFile |@| buildifier |@| pomFile |@| Verbosity.opt |@| disable3rdPartyInRepos |@| checkOnly)
-      .map(Generate(_, _, _, _, _, _, _, _, _, _))
+    (repoRoot, depsFile, resolvedOutput, shaFile.orNone, targetFile, buildifier, pomFile, Verbosity.opt, disable3rdPartyInRepos, checkOnly)
+      .mapN(Generate(_, _, _, _, _, _, _, _, _, _))
       .validate("at least one of pom-file, resolved-output or sha-file must be set") { g =>
         g.shaFile.isDefined || g.resolvedOutput.isDefined || g.pomFile.isDefined  
       }
@@ -156,7 +156,7 @@ object Command {
       )
       .orFalse
 
-    (depsFile |@| overwrite |@| Verbosity.opt).map(FormatDeps(_, _, _))
+    (depsFile, overwrite, Verbosity.opt).mapN(FormatDeps(_, _, _))
   }
 
   case class MergeDeps(
@@ -175,7 +175,7 @@ object Command {
         .option[Path]("output", short = "o", help = "merged output file")
         .orNone
 
-      (deps |@| out |@| Verbosity.opt).map(MergeDeps(_, _, _))
+      (deps, out, Verbosity.opt).mapN(MergeDeps(_, _, _))
     }
 
   implicit val langArg: Argument[Language] = new Argument[Language] {
@@ -216,7 +216,7 @@ object Command {
     )
     val mcs = Opts.arguments[MavenCoordinate]("mvn-coord")
 
-    (p |@| lang |@| mcs |@| Verbosity.opt).map(AddDep(_, _, _, _))
+    (p, lang, mcs, Verbosity.opt).mapN(AddDep(_, _, _, _))
   }
 
   val command: DCommand[Command] =
