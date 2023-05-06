@@ -33,24 +33,23 @@ dependencies:
   com.monovore:
     decline:
       lang: scala
-      version: "1.2.0"
+      version: "2.4.1"
 
   io.circe:
     circe:
       lang: scala
       modules: [ "core", "jawn" ]
-      version: "0.11.2"
+      version: "0.14.5"
     circe-generic:
       exports:
         - "com.chuusai:shapeless"
         - "org.typelevel:cats-core"
         - "org.typelevel:cats-kernel"
-        - "org.typelevel:macro-compat"
       lang: scala
-      version: "0.11.2"
+      version: "0.14.5"
     circe-jackson210:
       lang: scala
-      version: "0.11.2"
+      version: "0.14.0"
 
   io.get-coursier:
     coursier:
@@ -112,29 +111,22 @@ dependencies:
       lang: java
       version: "1.3"
 
-  org.spire-math:
-    kind-projector:
-      lang: scala
-      version: "0.9.7"
-
   org.typelevel:
     cats:
       lang: scala
-      modules: [ "free", "kernel", "macros" ]
-      version: "2.0.0"
+      modules: [ "free", "kernel" ]
+      version: "2.9.0"
     cats-core:
       exports:
         - "org.typelevel:cats-kernel"
       lang: scala
-      version: "2.0.0"
+      version: "2.9.0"
     cats-effect:
       lang: scala
-      version: "2.0.0"
-    macro-compat:
-      lang: scala
+      version: "3.4.10"
     paiges-core:
       lang: scala
-      version: "0.2.1"
+      version: "0.4.2"
 
 replacements:
   org.scala-lang:
