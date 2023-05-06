@@ -4,7 +4,7 @@
     <dependency>
       <groupId>com.chuusai</groupId>
       <artifactId>shapeless_2.12</artifactId>
-      <version>2.3.3</version>
+      <version>2.3.10</version>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
@@ -39,7 +39,7 @@
     <dependency>
       <groupId>com.monovore</groupId>
       <artifactId>decline_2.12</artifactId>
-      <version>1.2.0</version>
+      <version>2.4.1</version>
     </dependency>
     <dependency>
       <groupId>commons-codec</groupId>
@@ -54,27 +54,27 @@
     <dependency>
       <groupId>io.circe</groupId>
       <artifactId>circe-core_2.12</artifactId>
-      <version>0.11.2</version>
+      <version>0.14.5</version>
     </dependency>
     <dependency>
       <groupId>io.circe</groupId>
       <artifactId>circe-generic_2.12</artifactId>
-      <version>0.11.2</version>
+      <version>0.14.5</version>
     </dependency>
     <dependency>
       <groupId>io.circe</groupId>
       <artifactId>circe-jackson210_2.12</artifactId>
-      <version>0.11.2</version>
+      <version>0.14.0</version>
     </dependency>
     <dependency>
       <groupId>io.circe</groupId>
       <artifactId>circe-jawn_2.12</artifactId>
-      <version>0.11.2</version>
+      <version>0.14.5</version>
     </dependency>
     <dependency>
       <groupId>io.circe</groupId>
       <artifactId>circe-numbers_2.12</artifactId>
-      <version>0.11.2</version>
+      <version>0.14.5</version>
     </dependency>
     <dependency>
       <groupId>io.get-coursier</groupId>
@@ -110,6 +110,11 @@
       <groupId>javax.inject</groupId>
       <artifactId>javax.inject</artifactId>
       <version>1</version>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.2</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
@@ -232,14 +237,14 @@
       <version>0.3.0</version>
     </dependency>
     <dependency>
-      <groupId>org.scala-lang</groupId>
-      <artifactId>scala-compiler</artifactId>
-      <version>2.12.6</version>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest-core</artifactId>
+      <version>1.3</version>
     </dependency>
     <dependency>
       <groupId>org.scala-lang</groupId>
       <artifactId>scala-library</artifactId>
-      <version>2.12.10</version>
+      <version>2.12.17</version>
     </dependency>
     <dependency>
       <groupId>org.scala-lang</groupId>
@@ -265,6 +270,21 @@
       <groupId>org.scalactic</groupId>
       <artifactId>scalactic_2.12</artifactId>
       <version>3.0.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.scalameta</groupId>
+      <artifactId>junit-interface</artifactId>
+      <version>0.7.26</version>
+    </dependency>
+    <dependency>
+      <groupId>org.scalameta</groupId>
+      <artifactId>munit-scalacheck_2.12</artifactId>
+      <version>0.7.26</version>
+    </dependency>
+    <dependency>
+      <groupId>org.scalameta</groupId>
+      <artifactId>munit_2.12</artifactId>
+      <version>0.7.26</version>
     </dependency>
     <dependency>
       <groupId>org.scalatest</groupId>
@@ -297,49 +317,54 @@
       <version>1.3</version>
     </dependency>
     <dependency>
-      <groupId>org.spire-math</groupId>
-      <artifactId>kind-projector_2.12</artifactId>
-      <version>0.9.7</version>
+      <groupId>org.typelevel</groupId>
+      <artifactId>cats-core_2.12</artifactId>
+      <version>2.9.0</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
-      <artifactId>cats-core_2.12</artifactId>
-      <version>2.0.0</version>
+      <artifactId>cats-effect-kernel_2.12</artifactId>
+      <version>3.4.10</version>
+    </dependency>
+    <dependency>
+      <groupId>org.typelevel</groupId>
+      <artifactId>cats-effect-std_2.12</artifactId>
+      <version>3.4.10</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
       <artifactId>cats-effect_2.12</artifactId>
-      <version>2.0.0</version>
+      <version>3.4.10</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
       <artifactId>cats-free_2.12</artifactId>
-      <version>2.0.0</version>
+      <version>2.9.0</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
       <artifactId>cats-kernel_2.12</artifactId>
-      <version>2.0.0</version>
+      <version>2.9.0</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
-      <artifactId>cats-macros_2.12</artifactId>
-      <version>2.0.0</version>
+      <artifactId>discipline-core_2.12</artifactId>
+      <version>1.1.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.typelevel</groupId>
+      <artifactId>discipline-munit_2.12</artifactId>
+      <version>1.0.9</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
       <artifactId>jawn-parser_2.12</artifactId>
-      <version>0.14.1</version>
-    </dependency>
-    <dependency>
-      <groupId>org.typelevel</groupId>
-      <artifactId>macro-compat_2.12</artifactId>
-      <version>1.1.1</version>
+      <version>1.4.0</version>
     </dependency>
     <dependency>
       <groupId>org.typelevel</groupId>
       <artifactId>paiges-core_2.12</artifactId>
-      <version>0.2.1</version>
+      <version>0.4.2</version>
     </dependency>
     <dependency>
       <groupId>org.yaml</groupId>

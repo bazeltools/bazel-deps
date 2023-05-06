@@ -22,8 +22,7 @@ scala_import(
     exports = [
         "//3rdparty/jvm/com/chuusai:shapeless",
         "//3rdparty/jvm/org/typelevel:cats_core",
-        "//3rdparty/jvm/org/typelevel:cats_kernel",
-        "//3rdparty/jvm/org/typelevel:macro_compat"
+        "//3rdparty/jvm/org/typelevel:cats_kernel"
     ],
     jars = [
         "//external:jar/io/circe/circe_generic_2_12"
@@ -48,6 +47,7 @@ scala_import(
         "//3rdparty/jvm/com/fasterxml/jackson/core:jackson_core",
         "//3rdparty/jvm/com/fasterxml/jackson/core:jackson_databind",
         "//3rdparty/jvm/org/scala_lang:scala_library",
+        "//3rdparty/jvm/org/typelevel:discipline_munit",
         ":circe_core"
     ],
     visibility = [
