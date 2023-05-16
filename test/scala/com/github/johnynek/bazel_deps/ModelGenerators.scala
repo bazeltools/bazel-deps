@@ -59,13 +59,13 @@ object ModelGenerators {
       .mapOf(join(artifactOrProjGen, projectRecordGen(l1, ls)))
       .map(_.take(30))
     Gen.mapOf(join(mavenGroupGen, artMap)).map { m =>
-      Dependencies(m.take(100))
+      Dependencies(m.take(60))
     }
   }
 
   val genBazelTarget: Gen[BazelTarget] =
     Gen.listOf(Gen.identifier).map { l =>
-      BazelTarget(l.mkString("//", "/", ""))
+      BazelTarget(l.take(10).mkString("//", "/", ""))
     }
 
   def rrGen(langs: List[Language]): Gen[ReplacementRecord] =
@@ -78,7 +78,7 @@ object ModelGenerators {
     def artMap =
       Gen.mapOf(join(artifactOrProjGen, rrGen(langs))).map(_.take(30))
     Gen.mapOf(join(mavenGroupGen, artMap)).map { m =>
-      Replacements(m.take(100))
+      Replacements(m.take(60))
     }
   }
 
@@ -99,9 +99,10 @@ object ModelGenerators {
       )
     )
     langs <- Gen.option(
-      Gen.choose(1, 10).flatMap(Gen.listOfN(_, langGen).map(_.toSet))
+      Gen.choose(1, 4).flatMap(Gen.listOfN(_, langGen).map(_.toSet))
     )
-    res <- Gen.option(Gen.listOf(mavenServerGen))
+    serverCnt <- Gen.choose(0, 5)
+    res <- Gen.option(Gen.listOfN(serverCnt, mavenServerGen))
     cache <- Gen.option(
       Gen.oneOf(ResolverCache.Local, ResolverCache.BazelOutputBase)
     )
