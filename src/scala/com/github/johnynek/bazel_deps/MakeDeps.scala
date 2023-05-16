@@ -34,7 +34,7 @@ object MakeDeps {
     }
     val projectRoot = g.repoRoot
 
-    resolverCachePath(model, projectRoot).flatMap(runResolve(model, _)) match {
+    resolverCachePath(model, projectRoot).flatMap(runResolve(projectRoot, model, _)) match {
       case Failure(err) =>
         logger.error("resolution and sha collection failed", err)
         System.exit(1)
@@ -150,6 +150,7 @@ object MakeDeps {
       .map(_.toAbsolutePath)
 
   private[bazel_deps] def runResolve(
+      rootPath: Path,
       model: Model,
       resolverCachePath: Path
   ): Try[
@@ -182,6 +183,7 @@ object MakeDeps {
           new CoursierResolver(model.getOptions.getResolvers, ec, 3600.seconds, resolverCachePath)
 
         val resolver = new GradleResolver(
+            rootPath,
             model.getOptions.getVersionConflictPolicy,
             g,
             { ls => coursierResolver.run(coursierResolver.getShas(ls)) })

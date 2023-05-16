@@ -1,6 +1,6 @@
 package com.github.johnynek.bazel_deps
 
-import java.nio.file.Files
+import java.nio.file.{ Files, Paths }
 import org.scalatest.FunSuite
 
 class CoursierTest extends FunSuite  {
@@ -36,7 +36,7 @@ dependencies:
 """
 
     val model = Decoders.decodeModel(Yaml, config).right.get
-    val (graph, shas, normalized) = MakeDeps.runResolve(model, tmpPath).get
+    val (graph, shas, normalized) = MakeDeps.runResolve(Paths.get("/"), model, tmpPath).get
     normalized.keys.foreach { uvc =>
       assert(!uvc.asString.contains("bouncycastle"))
     }
@@ -63,7 +63,7 @@ dependencies:
 """
 
     val model = Decoders.decodeModel(Yaml, config).right.get
-    val (graph, shas, normalized) = MakeDeps.runResolve(model, tmpPath).get
+    val (graph, shas, normalized) = MakeDeps.runResolve(Paths.get("/"), model, tmpPath).get
     assert(graph.nodes.contains(
       MavenCoordinate(
         MavenGroup("net.sf.json-lib"), MavenArtifactId("json-lib", "jar", "jdk15"), Version("2.4"))))
@@ -90,7 +90,7 @@ dependencies:
 """
 
     val model = Decoders.decodeModel(Yaml, config).right.get
-    val (graph, shas, normalized) = MakeDeps.runResolve(model, tmpPath).get
+    val (graph, shas, normalized) = MakeDeps.runResolve(Paths.get("/"), model, tmpPath).get
     // org.sonatype.sisu:sisu-guice:no_aop is a transitive dependency of org.sonatype.sisu:sisu-inject-bean
     assert(graph.nodes.contains(
       MavenCoordinate(
@@ -119,7 +119,7 @@ dependencies:
 """
 
     val model = Decoders.decodeModel(Yaml, config).right.get
-    val (graph, shas, normalized) = MakeDeps.runResolve(model, tmpPath).get
+    val (graph, shas, normalized) = MakeDeps.runResolve(Paths.get("/"), model, tmpPath).get
 
     assert(graph.nodes.contains(
       MavenCoordinate(
@@ -156,7 +156,7 @@ dependencies:
 """
 
     val model = Decoders.decodeModel(Yaml, config).right.get
-    val (graph, shas, normalized) = MakeDeps.runResolve(model, tmpPath).get
+    val (graph, shas, normalized) = MakeDeps.runResolve(Paths.get("/"), model, tmpPath).get
     // org.sonatype.sisu:sisu-guice:no_aop is a transitive dependency of org.sonatype.sisu:sisu-inject-bean
     // we exclude it for this test
     assert(!graph.nodes.contains(
@@ -183,7 +183,7 @@ dependencies:
 """
 
     val model = Decoders.decodeModel(Yaml, config).right.get
-    val (graph, shas, normalized) = MakeDeps.runResolve(model, tmpPath).get
+    val (graph, shas, normalized) = MakeDeps.runResolve(Paths.get("/"), model, tmpPath).get
 
     assert(graph.nodes.contains(
       MavenCoordinate(

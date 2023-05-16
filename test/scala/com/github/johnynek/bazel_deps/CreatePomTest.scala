@@ -2,7 +2,7 @@ package com.github.johnynek.bazel_deps
 
 import org.scalatest.FunSuite
 
-import java.nio.file.Files
+import java.nio.file.{ Files, Paths }
 
 class CreatePomTest extends FunSuite{
 
@@ -59,7 +59,7 @@ dependencies:
       val model = Decoders.decodeModel(Yaml, dependenciesYaml).right.get
       val tmpPath = Files.createTempDirectory("cache")
       tmpPath.toFile.deleteOnExit()
-      val (dependencies, _, _) = MakeDeps.runResolve(model, tmpPath).get
+      val (dependencies, _, _) = MakeDeps.runResolve(Paths.get("/"), model, tmpPath).get
       val p = new scala.xml.PrettyPrinter(80, 2)
 
     assert(CreatePom.translate(dependencies) == p.format(expectedPomXml))
