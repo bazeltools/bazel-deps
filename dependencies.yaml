@@ -19,16 +19,16 @@ dependencies:
   com.fasterxml.jackson.core:
     jackson-databind:
       lang: java
-      version: "2.10.5.1"
+      version: "2.12.7.1"
 
     jackson-core:
       lang: java
-      version: "2.10.1"
+      version: "2.12.7"
 
   com.fasterxml.jackson.dataformat:
     jackson-dataformat-yaml:
       lang: java
-      version: "2.10.1"
+      version: "2.12.7"
 
   com.monovore:
     decline:
@@ -47,7 +47,7 @@ dependencies:
         - "org.typelevel:cats-kernel"
       lang: scala
       version: "0.14.5"
-    circe-jackson210:
+    circe-jackson212:
       lang: scala
       version: "0.14.0"
 
@@ -127,6 +127,10 @@ dependencies:
     paiges-core:
       lang: scala
       version: "0.4.2"
+  org.yaml:
+    snakeyaml:
+      lang: java
+      version: 2.0
 
 replacements:
   org.scala-lang:
