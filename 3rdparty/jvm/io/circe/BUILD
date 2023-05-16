@@ -39,9 +39,9 @@ scala_import(
 
 
 scala_import(
-    name = "circe_jackson210",
+    name = "circe_jackson212",
     jars = [
-        "//external:jar/io/circe/circe_jackson210_2_12"
+        "//external:jar/io/circe/circe_jackson212_2_12"
     ],
     runtime_deps = [
         "//3rdparty/jvm/com/fasterxml/jackson/core:jackson_core",
