@@ -7,10 +7,11 @@ java_library(
     ],
     runtime_deps = [
         "//3rdparty/jvm/commons_codec:commons_codec",
+        "//3rdparty/jvm/commons_logging:commons_logging",
         ":httpcore"
     ],
     visibility = [
-        "//3rdparty/jvm:__subpackages__"
+        "//visibility:public"
     ]
 )
 
