@@ -62,6 +62,11 @@ dependencies:
       modules: [ "aether-provider", "settings", "settings-builder" ]
       version: "3.3.9"
 
+  org.apache.httpcomponents:
+    httpclient:
+      lang: java
+      version: "4.5.13"
+
   org.eclipse.aether:
     aether:
       lang: java
