@@ -99,9 +99,6 @@ case class Model(
 }
 
 object Model {
-  def readFile(f: Path): Try[String] =
-    Try(new String(Files.readAllBytes(f), "UTF-8"))
-
   def combine(a: Model, b: Model): ValidatedNel[String, Model] = {
     val oo = Monoid[Option[Options]].combine(a.options, b.options)
 
@@ -261,9 +258,6 @@ object ShaValue {
       nRead = is.read(data, 0, data.length)
     }
   }
-
-  def parseFile(digestType: DigestType, file: Path): Try[ShaValue] =
-    Model.readFile(file).flatMap(parseData(digestType, _))
 
   def parseData(digestType: DigestType, contents: String): Try[ShaValue] = {
     val hexString = contents

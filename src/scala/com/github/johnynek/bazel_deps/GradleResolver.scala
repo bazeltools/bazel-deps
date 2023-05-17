@@ -3,7 +3,7 @@ package com.github.johnynek.bazel_deps
 import cats.MonadError
 import cats.data.{Validated, ValidatedNel}
 import io.circe.jawn.JawnParser
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Path, Paths, Files}
 import scala.collection.immutable.SortedMap
 import scala.util.{Failure, Success, Try}
 
@@ -29,7 +29,7 @@ class GradleResolver(
   private def loadLockFile(
       lockFile: String
   ): Try[GradleLockFile] =
-    (Model.readFile(rootPath.resolve(lockFile)) match {
+    (Try(new String(Files.readAllBytes(rootPath.resolve(lockFile)), "UTF-8")) match {
       case Success(str) => Success(str)
       case Failure(err) =>
         Failure(new Exception(s"Failed to read ${lockFile}", err))

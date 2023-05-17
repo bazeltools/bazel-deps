@@ -4,7 +4,7 @@ import cats.data.EitherT
 import cats.effect.{ IO, ExitCode }
 import coursier.util.Task
 import io.circe.jawn.JawnParser
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Path, Paths, Files}
 import org.slf4j.{Logger, LoggerFactory}
 import scala.collection.immutable.SortedMap
 import scala.sys.process.{BasicIO, Process, ProcessIO}
@@ -78,8 +78,11 @@ object MakeDeps {
       }
     })
 
+  private def read(p: Path): IO[String] =
+    IO.blocking(new String(Files.readAllBytes(p), "UTF-8"))
+
   def apply(g: Command.Generate): IO[ExitCode] = (for {
-    content <- fromT(IO.blocking(Model.readFile(g.absDepsFile)), ExitCode(1), s"Failed to read ${g.depsFile}")
+    content <- fromE(read(g.absDepsFile).attempt, ExitCode(1), s"Failed to read ${g.depsFile}")
     parser = if (g.depsFile.endsWith(".json")) new JawnParser else Yaml
     model <- fromE(IO.pure(Decoders.decodeModel(parser, content)), ExitCode(1), s"Failed to parse ${g.depsFile}.")
     projectRoot = g.repoRoot
