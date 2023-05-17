@@ -1,7 +1,8 @@
 package com.github.johnynek.bazel_deps
 
-import cats.data.{NonEmptyList, Validated, ValidatedNel}
-import cats.Foldable
+import cats.data.{EitherT, NonEmptyList, Validated, ValidatedNel}
+import cats.effect.{ ExitCode, IO }
+import cats.{Applicative, Foldable, Parallel}
 import cats.implicits._
 import io.circe.jawn.JawnParser
 import java.io.PrintWriter
@@ -9,46 +10,52 @@ import scala.util.{Failure, Success}
 import java.nio.file.Path
 
 object MergeDeps {
-  private def load(f: Path): ValidatedNel[String, Model] =
-    FormatDeps.readModel(f) match {
+  private def load(f: Path): IO[ValidatedNel[String, Model]] =
+    IO.blocking(FormatDeps.readModel(f) match {
       case Right(m)  => Validated.valid(m)
       case Left(err) => Validated.invalidNel(err)
-    }
+    })
 
-  def fail(errs: NonEmptyList[String]): Nothing = {
+  private def loadAll(models: NonEmptyList[Path]): IO[ValidatedNel[String, NonEmptyList[Model]]] = {
+    type V[T] = ValidatedNel[String, T]
+    type A[T] = IO.Par[V[T]]
+    implicit val appA: Applicative[A] = Parallel[IO].applicative.compose(Applicative[V])
+
+    Parallel[IO].sequential(models.traverse[A, Model] { p => Parallel[IO].parallel(load(p)) })
+  }
+
+  private def fail(errs: NonEmptyList[String]): IO[ExitCode]  = IO.blocking {
     errs.toList.foreach(System.err.println)
-    System.exit(1)
-    sys.error("unreachable")
+    ExitCode(1)
   }
 
-  def apply(models: NonEmptyList[Path], out: Option[Path]): Unit = {
-
-    type A[T] = ValidatedNel[String, T]
-    val mod = models.traverse[A, Model](load).toEither.right.flatMap {
-      Model.combine(_)
-    }
-
-    mod match {
-      case Left(errs) => fail(errs)
-      case Right(m) =>
-        val stream = m.toDoc.renderStream(100)
-        out match {
-          case None => stream.foreach(System.out.print)
-          case Some(path) =>
-            val pw = new PrintWriter(path.toFile)
-            stream.foreach(pw.print(_))
-            pw.flush
-            pw.close
+  def apply(models: NonEmptyList[Path], out: Option[Path]): IO[ExitCode] =
+    loadAll(models)
+      .flatMap { validated =>
+        validated.toEither.flatMap(Model.combine) match {
+          case Left(errs) => fail(errs)
+          case Right(m) =>
+            val stream = m.toDoc.renderStreamTrim(100)
+            IO.blocking {
+              out match {
+                case None => stream.foreach(System.out.print)
+                case Some(path) =>
+                  val pw = new PrintWriter(path.toFile)
+                  stream.foreach(pw.print(_))
+                  pw.flush
+                  pw.close
+              }
+              ExitCode.Success
+            }
         }
-    }
-  }
+      }
 
   def addDep(
       model: Path,
       lang: Language,
       coords: NonEmptyList[MavenCoordinate]
-  ): Unit =
-    load(model) match {
+  ): IO[ExitCode] =
+    load(model).flatMap {
       case Validated.Invalid(errs) => fail(errs)
       case Validated.Valid(m) =>
         val realLang = m.getOptions.replaceLang(lang)
@@ -67,13 +74,20 @@ object MergeDeps {
           deps,
           m.dependencies
         )(combine) match {
-          case Left(errs) => fail(errs)
           case Right(resDep) =>
-            val stream = m.copy(dependencies = resDep).toDoc.renderStream(100)
-            val pw = new PrintWriter(model.toFile)
-            stream.foreach(pw.print(_))
-            pw.flush
-            pw.close
+            val stream = m.copy(dependencies = resDep).toDoc.renderStreamTrim(100)
+            IO.blocking {
+              val pw = new PrintWriter(model.toFile)
+              try {
+                stream.foreach(pw.print(_))
+                pw.flush
+              }
+              finally {
+                pw.close
+              }
+              ExitCode.Success
+            }
+          case Left(errs) => fail(errs)
         }
     }
 }

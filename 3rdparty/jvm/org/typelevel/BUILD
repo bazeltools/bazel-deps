@@ -45,7 +45,7 @@ scala_import(
         ":cats_core"
     ],
     visibility = [
-        "//3rdparty/jvm:__subpackages__"
+        "//visibility:public"
     ]
 )
 
@@ -61,7 +61,7 @@ scala_import(
         ":cats_effect_kernel"
     ],
     visibility = [
-        "//3rdparty/jvm:__subpackages__"
+        "//visibility:public"
     ]
 )
 

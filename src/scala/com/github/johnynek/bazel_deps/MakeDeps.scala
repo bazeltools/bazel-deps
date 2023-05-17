@@ -1,5 +1,7 @@
 package com.github.johnynek.bazel_deps
 
+import cats.data.EitherT
+import cats.effect.{ IO, ExitCode }
 import coursier.util.Task
 import io.circe.jawn.JawnParser
 import java.nio.file.{Path, Paths}
@@ -14,121 +16,129 @@ object MakeDeps {
 
   private[this] val logger: Logger = LoggerFactory.getLogger("MakeDeps")
 
-  def apply(g: Command.Generate): Unit = {
+  private def fromT[A](ioa: IO[Try[A]], failCode: ExitCode, msg: => String): EitherT[IO, ExitCode, A] =
+    fromE(ioa.map(_.toEither), failCode, msg)
 
-    val content: String = Model.readFile(g.absDepsFile) match {
-      case Success(str) => str
-      case Failure(err) =>
-        logger.error(s"Failed to read ${g.depsFile}", err)
-        System.exit(1)
-        sys.error("unreachable")
-    }
-
-    val parser = if (g.depsFile.endsWith(".json")) new JawnParser else Yaml
-    val model = Decoders.decodeModel(parser, content) match {
-      case Right(m) => m
-      case Left(err) =>
-        logger.error(s"Failed to parse ${g.depsFile}.", err)
-        System.exit(1)
-        sys.error("unreachable")
-    }
-    val projectRoot = g.repoRoot
-
-    resolverCachePath(model, projectRoot).flatMap(runResolve(projectRoot, model, _)) match {
-      case Failure(err) =>
-        logger.error("resolution and sha collection failed", err)
-        System.exit(1)
-      case Success((normalized, shas, duplicates)) =>
-        // build the BUILDs in thirdParty
-        val targets = Writer.targets(normalized, model) match {
-          case Right(t) => t
-          case Left(errs) =>
-            errs.toList.foreach { e => logger.error(e.message) }
-            System.exit(-1)
-            sys.error("exited already")
-        }
-        val formatter: Writer.BuildFileFormatter = g.buildifier match {
-          // If buildifier is provided, run it with the unformatted contents on its stdin; it will print the formatted
-          // result on stdout.
-          case Some(buildifierPath) => (p, s) => {
-            val output = new java.lang.StringBuilder()
-            val error = new java.lang.StringBuilder()
-            val processIO = new ProcessIO(
-              os => {
-                os.write(s.getBytes(FS.charset))
-                os.close()
-              },
-              BasicIO.processFully(output),
-              BasicIO.processFully(error)
-            )
-            val exit = Process(List(buildifierPath, "-path", p.asString, "-"), projectRoot.toFile).run(processIO).exitValue
-            // Blocks until the process exits.
-            if (exit != 0) {
-              logger.error(s"buildifier $buildifierPath failed (code $exit) for ${p.asString}:\n$error")
-              System.exit(-1)
-              sys.error("unreachable")
-            }
-            output.toString
-          }
-          // If no buildifier is provided, pass the contents through directly.
-          case None => (_, s) => s
-        }
-
-        // build the BUILDs in thirdParty
-        val artifacts =
-          Writer.artifactEntries(normalized, duplicates, shas, model) match {
-            case Right(t) => t
-            case Left(errs) =>
-              errs.toList.foreach { e => logger.error(e.message) }
-              System.exit(-1)
-              sys.error("exited already")
-          }
-
-        // build the workspace
-        val ws = Writer.workspace(g.depsFile, normalized, duplicates, shas, model)
-        // creates pom xml when path is provided
-        val pomIO = FS.orUnit(g.pomFile.map { fileName => CreatePom.writeIO(normalized, FS.path(fileName)) })
-        val io = executeGenerate(
-          model,
-          g.shaFilePath.map(FS.path(_)),
-          g.targetFile.map(FS.path(_)),
-          g.enable3rdPartyInRepo,
-          ws,
-          targets,
-          formatter,
-          g.resolvedOutput.map(FS.path),
-          artifacts) >> pomIO
-
-        if (g.checkOnly) {
-          val check = new FS.ReadCheckExec(projectRoot)
-          io.foldMap(check) match {
-            case Failure(err) =>
-              logger.error("Failure during IO:", err)
-              val errs = check.logErrorCount { ce => logger.error(ce.message) }
-              logger.error(s"found $errs errors.")
-              System.exit(-1)
-            case Success(_) =>
-              println(s"checked ${artifacts.size} targets")
-              val errs = check.logErrorCount { ce => logger.error(ce.message) }
-              if (errs != 0) {
-                logger.error(s"found $errs errors.")
-                System.exit(2) // this error got assigned error 2 somehow
-              }
-          }
-        }
-        else {
-          val exec = new FS.ReadWriteExec(projectRoot)
-          // Here we actually run the whole thing
-          io.foldMap(exec) match {
-            case Failure(err) =>
-              logger.error("Failure during IO:", err)
-              System.exit(-1)
-            case Success(_) =>
-              println(s"wrote ${artifacts.size} targets")
-          }
-        }
+  private def fromE[A](ioa: IO[Either[Throwable, A]], failCode: ExitCode, msg: => String): EitherT[IO, ExitCode, A] =
+    fromEither(ioa) { err =>
+      IO.blocking {
+        logger.error(msg, err)
+        failCode
       }
+    }
+
+  private def fromEither[E, A](ioa: IO[Either[E, A]])(fn: E => IO[ExitCode]): EitherT[IO, ExitCode, A] =
+    EitherT(ioa.flatMap {
+      case Right(a) => IO.pure(Right(a))
+      case Left(err) => fn(err).map(Left(_))
+    })
+
+  private def runFS[A](fsIO: FS.Result[A], artifactsSize: Int, projectRoot: Path, checkOnly: Boolean): EitherT[IO, ExitCode, ExitCode] =
+    EitherT(IO.blocking { if (checkOnly) {
+      val check = new FS.ReadCheckExec(projectRoot)
+      fsIO.foldMap(check) match {
+        case Failure(err) =>
+          logger.error("Failure during IO:", err)
+          val errs = check.logErrorCount { ce => logger.error(ce.message) }
+          logger.error(s"found $errs errors.")
+          Left(ExitCode(255))
+        case Success(_) =>
+          println(s"checked ${artifactsSize} targets")
+          val errs = check.logErrorCount { ce => logger.error(ce.message) }
+          if (errs != 0) {
+            logger.error(s"found $errs errors.")
+            Left(ExitCode(2)) // this error got assigned error 2 somehow
+          }
+          else {
+            Right(ExitCode.Success)
+          }
+      }
+    }
+    else {
+      val exec = new FS.ReadWriteExec(projectRoot)
+      // Here we actually run the whole thing
+      fsIO.foldMap(exec) match {
+        case Failure(err) =>
+          logger.error("Failure during IO:", err)
+          Left(ExitCode(255))
+        case Success(_) =>
+          println(s"wrote ${artifactsSize} targets")
+          Right(ExitCode.Success)
+      }
+    } })
+
+  def apply(g: Command.Generate): IO[ExitCode] = (for {
+    content <- fromT(IO.blocking(Model.readFile(g.absDepsFile)), ExitCode(1), s"Failed to read ${g.depsFile}")
+    parser = if (g.depsFile.endsWith(".json")) new JawnParser else Yaml
+    model <- fromE(IO.pure(Decoders.decodeModel(parser, content)), ExitCode(1), s"Failed to parse ${g.depsFile}.")
+    projectRoot = g.repoRoot
+    normShaDups <- fromT(
+      IO.blocking(resolverCachePath(model, projectRoot).flatMap(runResolve(projectRoot, model, _))),
+      ExitCode(1),
+      "resolution and sha collection failed"
+    )
+    (normalized, shas, duplicates) = normShaDups
+    // build the BUILDs in thirdParty
+    targets <- fromEither(IO.pure(Writer.targets(normalized, model))) { errs =>
+        IO.blocking {
+          errs.toList.foreach { e => logger.error(e.message) }
+          ExitCode(255)
+        }
+    }
+    // build the BUILDs in thirdParty
+    artifacts <- fromEither(IO.pure(Writer.artifactEntries(normalized, duplicates, shas, model))) { errs =>
+        IO.blocking {
+          errs.toList.foreach { e => logger.error(e.message) }
+          ExitCode(255)
+        }
+    }
+    // build the workspace
+    ws = Writer.workspace(g.depsFile, normalized, duplicates, shas, model)
+    // creates pom xml when path is provided
+    pomIO = FS.orUnit(g.pomFile.map { fileName => CreatePom.writeIO(normalized, FS.path(fileName)) })
+    genIO = executeGenerate(
+      model,
+      g.shaFilePath.map(FS.path(_)),
+      g.targetFile.map(FS.path(_)),
+      g.enable3rdPartyInRepo,
+      ws,
+      targets,
+      makeBuildifier(g.buildifier, projectRoot),
+      g.resolvedOutput.map(FS.path),
+      artifacts)
+    r <- runFS(pomIO >> genIO, artifacts.size, projectRoot, g.checkOnly)
+  } yield r).value.map {
+    case Right(ec) => ec
+    case Left(ec) => ec
   }
+
+  private def makeBuildifier(opt: Option[String], projectRoot: Path): Writer.BuildFileFormatter =
+    opt match {
+      // If buildifier is provided, run it with the unformatted contents on its stdin; it will print the formatted
+      // result on stdout.
+      case Some(buildifierPath) => (p, s) => {
+        val output = new java.lang.StringBuilder()
+        val error = new java.lang.StringBuilder()
+        val processIO = new ProcessIO(
+          os => {
+            os.write(s.getBytes(FS.charset))
+            os.close()
+          },
+          BasicIO.processFully(output),
+          BasicIO.processFully(error)
+        )
+        val exit = Process(List(buildifierPath, "-path", p.asString, "-"), projectRoot.toFile).run(processIO).exitValue
+        // Blocks until the process exits.
+        if (exit != 0) {
+          logger.error(s"buildifier $buildifierPath failed (code $exit) for ${p.asString}:\n$error")
+          // TODO use IO inside to run this side effect
+          System.exit(255)
+        }
+        output.toString
+      }
+      // If no buildifier is provided, pass the contents through directly.
+      case None => (_, s) => s
+    }
 
   private def resolverCachePath(model: Model, projectRoot: Path): Try[Path] =
     (model.getOptions.getResolverCache match {
