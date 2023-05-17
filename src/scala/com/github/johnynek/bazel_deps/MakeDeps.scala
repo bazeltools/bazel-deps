@@ -33,39 +33,50 @@ object MakeDeps {
       case Left(err) => fn(err).map(Left(_))
     })
 
+  private def logErrorIO(msg: String, err: Throwable): IO[Unit] =
+    IO.blocking(logger.error(msg, err))
+
+  private def logErrorIO(msg: String): IO[Unit] =
+    IO.blocking(logger.error(msg))
+
   private def runFS[A](fsIO: FS.Result[A], artifactsSize: Int, projectRoot: Path, checkOnly: Boolean): EitherT[IO, ExitCode, ExitCode] =
-    EitherT(IO.blocking { if (checkOnly) {
-      val check = new FS.ReadCheckExec(projectRoot)
-      fsIO.foldMap(check) match {
-        case Failure(err) =>
-          logger.error("Failure during IO:", err)
-          val errs = check.logErrorCount { ce => logger.error(ce.message) }
-          logger.error(s"found $errs errors.")
-          Left(ExitCode(255))
-        case Success(_) =>
-          println(s"checked ${artifactsSize} targets")
-          val errs = check.logErrorCount { ce => logger.error(ce.message) }
-          if (errs != 0) {
-            logger.error(s"found $errs errors.")
-            Left(ExitCode(2)) // this error got assigned error 2 somehow
+    EitherT(if (checkOnly) {
+      FS.readCheckExec(projectRoot)
+        .flatMap { check =>
+          fsIO.foldMap(check).attempt.flatMap {
+            case Left(err) =>
+              for {
+                _ <- logErrorIO("Failure during IO:", err)
+                errs <- check.logErrorCount { ce => logErrorIO(ce.message) }
+                _ <- logErrorIO(s"found $errs errors.")
+              } yield Left(ExitCode(255))
+            case Right(_) =>
+              for {
+                _ <- IO.println(s"checked ${artifactsSize} targets")
+                errs <- check.logErrorCount { ce => logErrorIO(ce.message) }
+                _ <- logErrorIO(s"found $errs errors.").whenA(errs > 0)
+              } yield (
+                  if (errs == 0) Right(ExitCode.Success)
+                  else {
+                    // this error got assigned error 2 somehow
+                    Left(ExitCode(2))
+                  }
+                )
           }
-          else {
-            Right(ExitCode.Success)
-          }
-      }
+        }
     }
     else {
-      val exec = new FS.ReadWriteExec(projectRoot)
+      val exec = FS.fileSystemExec(projectRoot)
       // Here we actually run the whole thing
-      fsIO.foldMap(exec) match {
-        case Failure(err) =>
-          logger.error("Failure during IO:", err)
-          Left(ExitCode(255))
-        case Success(_) =>
-          println(s"wrote ${artifactsSize} targets")
-          Right(ExitCode.Success)
+      fsIO.foldMap(exec).attempt.flatMap {
+        case Left(err) =>
+          logErrorIO("Failure during IO:", err)
+            .as(Left(ExitCode(255)))
+        case Right(_) =>
+          IO.println(s"wrote ${artifactsSize} targets")
+            .as(Right(ExitCode.Success))
       }
-    } })
+    })
 
   def apply(g: Command.Generate): IO[ExitCode] = (for {
     content <- fromT(IO.blocking(Model.readFile(g.absDepsFile)), ExitCode(1), s"Failed to read ${g.depsFile}")

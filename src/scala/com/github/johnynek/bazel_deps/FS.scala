@@ -2,6 +2,8 @@ package com.github.johnynek.bazel_deps
 
 import cats.Eval
 import cats.arrow.FunctionK
+import cats.effect.IO
+import cats.effect.kernel.{ Ref, RefSource }
 import cats.free.Free
 import cats.free.Free.liftF
 import java.io.{FileOutputStream, FileInputStream, ByteArrayOutputStream, IOException}
@@ -107,48 +109,54 @@ object FS {
       case None => const(())
     }
 
-  def fileSystemExec(root: JPath): FunctionK[Ops, Try] =
+  def fileSystemExec(root: JPath): FunctionK[Ops, IO] =
     new ReadWriteExec(root)
+
+  def readCheckExec(root: JPath): IO[ReadCheckExec] =
+    Ref[IO].of(Vector.empty[CheckException]).map(new ReadCheckExec(root, _))
 
   final case class ReadOnlyException[A](op: Ops[A]) extends Exception(s"invalid op = $op in read-only mode")
 
-  class ReadOnlyExec(root: JPath) extends FunctionK[Ops, Try] {
+  class ReadOnlyExec(root: JPath) extends FunctionK[Ops, IO] {
     require(root.isAbsolute, s"Absolute path required, found: $root")
 
-    protected val successUnit: Try[Unit] = Success(())    
+    protected val successUnit: IO[Unit] = IO.pure(())    
 
     def jpathFor(p: Path): JPath =
       p.parts.foldLeft(root) { (p, element) => p.resolve(element) }
 
-    def apply[A](o: Ops[A]): Try[A] = o match {
-      case Exists(f) => Try(Files.exists(jpathFor(f)))
+    def apply[A](o: Ops[A]): IO[A] = o match {
+      case Exists(f) =>
+        val p = jpathFor(f)
+        IO.blocking(Files.exists(p))
       case ReadFile(f) =>
-        Try({
-          val ff = jpathFor(f)
-          if (Files.exists(ff))
-            Some(new String(Files.readAllBytes(ff), charset))
+        val p = jpathFor(f)
+        IO.blocking {
+          if (Files.exists(p))
+            Some(new String(Files.readAllBytes(p), charset))
           else None
-        })
-      case Failed(err) => Failure(err)
+        }
+      case Failed(err) => IO.raiseError(err)
       // The following are not read only
-      case _ => Failure(ReadOnlyException(o))
+      case _ => IO.raiseError(ReadOnlyException(o))
     }
   }
 
   class ReadWriteExec(root: JPath) extends ReadOnlyExec(root) {
-    override def apply[A](o: Ops[A]): Try[A] = o match {
-      case MkDirs(f) => Try {
+    override def apply[A](o: Ops[A]): IO[A] = o match {
+      case MkDirs(f) => 
         val path = jpathFor(f)
-        if (Files.exists(path)) false
-        else {
-          Files.createDirectories(path)
-          true
+        IO.blocking {
+          if (Files.exists(path)) false
+          else {
+            Files.createDirectories(path)
+            true
+          }
         }
-      }
       case RmRf(f, removeHidden) =>
-        Try {
-          // get the java path
-          val path = jpathFor(f)
+        // get the java path
+        val path = jpathFor(f)
+        IO.blocking {
           if (!removeHidden) {
             Files.walkFileTree(
               path,
@@ -190,17 +198,19 @@ object FS {
           ()
         }
       case WriteFile(f, d) =>
-        Try {
-          val os = new FileOutputStream(jpathFor(f).toFile)
+        val p = jpathFor(f)
+        IO.blocking {
+          val os = new FileOutputStream(p.toFile)
           try os.write(d.value.getBytes(charset))
-          finally { os.close() }
+          finally os.close()
         }
       case WriteGzipFile(f, d) =>
-        Try {
+        val p = jpathFor(f)
+        IO.blocking {
           import java.util.zip.GZIPOutputStream;
-          val os = new GZIPOutputStream(new FileOutputStream(jpathFor(f).toFile))
+          val os = new GZIPOutputStream(new FileOutputStream(p.toFile))
           try os.write(d.value.getBytes(charset))
-          finally { os.close() }
+          finally os.close()
         }
       case _ => super.apply(o)
     }
@@ -218,54 +228,50 @@ object FS {
   }
   // This reads, but doesn't write. Instead it errors if the
   // write has not already been done bit-for-bit identically
-  class ReadCheckExec(root: JPath) extends ReadOnlyExec(root) {
-    private[this] val lock = new AnyRef
-    private[this] var ces: Vector[CheckException] = Vector.empty
-    def checkExceptions(): Vector[CheckException] = lock.synchronized { ces }
-    private def add(ce: CheckException): Unit =
-      lock.synchronized { ces = ces :+ ce }
+  class ReadCheckExec(root: JPath, ces: Ref[IO, Vector[CheckException]]) extends ReadOnlyExec(root) {
+    def checkExceptions: IO[Vector[CheckException]] =
+      ces.get
 
-    def logErrorCount(onEx: CheckException => Unit): Int = {
+    private def add(ce: CheckException): IO[Unit] =
+      ces.update(_ :+ ce)
+
+    def logErrorCount(onEx: CheckException => IO[Unit]): IO[Int] =
       // this is reading mutable state, so it has to run
       // after foldMap
-      val errs = checkExceptions()
-      errs.sortBy(_.path).foreach(onEx)
-      errs.size
-    }
-    override def apply[A](o: Ops[A]): Try[A] = o match {
+      for {
+        errs <- checkExceptions
+        _ <- errs.sortBy(_.path).traverse_(onEx)
+      } yield errs.size
+
+    override def apply[A](o: Ops[A]): IO[A] = o match {
       case MkDirs(f) =>
-        try {
-          if (Files.exists(jpathFor(f))) Success(false)
-          else {
-            add(CheckException.DirectoryMissing(f))
-            Success(true)
-          }
-        }
-        catch {
-          case NonFatal(e) => Failure(e)
-        }
+        val p = jpathFor(f)
+        IO.blocking(Files.exists(p))
+          .flatMap {
+            case true => IO.pure(false)
+            case false =>
+              add(CheckException.DirectoryMissing(f)).as(true)
+          } 
       case RmRf(_, _) => successUnit
       case WriteFile(f, d) =>
-        try {
+        val ff = jpathFor(f)
+        IO.blocking {
           val expected = d.value
-          val ff = jpathFor(f)
           if (Files.exists(ff)) {
             val found = new String(Files.readAllBytes(ff), charset)
             if (found != expected) {
               add(CheckException.WriteMismatch(f, Some(found), expected, compressed = false))
             }
+            else successUnit
           }
           else {
-            add(CheckException.WriteMismatch(f, None, expected, compressed = false)) 
+            add(CheckException.WriteMismatch(f, None, expected, compressed = false))
           }
-          successUnit
         }
-        catch {
-          case NonFatal(e) => Failure(e)
-        }
+        .flatten
       case WriteGzipFile(f, d) =>
-        try {
-          val ff = jpathFor(f)
+        val ff = jpathFor(f)
+        IO.blocking {
           val expected = d.value
           if (Files.exists(ff)) {
             import java.util.zip.GZIPInputStream;
@@ -287,15 +293,13 @@ object FS {
             if (found != expected) {
               add(CheckException.WriteMismatch(f, Some(found), expected, compressed = true)) 
             }
+            else successUnit
           }
           else {
             add(CheckException.WriteMismatch(f, None, expected, compressed = true)) 
           }
-          successUnit
         }
-        catch {
-          case NonFatal(e) => Failure(e)
-        }
+        .flatten
       case _ => super.apply(o)
     }
   }
