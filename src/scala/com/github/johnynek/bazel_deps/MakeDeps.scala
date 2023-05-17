@@ -41,7 +41,7 @@ object MakeDeps {
           logger.error("Failure during IO:", err)
           val errs = check.logErrorCount { ce => logger.error(ce.message) }
           logger.error(s"found $errs errors.")
-          Left(ExitCode(-1))
+          Left(ExitCode(255))
         case Success(_) =>
           println(s"checked ${artifactsSize} targets")
           val errs = check.logErrorCount { ce => logger.error(ce.message) }
@@ -60,7 +60,7 @@ object MakeDeps {
       fsIO.foldMap(exec) match {
         case Failure(err) =>
           logger.error("Failure during IO:", err)
-          Left(ExitCode(-1))
+          Left(ExitCode(255))
         case Success(_) =>
           println(s"wrote ${artifactsSize} targets")
           Right(ExitCode.Success)
@@ -82,14 +82,14 @@ object MakeDeps {
     targets <- fromEither(IO.pure(Writer.targets(normalized, model))) { errs =>
         IO.blocking {
           errs.toList.foreach { e => logger.error(e.message) }
-          ExitCode(-1)
+          ExitCode(255)
         }
     }
     // build the BUILDs in thirdParty
     artifacts <- fromEither(IO.pure(Writer.artifactEntries(normalized, duplicates, shas, model))) { errs =>
         IO.blocking {
           errs.toList.foreach { e => logger.error(e.message) }
-          ExitCode(-1)
+          ExitCode(255)
         }
     }
     // build the workspace
@@ -132,7 +132,7 @@ object MakeDeps {
         if (exit != 0) {
           logger.error(s"buildifier $buildifierPath failed (code $exit) for ${p.asString}:\n$error")
           // TODO use IO inside to run this side effect
-          System.exit(-1)
+          System.exit(255)
         }
         output.toString
       }
