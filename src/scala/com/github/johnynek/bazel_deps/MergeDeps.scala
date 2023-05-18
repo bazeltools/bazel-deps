@@ -11,10 +11,10 @@ import java.nio.file.Path
 
 object MergeDeps {
   private def load(f: Path): IO[ValidatedNel[String, Model]] =
-    IO.blocking(FormatDeps.readModel(f) match {
+    FormatDeps.readModel(f).map {
       case Right(m)  => Validated.valid(m)
       case Left(err) => Validated.invalidNel(err)
-    })
+    }
 
   private def loadAll(models: NonEmptyList[Path]): IO[ValidatedNel[String, NonEmptyList[Model]]] = {
     type V[T] = ValidatedNel[String, T]

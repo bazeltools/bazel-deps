@@ -159,6 +159,9 @@ scala_library(
         "//3rdparty/jvm/org/slf4j:slf4j_api",
         "//3rdparty/jvm/org/typelevel:cats_core",
         "//3rdparty/jvm/org/typelevel:cats_free",
+        "//3rdparty/jvm/org/typelevel:cats_effect",
+        "//3rdparty/jvm/org/typelevel:cats_effect_kernel",
+        "//3rdparty/jvm/org/typelevel:cats_effect_std",
     ],
 )
 
