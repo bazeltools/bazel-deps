@@ -250,8 +250,8 @@ object ShaValue {
 
   private[this] def withContent(
       is: InputStream
-  )(f: ([Byte], Int) => Unit): Unit = {
-    val data = .ofDim[Byte](16384)
+  )(f: (Array[Byte], Int) => Unit): Unit = {
+    val data = Array.ofDim[Byte](16384)
     var nRead = is.read(data, 0, data.length)
     while (nRead != -1) {
       f(data, nRead)
