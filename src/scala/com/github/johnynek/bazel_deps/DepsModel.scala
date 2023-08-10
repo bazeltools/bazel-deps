@@ -250,8 +250,8 @@ object ShaValue {
 
   private[this] def withContent(
       is: InputStream
-  )(f: (Array[Byte], Int) => Unit): Unit = {
-    val data = Array.ofDim[Byte](16384)
+  )(f: ([Byte], Int) => Unit): Unit = {
+    val data = .ofDim[Byte](16384)
     var nRead = is.read(data, 0, data.length)
     while (nRead != -1) {
       f(data, nRead)
@@ -647,6 +647,8 @@ object Language {
     val major = v.asString.split('.') match {
       case Array("2", x) if (x.toInt >= 10)    => s"2.$x"
       case Array("2", x, _) if (x.toInt >= 10) => s"2.$x"
+      case Array("3", _) => "3"
+      case Array("3", _, _) => "3"
       case _ => sys.error(s"unsupported scala version: ${v.asString}")
     }
     private val suffix = s"_$major"
