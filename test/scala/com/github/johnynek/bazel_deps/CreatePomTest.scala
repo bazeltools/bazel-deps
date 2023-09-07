@@ -78,7 +78,7 @@ dependencies:
             <groupId>io.netty</groupId>
             <artifactId>netty-resolver-dns-native-macos</artifactId>
             <type>jar</type>
-            <classifier>osx-86_64</classifier>
+            <classifier>osx-x86_64</classifier>
             <version>4.1.85.Final</version>
           </dependency>
         </dependencies>
