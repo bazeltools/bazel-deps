@@ -32,8 +32,9 @@ dependencies:
     flying-saucer-pdf:
       lang: java
       version: "9.0.3"
-  netty:
-    version: "4.1.85.Final"
+  io.netty:
+    netty:
+      version: "4.1.85.Final"
       lang: java
       modules: [resolver-dns]
 """
