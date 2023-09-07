@@ -32,6 +32,10 @@ dependencies:
     flying-saucer-pdf:
       lang: java
       version: "9.0.3"
+  netty:
+    version: "4.1.85.Final"
+      lang: java
+      modules: [resolver-dns]
 """
 
     val expectedPomXml =
@@ -52,6 +56,30 @@ dependencies:
             <groupId>org.xhtmlrenderer</groupId>
             <artifactId>flying-saucer-pdf</artifactId>
             <version>9.0.3</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-resolver-dns</artifactId>
+            <version>4.1.85.Final</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-resolver-dns-classes-macos</artifactId>
+            <version>4.1.85.Final</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-resolver-dns-native-macos</artifactId>
+            <type>jar</type>
+            <classifier>osx-aarch_64</classifier>
+            <version>4.1.85.Final</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-resolver-dns-native-macos</artifactId>
+            <type>jar</type>
+            <classifier>osx-86_64</classifier>
+            <version>4.1.85.Final</version>
           </dependency>
         </dependencies>
       </project>

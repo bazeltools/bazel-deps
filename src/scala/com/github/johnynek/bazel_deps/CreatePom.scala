@@ -7,7 +7,9 @@ object CreatePom {
     def toXml: Elem = {
       <dependency>
         <groupId>{self.group.asString}</groupId>
-        <artifactId>{self.artifact.asString}</artifactId>
+        <artifactId>{self.artifact.asString.split(":")(0)}</artifactId>
+        <type>{self.artifact.packaging}</type>
+        <classifier>{self.artifact.classifier}</classifier>
         <version>{self.version.asString}</version>
       </dependency>
     }
