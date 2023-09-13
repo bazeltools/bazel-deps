@@ -8,14 +8,14 @@ object CreatePom {
       if (self.artifact.classifier==None) {
         <dependency>
           <groupId>{self.group.asString}</groupId>
-          <artifactId>{self.artifact.asString.split(":")(0)}</artifactId>
+          <artifactId>{self.artifact.artifactId}</artifactId>
           <type>{self.artifact.packaging}</type>
           <version>{self.version.asString}</version>
         </dependency>
       } else {
         <dependency>
           <groupId>{self.group.asString}</groupId>
-          <artifactId>{self.artifact.asString.split(":")(0)}</artifactId>
+          <artifactId>{self.artifact.artifactId}</artifactId>
           <type>{self.artifact.packaging}</type>
           <classifier>{self.artifact.classifier}</classifier>
           <version>{self.version.asString}</version>
