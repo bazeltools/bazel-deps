@@ -17,7 +17,7 @@ object CreatePom {
           <groupId>{self.group.asString}</groupId>
           <artifactId>{self.artifact.artifactId}</artifactId>
           <type>{self.artifact.packaging}</type>
-          <classifier>{self.artifact.classifier}</classifier>
+          <classifier>{self.artifact.classifier.getOrElse(None)}</classifier>
           <version>{self.version.asString}</version>
         </dependency>
     }
