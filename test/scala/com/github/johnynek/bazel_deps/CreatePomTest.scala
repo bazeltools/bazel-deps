@@ -16,8 +16,13 @@ options:
     - id: "mavencentral"
       type: "default"
       url: https://repo.maven.apache.org/maven2/
+    - id: "mavenother"
+      type: "default"
+      url: https://repo1.maven.apache.org/maven2/
   transitivity: runtime_deps
   versionConflictPolicy: highest
+  strictVisibility: true
+ 
 
 dependencies:
   com.lowagie:
@@ -32,6 +37,10 @@ dependencies:
     flying-saucer-pdf:
       lang: java
       version: "9.0.3"
+  io.netty:
+    netty-resolver-dns-native-macos:jar:osx-x86_64:
+      lang: java
+      version: "4.1.85.Final"
 """
 
     val expectedPomXml =
@@ -41,16 +50,86 @@ dependencies:
           <dependency>
             <groupId>com.lowagie</groupId>
             <artifactId>itext</artifactId>
+            <type>jar</type>
             <version>2.1.7</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-buffer</artifactId>
+            <type>jar</type>
+            <version>4.1.85.Final</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec</artifactId>
+            <type>jar</type>
+            <version>4.1.85.Final</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec-dns</artifactId>
+            <type>jar</type>
+            <version>4.1.85.Final</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-common</artifactId>
+            <type>jar</type>
+            <version>4.1.85.Final</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-handler</artifactId>
+            <type>jar</type>
+            <version>4.1.85.Final</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-resolver</artifactId>
+            <type>jar</type>
+            <version>4.1.85.Final</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-resolver-dns</artifactId>
+            <type>jar</type>
+            <version>4.1.85.Final</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-resolver-dns-classes-macos</artifactId>
+            <type>jar</type>
+            <version>4.1.85.Final</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-resolver-dns-native-macos</artifactId>
+            <type>jar</type>
+            <classifier>osx-x86_64</classifier>
+            <version>4.1.85.Final</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-transport</artifactId>
+            <type>jar</type>
+            <version>4.1.85.Final</version>
+          </dependency>
+          <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-transport-native-unix-common</artifactId>
+            <type>jar</type>
+            <version>4.1.85.Final</version>
           </dependency>
           <dependency>
             <groupId>org.xhtmlrenderer</groupId>
             <artifactId>flying-saucer-core</artifactId>
+            <type>jar</type>
             <version>9.0.3</version>
           </dependency>
           <dependency>
             <groupId>org.xhtmlrenderer</groupId>
             <artifactId>flying-saucer-pdf</artifactId>
+            <type>jar</type>
             <version>9.0.3</version>
           </dependency>
         </dependencies>
@@ -61,7 +140,6 @@ dependencies:
       tmpPath.toFile.deleteOnExit()
       val (dependencies, _, _) = MakeDeps.runResolve(Paths.get("/"), model, tmpPath).get
       val p = new scala.xml.PrettyPrinter(80, 2)
-
     assert(CreatePom.translate(dependencies) == p.format(expectedPomXml))
   }
 }
