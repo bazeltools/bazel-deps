@@ -50,86 +50,72 @@ dependencies:
           <dependency>
             <groupId>com.lowagie</groupId>
             <artifactId>itext</artifactId>
-            <type>jar</type>
             <version>2.1.7</version>
           </dependency>
           <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-buffer</artifactId>
-            <type>jar</type>
             <version>4.1.85.Final</version>
           </dependency>
           <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-codec</artifactId>
-            <type>jar</type>
             <version>4.1.85.Final</version>
           </dependency>
           <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-codec-dns</artifactId>
-            <type>jar</type>
             <version>4.1.85.Final</version>
           </dependency>
           <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-common</artifactId>
-            <type>jar</type>
             <version>4.1.85.Final</version>
           </dependency>
           <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-handler</artifactId>
-            <type>jar</type>
             <version>4.1.85.Final</version>
           </dependency>
           <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-resolver</artifactId>
-            <type>jar</type>
             <version>4.1.85.Final</version>
           </dependency>
           <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-resolver-dns</artifactId>
-            <type>jar</type>
             <version>4.1.85.Final</version>
           </dependency>
           <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-resolver-dns-classes-macos</artifactId>
-            <type>jar</type>
             <version>4.1.85.Final</version>
           </dependency>
           <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-resolver-dns-native-macos</artifactId>
-            <type>jar</type>
             <classifier>osx-x86_64</classifier>
             <version>4.1.85.Final</version>
           </dependency>
           <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-transport</artifactId>
-            <type>jar</type>
             <version>4.1.85.Final</version>
           </dependency>
           <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-transport-native-unix-common</artifactId>
-            <type>jar</type>
             <version>4.1.85.Final</version>
           </dependency>
           <dependency>
             <groupId>org.xhtmlrenderer</groupId>
             <artifactId>flying-saucer-core</artifactId>
-            <type>jar</type>
             <version>9.0.3</version>
           </dependency>
           <dependency>
             <groupId>org.xhtmlrenderer</groupId>
             <artifactId>flying-saucer-pdf</artifactId>
-            <type>jar</type>
             <version>9.0.3</version>
           </dependency>
         </dependencies>
