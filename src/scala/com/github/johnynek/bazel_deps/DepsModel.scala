@@ -647,6 +647,8 @@ object Language {
     val major = v.asString.split('.') match {
       case Array("2", x) if (x.toInt >= 10)    => s"2.$x"
       case Array("2", x, _) if (x.toInt >= 10) => s"2.$x"
+      case Array("3", _) => "3"
+      case Array("3", _, _) => "3"
       case _ => sys.error(s"unsupported scala version: ${v.asString}")
     }
     private val suffix = s"_$major"
