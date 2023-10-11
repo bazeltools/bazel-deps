@@ -1,0 +1,58 @@
+workspace(name = "com_github_johnynek_bazel_deps")
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "bazel_skylib",
+    sha256 = "7832382668c6dde9f57e18923763a24f9087cac66a50fbcc5afca848d03f2aa1",
+    strip_prefix = "bazel-skylib-b113ed5d05ccddee3093bb157b9b02ab963c1c32",
+    urls = ["https://github.com/bazelbuild/bazel-skylib/archive/b113ed5d05ccddee3093bb157b9b02ab963c1c32.tar.gz"],
+)
+
+http_archive(
+    name = "io_bazel_rules_scala",
+    sha256 = "ae4e74b6c696f40544cafb06b26bf4e601f83a0f29fb6500f0275c988f8cfe40",
+    strip_prefix = "rules_scala-6.2.0",
+    url = "https://github.com/bazelbuild/rules_scala/releases/download/v6.2.0/rules_scala-v6.2.0.tar.gz",
+)
+
+load("@io_bazel_rules_scala//:scala_config.bzl", "scala_config")
+
+scala_config()
+
+load("@io_bazel_rules_scala//scala:scala.bzl", "rules_scala_setup", "rules_scala_toolchain_deps_repositories")
+
+rules_scala_setup()
+
+rules_scala_toolchain_deps_repositories(fetch_sources = True)
+
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+
+rules_proto_dependencies()
+
+rules_proto_toolchains()
+
+load("@io_bazel_rules_scala//scala:toolchains.bzl", "scala_register_toolchains")
+
+scala_register_toolchains()
+
+register_toolchains("//:scala_toolchain")
+
+load("@io_bazel_rules_scala//testing:scalatest.bzl", "scalatest_repositories", "scalatest_toolchain")
+
+scalatest_repositories()
+
+scalatest_toolchain()
+
+load("//3rdparty:workspace.bzl", "maven_dependencies")
+
+maven_dependencies()
+
+load("//3rdparty:target_file.bzl", "build_external_workspace")
+
+build_external_workspace(name = "third_party")
+
+bind(
+    name = "io_bazel_rules_scala/dependency/scalatest/scalatest",
+    actual = "//3rdparty/jvm/org/scalatest",
+)

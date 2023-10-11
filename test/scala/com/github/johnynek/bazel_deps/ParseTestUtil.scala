@@ -1,9 +1,6 @@
 package com.github.johnynek.bazel_deps
 
-import org.scalatest.FunSuite
-import org.scalatest.prop.PropertyChecks._
-
-object ParseTestUtil extends FunSuite {
+object ParseTestUtil {
   def decode(str: String): Model = {
     val Right(mod) = Decoders.decodeModel(Yaml, str)
     mod
@@ -17,8 +14,8 @@ object ParseTestUtil extends FunSuite {
     //   println("------")
     //   println(decoded.toDoc.render(70))
     // }
-    assert(decoded == model || decoded.flatten === model.flatten)
-    assert(decoded.toDoc.render(70) === str)
+    assert(decoded == model || decoded.flatten == model.flatten)
+    assert(decoded.toDoc.render(70) == str)
   }
 
   def roundTripsTo(input: String, output: String) = {
@@ -28,7 +25,7 @@ object ParseTestUtil extends FunSuite {
     // println(input)
     // println("------")
     // println(modStr)
-    assert(modStr === output)
+    assert(modStr == output)
   }
 
 }

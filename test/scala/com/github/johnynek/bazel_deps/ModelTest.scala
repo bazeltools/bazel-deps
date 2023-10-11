@@ -1,9 +1,9 @@
 package com.github.johnynek.bazel_deps
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import cats.data.Validated
 
-class ModelTest extends FunSuite {
+class ModelTest extends AnyFunSuite {
   test("specific versions sort correctly") {
     assert(
       VersionConflictPolicy.Highest

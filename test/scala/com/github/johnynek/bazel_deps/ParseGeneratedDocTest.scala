@@ -1,21 +1,21 @@
 package com.github.johnynek.bazel_deps
 
 import org.scalacheck.Gen
-import org.scalatest.FunSuite
-import org.scalatest.prop.PropertyChecks._
+import org.scalatest.propspec.AnyPropSpec
+import org.scalatest.prop.Configuration.PropertyCheckConfiguration
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import ParseTestUtil._
 
-class ParseGeneratedDocTest extends FunSuite {
-  test("parse randomly generated Model.toDoc") {
+class ParseGeneratedDocTest extends AnyPropSpec with ScalaCheckPropertyChecks {
+  property("parse randomly generated Model.toDoc") {
     // this test is slow and takes a lot of memory sadly
     implicit val generatorDrivenConfig =
-      PropertyCheckConfig(minSuccessful = 50)
+      PropertyCheckConfiguration(minSuccessful = 50)
 
     forAll(ModelGenerators.modelGen)(law _)
   }
 
-  test("Dependencies.normalize laws") {
-
+  property("Dependencies.normalize laws") {
     val genList = Gen.listOf(
       Gen.zip(
         ModelGenerators.artifactOrProjGen,

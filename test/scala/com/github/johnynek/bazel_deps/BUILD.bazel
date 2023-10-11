@@ -1,0 +1,180 @@
+scala_library(
+    name = "gencheats",
+    srcs = ["GenCheats.scala"],
+    deps = [
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatestplus:scalacheck_1_17",
+        "//3rdparty/jvm/org/typelevel:cats_core",
+    ],
+)
+
+scala_test(
+    name = "modeltest",
+    size = "small",
+    srcs = ["ModelTest.scala"],
+    deps = ["//src/scala/com/github/johnynek/bazel_deps:depsmodel"],
+)
+
+scala_test(
+    name = "graphtest",
+    size = "small",
+    srcs = ["GraphTest.scala"],
+    deps = ["//src/scala/com/github/johnynek/bazel_deps:graph"],
+)
+
+scala_test(
+    name = "graphproptest",
+    size = "small",
+    srcs = ["GraphPropTest.scala"],
+    deps = [
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest:scalatest_propspec",
+        "//3rdparty/jvm/org/scalatestplus:scalacheck_1_17",
+        "//src/scala/com/github/johnynek/bazel_deps:graph",
+    ],
+)
+
+scala_test(
+    name = "normalizertest",
+    size = "small",
+    srcs = ["NormalizerTest.scala"],
+    deps = [
+        ":gencheats",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest:scalatest_propspec",
+        "//3rdparty/jvm/org/scalatestplus:scalacheck_1_17",
+        "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+        "//src/scala/com/github/johnynek/bazel_deps:graph",
+        "//src/scala/com/github/johnynek/bazel_deps:normalizer",
+    ],
+)
+
+scala_test(
+    name = "normalizerproptest",
+    size = "small",
+    srcs = ["NormalizerPropTest.scala"],
+    deps = [
+        ":gencheats",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest:scalatest_propspec",
+        "//3rdparty/jvm/org/scalatestplus:scalacheck_1_17",
+        "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+        "//src/scala/com/github/johnynek/bazel_deps:graph",
+        "//src/scala/com/github/johnynek/bazel_deps:normalizer",
+    ],
+)
+
+scala_library(
+    name = "writergen",
+    srcs = ["WriterGenerators.scala"],
+    deps = [
+        ":modelgen",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/typelevel:paiges_core",
+        "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+        "//src/scala/com/github/johnynek/bazel_deps:fs",
+        "//src/scala/com/github/johnynek/bazel_deps:writer",
+    ],
+)
+
+scala_library(
+    name = "modelgen",
+    srcs = ["ModelGenerators.scala"],
+    deps = [
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/typelevel:paiges_core",
+        "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+    ],
+)
+
+scala_test(
+    name = "parsetest",
+    srcs = [
+        "ParseTest.scala",
+        "ParseTestUtil.scala",
+    ],
+    deps = [
+        ":modelgen",
+        "//3rdparty/jvm/io/circe:circe_core",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest:scalatest_propspec",
+        "//3rdparty/jvm/org/scalatestplus:scalacheck_1_17",
+        "//3rdparty/jvm/org/typelevel:cats_core",
+        "//src/scala/com/github/johnynek/bazel_deps:circeyaml",
+        "//src/scala/com/github/johnynek/bazel_deps:decoders",
+        "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+    ],
+)
+
+scala_test(
+    name = "parsegenerateddoctest",
+    srcs = [
+        "ParseGeneratedDocTest.scala",
+        "ParseTestUtil.scala",
+    ],
+    jvm_flags = [
+        "-Xmx1000M",
+        "-Xms1000M",
+    ],
+    deps = [
+        ":modelgen",
+        "//3rdparty/jvm/io/circe:circe_core",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest:scalatest_propspec",
+        "//3rdparty/jvm/org/scalatestplus:scalacheck_1_17",
+        "//3rdparty/jvm/org/typelevel:cats_core",
+        "//src/scala/com/github/johnynek/bazel_deps:circeyaml",
+        "//src/scala/com/github/johnynek/bazel_deps:decoders",
+        "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+    ],
+)
+
+scala_test(
+    name = "parsetestcases",
+    srcs = [
+        "ParseTestCasesTest.scala",
+        "ParseTestUtil.scala",
+    ],
+    deps = [
+        ":modelgen",
+        "//3rdparty/jvm/io/circe:circe_core",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest:scalatest_propspec",
+        "//3rdparty/jvm/org/scalatestplus:scalacheck_1_17",
+        "//3rdparty/jvm/org/typelevel:cats_core",
+        "//src/scala/com/github/johnynek/bazel_deps:circeyaml",
+        "//src/scala/com/github/johnynek/bazel_deps:decoders",
+        "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+    ],
+)
+
+scala_test(
+    name = "coursier_test",
+    srcs = ["CoursierTest.scala"],
+    deps = [
+        "//3rdparty/jvm/io/circe:circe_core",
+        "//src/scala/com/github/johnynek/bazel_deps:circeyaml",
+        "//src/scala/com/github/johnynek/bazel_deps:decoders",
+        "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+        "//src/scala/com/github/johnynek/bazel_deps:graph",
+        "//src/scala/com/github/johnynek/bazel_deps:makedeps",
+        "//src/scala/com/github/johnynek/bazel_deps:writer",
+    ],
+)
+
+scala_test(
+    name = "createpomtest",
+    srcs = ["CreatePomTest.scala"],
+    deps = [
+        "//3rdparty/jvm/io/circe:circe_core",
+        "//3rdparty/jvm/org/scala_lang/modules:scala_xml",
+        "//src/scala/com/github/johnynek/bazel_deps:circeyaml",
+        "//src/scala/com/github/johnynek/bazel_deps:createpom",
+        "//src/scala/com/github/johnynek/bazel_deps:decoders",
+        "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+        "//src/scala/com/github/johnynek/bazel_deps:graph",
+        "//src/scala/com/github/johnynek/bazel_deps:makedeps",
+    ],
+)
+
+test_suite(name = "all_tests")
