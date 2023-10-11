@@ -16,6 +16,7 @@ mkdir templates/
 cp ../src/scala/com/github/johnynek/bazel_deps/templates/* templates/
 cp ../bazel-deps.jar .
 cp ../ci_scripts/reflection.json .
+cp ../ci_scripts/resource-config.json .
 
 native-image -H:+ReportUnsupportedElementsAtRuntime \
  --initialize-at-build-time \
@@ -26,6 +27,7 @@ native-image -H:+ReportUnsupportedElementsAtRuntime \
  -H:EnableURLProtocols=http,https \
  --enable-all-security-services \
  -H:ReflectionConfigurationFiles=reflection.json \
+ -H:ResourceConfigurationFiles=resource-config.json \
  --allow-incomplete-classpath \
  -H:+ReportExceptionStackTraces \
  --no-fallback \
