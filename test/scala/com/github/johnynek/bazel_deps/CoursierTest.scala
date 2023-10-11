@@ -1,9 +1,9 @@
 package com.github.johnynek.bazel_deps
 
 import java.nio.file.{ Files, Paths }
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-class CoursierTest extends FunSuite  {
+class CoursierTest extends AnyFunSuite  {
   val tmpPath = Files.createTempDirectory("cache")
   tmpPath.toFile.deleteOnExit()
 

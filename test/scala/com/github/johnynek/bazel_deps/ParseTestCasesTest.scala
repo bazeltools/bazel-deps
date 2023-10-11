@@ -1,8 +1,9 @@
 package com.github.johnynek.bazel_deps
 
 import com.github.johnynek.bazel_deps.ParseTestUtil._
-import org.scalatest.FunSuite
-class ParseTestCasesTest extends FunSuite {
+import org.scalatest.funsuite.AnyFunSuite
+
+class ParseTestCasesTest extends AnyFunSuite {
 
   test("test regressions") {
     import Language.Java

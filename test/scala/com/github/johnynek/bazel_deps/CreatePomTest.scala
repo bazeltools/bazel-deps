@@ -1,10 +1,10 @@
 package com.github.johnynek.bazel_deps
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import java.nio.file.{ Files, Paths }
 
-class CreatePomTest extends FunSuite{
+class CreatePomTest extends AnyFunSuite {
 
   test("CreatePom translates dependencies yaml file into pom xml file") {
     val dependenciesYaml = """

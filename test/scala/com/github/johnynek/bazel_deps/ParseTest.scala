@@ -1,10 +1,9 @@
 package com.github.johnynek.bazel_deps
 
-import org.scalatest.FunSuite
-import org.scalatest.prop.PropertyChecks._
+import org.scalatest.funsuite.AnyFunSuite
 import ParseTestUtil._
 
-class ParseTest extends FunSuite {
+class ParseTest extends AnyFunSuite {
   test("parse a file with no options, yaml") {
     val str = """dependencies:
                 |  com.twitter:
