@@ -54,7 +54,7 @@ jobs:
         with:
           name: bazel-deps.jar
           path: staging-directory
-      - uses: olafurpg/setup-scala@v10
+      - uses: olafurpg/setup-scala@v14
       - run: jabba install graal-custom@22.3=tgz+${{ matrix.graal_url }}
       - name: Make native image
         run: ./ci_scripts/make_native_artifact.sh  ${{ matrix.graal_url }}
