@@ -2,6 +2,7 @@ name: Release
 on:
   push:
     branches:
+      - main
       - master
 jobs:
   native-image:
@@ -36,12 +37,6 @@ jobs:
           echo "build --config github_actions" > user.bazelrc
           echo "build --disk_cache ${{ github.workspace }}/.bazel-cache/disk-cache" >> user.bazelrc
           echo "build --repository_cache ${{ github.workspace }}/.bazel-cache/repo-cache" >> user.bazelrc
-      - name: Install bazel
-        run: ./ci_scripts/ci_install_bazel.sh
-        env:
-          BAZEL_VERSION: ${{ matrix.bazel_version }}
-          BAZEL_INSTALLER_SHA: ${{ matrix.bazel_installer_sha }}
-          BAZEL_BIN_LOC: "${{ github.workspace }}/.bazel-cache/bazel-bin"
       - name: Build deploy jar
         run: ./ci_scripts/build_deploy_jar.sh
         env:
@@ -51,6 +46,7 @@ jobs:
       - name: Prepare outputs from platform run
         run: ./ci_scripts/prepare_output.sh bazel-deps.jar bazel-deps.jar staging-directory
       - uses: actions/upload-artifact@master
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         with:
           name: bazel-deps.jar
           path: staging-directory
@@ -61,13 +57,16 @@ jobs:
       - name: Prepare outputs from platform run
         run: ./ci_scripts/prepare_output.sh bazel-deps ${{ matrix.artifact }} staging-directory
       - uses: actions/upload-artifact@master
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         with:
           name: ${{ matrix.artifact }}
           path: staging-directory
+
   make_release:
     name: Make release
     needs: native-image
     runs-on: ubuntu-20.04
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v4
       - name: Download linux bazel-deps
