@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Bazel output cache
         id: cache-bazel
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: "${{ github.workspace }}/.bazel-cache"
           key: ${{ runner.os }}-bazel-out-${{ github.run_id}}
