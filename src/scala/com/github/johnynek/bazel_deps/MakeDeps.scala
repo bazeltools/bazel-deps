@@ -11,6 +11,7 @@ import scala.sys.process.{BasicIO, Process, ProcessIO}
 import scala.util.{Failure, Success, Try}
 
 import cats.implicits._
+import org.w3c.dom.xpath.XPathNSResolver
 
 object MakeDeps {
 
@@ -216,14 +217,8 @@ object MakeDeps {
         resolver.resolve(model)
     }
 
-  private type Res = (
-        Graph[MavenCoordinate, Unit],
-        SortedMap[MavenCoordinate, ResolvedShasValue],
-        Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]]
-    )
-
-  private def resolve[F[_]](model: Model, resolver: Resolver[F]): Try[Res] = 
-  resolver.run[Res] {
+  private def resolve[F[_]](model: Model, resolver: NormalizingResolver[F]): Try[Resolver.Result] = 
+  resolver.run[Resolver.Result] {
     import resolver.resolverMonad
 
     val deps = model.dependencies

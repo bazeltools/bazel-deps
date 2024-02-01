@@ -13,7 +13,21 @@ case class ResolveFailure(
     failures: List[Exception]
 ) extends Exception(message)
 
-trait Resolver[F[_]] {
+object Resolver {
+  type Result = (
+      Graph[MavenCoordinate, Unit],
+      SortedMap[MavenCoordinate, ResolvedShasValue],
+      Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]]
+  )
+}
+
+sealed trait Resolver
+
+trait CustomResolver {
+  def resolve(model: Model): Try[Resolver.Result]
+}
+
+trait NormalizingResolver[F[_]] extends Resolver {
   implicit def resolverMonad: MonadError[F, Throwable]
 
   def getShas(
@@ -29,7 +43,7 @@ trait Resolver[F[_]] {
   def run[A](fa: F[A]): Try[A]
 }
 
-trait SequentialResolver[F[_]] extends Resolver[F] {
+trait SequentialResolver[F[_]] extends NormalizingResolver[F] {
   // This transitively adds the entire reachable graph of dep
   // to the current deps.
   def addToGraph(

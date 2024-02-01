@@ -71,7 +71,7 @@ class AetherResolver(servers: List[MavenServer], resolverCachePath: Path)
           t: Class[_],
           impl: Class[_],
           exception: Throwable
-      ) {
+      ): Unit = {
         logger.error(s"could not create service: $t, $impl", exception)
         exception.printStackTrace()
       }
