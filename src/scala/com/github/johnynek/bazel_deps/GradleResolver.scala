@@ -68,15 +68,25 @@ class GradleResolver(
         else unit
       }
 
-    // sort to make this deterministically ordered
-    depMap.toList.sortBy(_._1).traverse_[V, Unit] { case (k, v) => assertDep(k, v) } match {
-      case Validated.Valid(()) => Success(())
-      case Validated.Invalid(errs) =>
-        Failure(new Exception("unable to find these referenced transitive deps in dependencies: " +
-          errs.iterator.map { case (luK, key) => s"$key -> $luK" }.mkString("[", ", ", "]")
-        ))
-    }
-}
+    // This looks like depMap.toList.traverse_ but we want to avoid
+    // making a full copy of a giant graph (toList) when in the common case
+    // there are no errors. Instead we collect all the invalid errors
+    // and expand them out
+    depMap.iterator
+      .map { case (k, v) => assertDep(k, v) }
+      .collect { case Validated.Invalid(errsU) => errsU }
+      .toList match {
+        case Nil => Success(())
+        case nonEmpty =>
+          // sort to make this deterministically ordered in the order they appear
+          val errs = nonEmpty.flatMap(_.toList).sortBy(_.swap)
+          Failure(
+            new Exception("unable to find these referenced transitive deps in dependencies: " +
+              errs.iterator.map { case (luK, key) => s"$key -> $luK" }.mkString("[", ", ", "]")
+            )
+          )
+      }
+  }
 
 private def cleanUpMap(
   // invariant: depMap is fully connected, all nodes in transitive exist as a key
@@ -87,9 +97,9 @@ private def cleanUpMap(
 
     def matchNoContentRes(k: String, v: GradleLockDependency): Boolean =
       noContentDeps.get(k) match {
+        case None => false
         case Some(None) => true
         case Some(Some(Version(vstr))) => vstr == v.locked.getOrElse("")
-        case None => false
       }
 
     // Remove gradle projects, these are source dependencies
@@ -156,7 +166,7 @@ private def cleanUpMap(
       case None => false
     }
 
-  private def buildGraphFromDepMap(
+  def buildGraphFromDepMap(
     depMap: Map[String, GradleLockDependency]
   ): Try[Graph[MavenCoordinate, Unit]] =
     assertConnectedDependencyMap(depMap)
