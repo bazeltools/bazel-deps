@@ -42,12 +42,13 @@ object Writer {
     val outputBuffer = new java.io.ByteArrayOutputStream();
     val data = new Array[Byte](1024)
     @annotation.tailrec
-    def go() {
+    def go(): Unit = {
       val nRead = is.read(data, 0, data.length)
       if (nRead != -1) {
         outputBuffer.write(data, 0, nRead)
         go
       }
+      else ()
     }
     go()
     outputBuffer.flush();
@@ -78,11 +79,17 @@ object Writer {
 
     case class CircularExports(
         duplicate: UnversionedCoordinate,
-        path: List[UnversionedCoordinate]
+        path: List[UnversionedCoordinate],
+        transitiveSet: List[MavenCoordinate]
     ) extends TargetsError {
-      def message = "circular exports graph: " + (duplicate :: path)
-        .map(_.asString)
-        .mkString(", ")
+      def message = {
+        val pathStr =
+          path.iterator.map(_.asString).mkString("[", ", ", "]")
+        val set =
+          transitiveSet.iterator.map(_.asString).mkString("[", ", ", "]")
+
+        s"circular exports graph. Node: ${duplicate.asString} -- Path: $pathStr -- ReachableSet: $set"
+      }
     }
   }
 
@@ -599,7 +606,7 @@ object Writer {
           val deps = g.hasSource(uvToVerExplicit(u)).toList
 
           def labelFor(u: UnversionedCoordinate): Either[NonEmptyList[TargetsError], Label] =
-            targetFor(u).right.map(_.name)
+            targetFor(u).map(_.name)
 
           Traverse[List].traverse[E, Edge[MavenCoordinate, Unit], Label](deps) { e => labelFor(e.destination.unversioned) }.right.flatMap { depLabelList =>
             val depLabels = depLabelList.toSet
@@ -669,7 +676,9 @@ object Writer {
 
         cache.getOrElseUpdate(u, Left(Nil)) match {
           case Left(existing) if existing.contains(u) =>
-            Left(NonEmptyList.of(TargetsError.CircularExports(u, existing)))
+            val explicitLoopNodes = existing.flatMap(uvToVerExplicit.get(_))
+            val reachable = g.reflexiveTransitiveClosure(explicitLoopNodes).toList.sorted
+            Left(NonEmptyList.of(TargetsError.CircularExports(u, existing, reachable)))
           case Left(existing) =>
             cache.update(u, Left(u :: existing))
             val res = compute
