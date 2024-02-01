@@ -46,7 +46,8 @@ jobs:
       - name: Prepare outputs from platform run
         run: ./ci_scripts/prepare_output.sh bazel-deps.jar bazel-deps.jar staging-directory
       - uses: actions/upload-artifact@master
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        # we only need to upload bazel-deps.jar one time, and it will error if we try twice
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && matrix.os == 'ubuntu-20.04'
         with:
           name: bazel-deps.jar
           path: staging-directory
