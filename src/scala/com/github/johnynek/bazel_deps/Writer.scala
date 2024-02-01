@@ -80,15 +80,19 @@ object Writer {
     case class CircularExports(
         duplicate: UnversionedCoordinate,
         path: List[UnversionedCoordinate],
-        transitiveSet: List[MavenCoordinate]
+        transitiveSet: List[MavenCoordinate],
+        // these nodes depend on duplicate, but are also reachable
+        loopNodes: List[MavenCoordinate]
     ) extends TargetsError {
       def message = {
-        val pathStr =
-          path.iterator.map(_.asString).mkString("[", ", ", "]")
-        val set =
-          transitiveSet.iterator.map(_.asString).mkString("[", ", ", "]")
+        def list[A](i: List[A])(fn: A => String): String =
+          i.iterator.map(fn).mkString("[", ", ", "]")
 
-        s"circular exports graph. Node: ${duplicate.asString} -- Path: $pathStr -- ReachableSet: $set"
+        val pathStr = list(path)(_.asString)
+        val set = list(transitiveSet)(_.asString)
+        val loops = list(loopNodes)(_.asString)
+
+        s"circular exports graph. Node: ${duplicate.asString} -- Path: $pathStr -- DependsOnNode: $loops -- ReachableSet: $set"
       }
     }
   }
@@ -678,7 +682,15 @@ object Writer {
           case Left(existing) if existing.contains(u) =>
             val explicitLoopNodes = existing.flatMap(uvToVerExplicit.get(_))
             val reachable = g.reflexiveTransitiveClosure(explicitLoopNodes).toList.sorted
-            Left(NonEmptyList.of(TargetsError.CircularExports(u, existing, reachable)))
+            // which of the reachable items point to the existing
+            val loops = uvToVerExplicit.get(u) match {
+              case Some(vu) =>
+                g.hasDestination(vu).map(_.source).toList.sorted
+              case None => Nil
+            }
+            Left(NonEmptyList.one(
+              TargetsError.CircularExports(u, existing, reachable, loopNodes = loops)
+            ))
           case Left(existing) =>
             cache.update(u, Left(u :: existing))
             val res = compute
