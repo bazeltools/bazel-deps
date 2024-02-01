@@ -12,8 +12,6 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.util.Arrays
 import java.util.regex.Pattern
 import org.slf4j.LoggerFactory
-import scala.util.{Failure, Success, Try}
-import scala.util.control.NonFatal
 
 import cats.implicits._
 
@@ -28,9 +26,9 @@ object FS {
   val pathSeparator = java.io.File.separator
 
   case class Path(parts: List[String]) {
-    def child(p: String): Path = Path(parts ++ List(p))
+    def child(p: String): Path = Path(parts :+ p)
     def parent: Path = Path(parts.dropRight(1))
-    def sibling(p: String): Path = Path(parts.dropRight(1) ++ List(p))
+    def sibling(p: String): Path = Path(parts.dropRight(1) :+ p)
     def asString: String = parts.mkString(pathSeparator)
     def extension: String = {
       val fileName = parts.last
@@ -106,7 +104,7 @@ object FS {
   def orUnit(optIO: Option[Result[Unit]]): Result[Unit] =
     optIO match {
       case Some(io) => io
-      case None => const(())
+      case None => unit
     }
 
   def fileSystemExec(root: JPath): FunctionK[Ops, IO] =
@@ -119,8 +117,6 @@ object FS {
 
   class ReadOnlyExec(root: JPath) extends FunctionK[Ops, IO] {
     require(root.isAbsolute, s"Absolute path required, found: $root")
-
-    protected val successUnit: IO[Unit] = IO.pure(())    
 
     def jpathFor(p: Path): JPath =
       p.parts.foldLeft(root) { (p, element) => p.resolve(element) }
@@ -252,7 +248,7 @@ object FS {
             case false =>
               add(CheckException.DirectoryMissing(f)).as(true)
           } 
-      case RmRf(_, _) => successUnit
+      case RmRf(_, _) => IO.unit
       case WriteFile(f, d) =>
         val ff = jpathFor(f)
         IO.blocking {
@@ -262,7 +258,7 @@ object FS {
             if (found != expected) {
               add(CheckException.WriteMismatch(f, Some(found), expected, compressed = false))
             }
-            else successUnit
+            else IO.unit
           }
           else {
             add(CheckException.WriteMismatch(f, None, expected, compressed = false))
@@ -293,7 +289,7 @@ object FS {
             if (found != expected) {
               add(CheckException.WriteMismatch(f, Some(found), expected, compressed = true)) 
             }
-            else successUnit
+            else IO.unit
           }
           else {
             add(CheckException.WriteMismatch(f, None, expected, compressed = true)) 

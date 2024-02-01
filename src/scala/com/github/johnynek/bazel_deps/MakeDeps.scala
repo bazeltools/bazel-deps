@@ -277,7 +277,7 @@ object MakeDeps {
             val check = deps.unversionedRoots.filterNot { u =>
               uvNodes(u) || model.getReplacements.get(u).isDefined
             }.toList match {
-              case Nil => resolverMonad.pure(())
+              case Nil => resolverMonad.unit
               case missing =>
                 val output = missing.map(_.asString).mkString(" ")
                 resolverMonad.raiseError(
