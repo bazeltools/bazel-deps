@@ -159,29 +159,24 @@ object Decoders {
 
     implicit val gradleDecoder =
       auto.exportDecoder[ResolverType.Gradle].instance
+
     val baseOptions = auto.exportDecoder[Options].instance
+
     new Decoder[Options] {
-      override def apply(c: HCursor): Result[Options] = {
-        baseOptions(c) match {
-          case Right(b) => {
-            b.resolverType match {
-              case Some(x) =>
-                x match {
-                  case g: ResolverType.Gradle =>
-                    c.get[Option[ResolverType.Gradle]]("resolverOptions").map {
-                      optV =>
-                        optV
-                          .map { inner => b.copy(resolverType = Some(inner)) }
-                          .getOrElse(b)
-                    }
-                  case _ => Right(b)
-                }
-              case None => Right(b)
-            }
+      override def apply(c: HCursor): Result[Options] =
+        baseOptions(c).flatMap { b =>
+          b.resolverType match {
+            case Some(g: ResolverType.Gradle) =>
+              // in the baseOptions the resolver type is empty
+              // here we parse resolverOptions as if it is the default
+              // decoder (using gradleDecoder) to get the gradle options
+              c.get[Option[ResolverType.Gradle]]("resolverOptions").map {
+                case nonEmpty @ Some(_) => b.copy(resolverType = nonEmpty)
+                case None => b
+              }
+            case _ => Right(b)
           }
-          case Left(a) => Left(a)
         }
-      }
     }
   }
 

@@ -37,7 +37,7 @@ object CoursierResolver {
   }
 }
 
-class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, runTimeout: Duration, resolverCachePath: Path) extends Resolver[Task] {
+class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, runTimeout: Duration, resolverCachePath: Path) extends NormalizingResolver[Task] {
   // TODO: add support for a local file cache other than ivy
   private[this] val repos = LocalRepositories.ivy2Local :: {
     val settings = SettingsLoader.settings

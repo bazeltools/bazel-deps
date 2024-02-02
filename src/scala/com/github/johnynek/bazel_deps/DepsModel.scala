@@ -136,6 +136,9 @@ object Model {
       combine(_, _).toEither
     )
   }
+
+  val empty: Model =
+    Model(Dependencies.empty, None, None)
 }
 
 case class MavenGroup(asString: String)
@@ -499,15 +502,27 @@ object MavenArtifactId {
     )
   }
 
-  def apply(str: String): MavenArtifactId =
+  def parse(str: String): ValidatedNel[String, MavenArtifactId] =
     str.split(":") match {
-      case Array(a, p, c) => MavenArtifactId(a, p, Some(c))
-      case Array(a, p)    => MavenArtifactId(a, p, None)
-      case Array(a)       => MavenArtifactId(a, defaultPackaging, None)
+      case Array(a)       => Validated.valid(MavenArtifactId(a, defaultPackaging, None))
+      case Array(a, p)    => Validated.valid(MavenArtifactId(a, p, None))
+      case Array(a, p, c) => Validated.valid(MavenArtifactId(a, p, Some(c)))
       case _ =>
-        sys.error(
+        Validated.invalidNel(
           s"$str did not match expected format <artifactId>[:<packaging>[:<classifier>]]"
         )
+    }
+
+  def apply(str: String): MavenArtifactId =
+    parse(str) match {
+      case Validated.Valid(maid) => maid
+      case Validated.Invalid(errs) =>
+        sys.error(errs.mkString_("\n"))
+    }
+
+  implicit val orderingMavenArtifactId: Ordering[MavenArtifactId] =
+    Ordering.by { (aid: MavenArtifactId) =>
+      (aid.artifactId, aid.packaging, aid.classifier)
     }
 }
 
@@ -551,7 +566,7 @@ object MavenCoordinate {
     }
 
   def parse(s: String): ValidatedNel[String, MavenCoordinate] =
-    s.split(":") match {
+    s.split(":", -1) match {
       case Array(g, a, v) =>
         Validated.valid(
           MavenCoordinate(MavenGroup(g), MavenArtifactId(a), Version(v))
@@ -757,6 +772,21 @@ case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
     s"//external:${toBindingName(namePrefix)}"
 }
 
+object UnversionedCoordinate {
+  implicit val orderingUnversionedCoordinate: Ordering[UnversionedCoordinate] =
+    Ordering.by { (uvc: UnversionedCoordinate) => (uvc.group.asString, uvc.artifact) }
+
+  def parse(s: String): ValidatedNel[String, UnversionedCoordinate] = {
+    val colon = s.indexOf(':')
+    if (colon <= 0) Validated.invalidNel(s"invalid MavenGroup in $s")
+    else {
+      val group = s.take(colon)
+      val rest = s.drop(colon + 1)
+      MavenArtifactId.parse(rest).map(UnversionedCoordinate(MavenGroup(group), _))
+    }
+  }
+}
+
 case class ProjectRecord(
     lang: Language,
     version: Option[Version],
@@ -959,7 +989,7 @@ case class Dependencies(
   def exportedUnversioned(
       u: UnversionedCoordinate,
       r: Replacements
-  ): Either[List[(MavenGroup, ArtifactOrProject)], List[
+  ): Either[NonEmptyList[(MavenGroup, ArtifactOrProject)], List[
     UnversionedCoordinate
   ]] =
     recordOf(u).flatMap(_.exports) match {
@@ -969,13 +999,19 @@ case class Dependencies(
             g: MavenGroup,
             a: ArtifactOrProject
         ): Option[UnversionedCoordinate] =
-          unversionedCoordinatesOf(g, a).orElse(
-            r.unversionedCoordinatesOf(g, a)
-          )
+          unversionedCoordinatesOf(g, a)
+            .orElse(r.unversionedCoordinatesOf(g, a))
 
-        val errs = l.filter { case (g, a) => uv(g, a).isEmpty }
-        if (errs.nonEmpty) Left(l.toList)
-        else Right(l.toList.flatMap { case (g, a) => uv(g, a) })
+        val errs = l
+          .filter { case (g, a) => uv(g, a).isEmpty }
+          .toList
+          // make deterministic
+          .sortBy { case (g, a) => (g.asString, a.asString) }
+
+        NonEmptyList.fromList(errs) match {
+          case None => Right(l.toList.flatMap { case (g, a) => uv(g, a) })
+          case Some(errNel) => Left(errNel)
+        }
     }
 
   private val coordToProj: Map[MavenCoordinate, ProjectRecord] =

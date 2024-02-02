@@ -30,22 +30,28 @@ case class Graph[N, E](nodes: Set[N], edges: Map[N, Set[Edge[N, E]]]) {
     }
 
   def addNode(n: N): Graph[N, E] = Graph(nodes + n, edges)
-  def addAllNodes(n: Iterable[N]): Graph[N, E] =
-    n.foldLeft(this)(_.addNode(_))
+  def addAllNodes(n: Iterable[N]): Graph[N, E] = Graph(nodes ++ n, edges)
 
   def addEdge(e: Edge[N, E]): Graph[N, E] = {
-    val n = addNode(e.source).addNode(e.destination).nodes
+    val n = (nodes + e.source) + e.destination
     val sE = edges.getOrElse(e.source, Set.empty[Edge[N, E]])
-    val e2 = edges + (e.source -> (sE + e))
+    val e2 = edges.updated(e.source, (sE + e))
     val dE = e2.getOrElse(e.destination, Set.empty[Edge[N, E]])
-    val e3 = e2 + (e.destination -> (dE + e))
+    val e3 = e2.updated(e.destination, (dE + e))
     Graph(n, e3)
   }
+
   def hasSource(n: N): Set[Edge[N, E]] =
     edges.getOrElse(n, Set.empty).filter(_.source == n)
 
   def hasDestination(n: N): Set[Edge[N, E]] =
     edges.getOrElse(n, Set.empty).filter(_.destination == n)
+
+  def hasEdge(e: Edge[N, E]): Boolean =
+    edges.get(e.source) match {
+      case Some(es) => es(e)
+      case None => false
+    }
 
   // These have no parents
   lazy val roots: Set[N] = nodes.filter(hasDestination(_).isEmpty)

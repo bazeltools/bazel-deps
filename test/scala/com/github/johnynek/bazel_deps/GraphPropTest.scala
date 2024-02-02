@@ -146,4 +146,27 @@ class GraphPropTest extends AnyPropSpec {
       case (g, None)         => true
     }
   }
+
+  property("hasEdge laws") {
+    val gen = for {
+      g <- graphGen(genIntNode)
+      e <- edgeFrom(g)
+    } yield (g, e)
+    forAll(gen, nodeGen, nodeGen) { case ((g, e), n1, n2) =>
+      val maybePresent = Edge(n1, n2, ())
+      val maybeCheck =
+        if (g.hasEdge(maybePresent)) {
+          (g.hasSource(n1).contains(maybePresent)) &&
+            (g.hasDestination(n2).contains(maybePresent))
+        }
+        else {
+          !(g.hasSource(n1).contains(maybePresent) ||
+            g.hasDestination(n2).contains(maybePresent))
+        }
+
+      g.edgeIterator.forall(g.hasEdge) &&   
+        e.forall(g.hasEdge(_)) &&
+        maybeCheck
+    }
+  }
 }
