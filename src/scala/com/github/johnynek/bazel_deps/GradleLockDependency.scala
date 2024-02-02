@@ -49,10 +49,10 @@ object GradleLockDependency {
     }
   }
 
+  private val unit = Success(())
+
   def mergeGradleLockDeps(versionConflictPolicy: VersionConflictPolicy): TryMerge[GradleLockDependency] =
     new TryMerge[GradleLockDependency] {
-      private val unit = Success(())
-
       def tryMerge(
         debugName: Option[String],
         left: GradleLockDependency,

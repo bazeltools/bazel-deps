@@ -19,7 +19,8 @@ class GradleResolver(
 
   def resolverType: ResolverType.Gradle = gradleTpe
 
-  implicit val tryMergeGradleLock = GradleLockDependency.mergeGradleLockDeps(versionConflictPolicy)
+  implicit val tryMergeGradleLock: TryMerge[GradleLockDependency] =
+    GradleLockDependency.mergeGradleLockDeps(versionConflictPolicy)
 
   private def loadLockFile(
       lockFile: String
@@ -55,19 +56,30 @@ class GradleResolver(
     )
     .map(_.getOrElse(Map.empty))
 
+  private val unit = Validated.valid(())
+
+   /*
+    * This depMap represents a graph. The keys are UnversionedCoordinates (and should
+    * probably be changed to be those). Inside the GradleLockDependency is a list
+    * of nodes that depend on the key (in the field called transient).
+    * 
+    * So, this method is making sure that all the values in the union of the transient
+    * lists are also keys of this Map.
+    */
   private def assertConnectedDependencyMap(
       depMap: Map[String, GradleLockDependency]
   ): Try[Unit] =  {
     // Use validated to collect all the missing errors, not just the first
-    type V[+A] = ValidatedNec[(String, String), A]
+    type V[+A] = ValidatedNec[Edge[String, Unit], A]
 
-    val unit = Validated.valid(())
-    def assertDep(key: String, gld: GradleLockDependency): ValidatedNec[(String, String), Unit] =
-      gld.transitive.getOrElse(Nil).traverse_[V, Unit] { luK =>
-        if (!depMap.contains(luK)) {
-          Validated.invalidNec((luK, key))
-        }
-        else unit
+    def assertDep(key: String, gld: GradleLockDependency): ValidatedNec[Edge[String, Unit], Unit] =
+      gld.transitive match {
+        case Some(ts) =>
+          ts.traverse_[V, Unit] { luK =>
+            if (depMap.contains(luK)) unit
+            else Validated.invalidNec(Edge(luK, key, ()))
+          }
+        case None => unit
       }
 
     // This looks like depMap.toList.traverse_ but we want to avoid
@@ -81,10 +93,10 @@ class GradleResolver(
         case Nil => Success(())
         case nonEmpty =>
           // sort to make this deterministically ordered in the order they appear
-          val errs = nonEmpty.flatMap(_.toList).sortBy(_.swap)
+          val errs = nonEmpty.flatMap(_.toList).sortBy(e => (e.source, e.destination))
           Failure(
             new Exception("unable to find these referenced transitive deps in dependencies: " +
-              errs.iterator.map { case (luK, key) => s"$key -> $luK" }.mkString("[", ", ", "]")
+              errs.iterator.map { case Edge(src, dest, _) => s"$src -> $dest" }.mkString("[", ", ", "]")
             )
           )
       }
@@ -94,61 +106,106 @@ private def cleanUpMap(
   // invariant: depMap is fully connected, all nodes in transitive exist as a key
   depMap: Map[String, GradleLockDependency]
 ): Map[String, GradleLockDependency] = {
-    // for no content deps there is nothing to fetch/no sha to operate on.
-    val noContentDeps: Map[String, Option[Version]] = gradleTpe.getNoContentDeps
 
-    def matchNoContentRes(k: String, v: GradleLockDependency): Boolean =
-      noContentDeps.get(k) match {
+    // for no content deps there is nothing to fetch/no sha to operate on.
+    def matchNoContentRes(unversioned: String, v: GradleLockDependency): Boolean =
+      gradleTpe.getNoContentDeps.get(unversioned) match {
         case None => false
         case Some(None) => true
         case Some(Some(Version(vstr))) => vstr == v.locked.getOrElse("")
       }
 
     // Remove gradle projects, these are source dependencies
-    val gradleProjectsRemoved = depMap.filter(_._2.project != Some(true))
+    val depMapNonProj = depMap.filter(_._2.project != Some(true))
 
-    gradleProjectsRemoved
-      .foldLeft(Map.empty[String, GradleLockDependency]) { case (p, (nK, nV)) =>
+    depMapNonProj
+      .foldLeft(Map.empty[String, GradleLockDependency]) { case (accGraph, (unversioned, thisGLD)) =>
+
+        /*
+         * this method expands a list of transitive deps removing
+         * any nonContent jars, and instead adding any edge to the
+         * nonContent direction here.
+         * 
+         * Put another way...
+         *      /--c
+         * a - b --d
+         *      \--e
+         * if b is a noContent jar, we rewrite the graph to be:
+         *  /--c
+         * a --d
+         *  \--e
+         * 
+         * when restart is true and parents.isEmpty we restart with parents = acc that are filtered on depMapNonProj
+         * 
+         * Invariant: all items in parents and acc are keys of depMapNonProj
+         * 
+         * this method is only inside this foldLeft to capture the unversioned and thisGLD
+         * for debug information if we have violated the invariant somehow and hit
+         * sys.error
+         */
         @annotation.tailrec
-        def go(parents: List[String], loop: Boolean, acc: List[String])
+        def relinkNoContents(parents: List[String], restart: Boolean, acc: List[String])
             : List[String] = {
           parents match {
             case h :: t =>
-              val hData = gradleProjectsRemoved.getOrElse(
-                h,
-                // should be impossible due to invariant
-                sys.error(s"""
-                  |Map in invalid state
-                  |tried to get: $h but it wasn't present
-                  |this dependency is a project? Not expected here.
-                  |Looking for $nK ---> $nV""".stripMargin)
-              )
+              val hData = depMapNonProj.get(h) match {
+                case Some(hGLD) => hGLD
+                case None =>
+                  // should be impossible due to invariant
+                  sys.error(s"""
+                    |Map in invalid state
+                    |tried to get: $h but it wasn't present
+                    |this dependency is a project? Not expected here.
+                    |Looking for $unversioned ---> $thisGLD""".stripMargin)
+              }
 
               if (matchNoContentRes(h, hData)) {
-                go(
-                  t,
-                  true,
-                  gradleProjectsRemoved
-                    .get(h)
-                    .flatMap(_.transitive)
-                    .getOrElse(Nil) ::: acc
-                )
+                // note: here we are adding hData.transitive that have not been verified
+                // to be not "no content jars" themselves.
+                // Thus, we have to reset loop to true to check those at the end
+                // we always maintain
+                // we *do* maintain the invariant that acc1 has keys that are
+                // in depMapNonProj
+                val nonProjTransitives = hData.transitive match {
+                  case Some(ts) => ts.filter(depMapNonProj.contains(_))
+                  case None => Nil
+                }
+                val acc1 = nonProjTransitives ::: acc
+                relinkNoContents(t, restart = true, acc1)
               } else {
-                go(t, loop, h :: acc)
+                // we know that h is not a "no content jar", and that
+                // h is in depMapNonProj
+                // so we don't have to reset the restart condition
+                val acc1 = h :: acc
+                relinkNoContents(t, restart, acc1)
               }
             case Nil =>
-              // we are recursing a transitive chain, we need to repeat the filter here
-              val lst = acc.distinct.filter(gradleProjectsRemoved.contains(_)).sorted
+              // we are recursing a transitive chain
+              val lst = acc.distinct
 
-              if (loop) go(lst, false, Nil)
-              else lst
+              // recall: all items in acc are in depMapNonProj
+              // so we don't need to filter here
+              if (restart) relinkNoContents(lst, restart = false, Nil)
+              else {
+                // this is the only return of this method
+                // so we sort once here
+                lst.sorted
+              }
           }
         }
 
-        val removeUnused =
-          nV.transitive.getOrElse(Nil).filter(gradleProjectsRemoved.contains(_))
+        // we set up the initial transitives that are in depMapNonProj
+        // we have to maintain the invariant that all inputs to relinkNoContents
+        val initTrans = thisGLD
+          .transitive
+          .getOrElse(Nil)
+          .filter(depMapNonProj.contains(_))
+          
+        val newTransitives = relinkNoContents(initTrans, false, Nil)
 
-        p.updated(nK, nV.copy(transitive = Some(go(removeUnused, false, Nil))))
+        accGraph.updated(
+          unversioned,
+          thisGLD.copy(transitive = Some(newTransitives)))
       }
       .filter { case (k, v) =>
         // We keep these long enough to ensure we can traverse them to make the graph work.
@@ -156,16 +213,28 @@ private def cleanUpMap(
       }
   }
 
-  def ignoreEdge(src: MavenCoordinate, dst: MavenCoordinate): Boolean =
+  private val ignored: Graph[UnversionedCoordinate, Unit] = {
+    val g = Graph.empty[UnversionedCoordinate, Unit]
     gradleTpe.ignoreDependencyEdge match {
       case Some(missing) =>
-        val curEdge: (String, String) = (
-          s"${src.group.asString}:${src.artifact.artifactId}",
-          s"${dst.group.asString}:${dst.artifact.artifactId}"
-        )
+        missing.iterator.flatMap { case (s, d) =>
+          UnversionedCoordinate.parse(s)
+            .product(UnversionedCoordinate.parse(d))  
+            .toOption
+        }
+        .foldLeft(g) { case (g, (s, d)) => g.addEdge(Edge(s, d, ()))}
+      case None => g
+    }
+  }
 
-        missing(curEdge)
-      case None => false
+  // most groups have no ignored edges, put this here to reduce
+  // costs
+  private val maybeIgnored: Set[MavenGroup] =
+    ignored.edgeIterator.map(_.source.group).toSet
+
+  def ignoreEdge(src: MavenCoordinate, dst: MavenCoordinate): Boolean =
+    maybeIgnored(src.group) && {
+      ignored.hasEdge(Edge(src.unversioned, dst.unversioned, ()))
     }
 
   def buildGraphFromDepMap(
@@ -214,7 +283,8 @@ private def cleanUpMap(
               )
           } match {
           case Validated.Valid(edgeList) =>
-            Success(edgeList.foldLeft(Graph.empty[MavenCoordinate, Unit]) { case (g, (cnode, transitive)) =>
+            val empty = Graph.empty[MavenCoordinate, Unit]
+            val withEdges = edgeList.foldLeft(empty) { case (g, (cnode, transitive)) =>
               transitive.foldLeft(g.addNode(cnode)) { case (g, revDep) =>
                 // addEdge adds both nodes in the edge
                 // but if we ignore the edge, we defensively make sure we add revDep
@@ -223,7 +293,8 @@ private def cleanUpMap(
                 if (ignoreEdge(revDep, cnode)) g.addNode(revDep)
                 else g.addEdge(Edge(revDep, cnode, ()))
               }
-            })
+            }
+            Success(withEdges)
           case Validated.Invalid(errs) =>
             Failure(new Exception(errs.map(_._2)
               .mkString_("failed to find ${errs.length} nodes:\n\t", "\n\t", "")))

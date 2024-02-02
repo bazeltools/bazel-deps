@@ -502,15 +502,22 @@ object MavenArtifactId {
     )
   }
 
-  def apply(str: String): MavenArtifactId =
+  def parse(str: String): ValidatedNel[String, MavenArtifactId] =
     str.split(":") match {
-      case Array(a, p, c) => MavenArtifactId(a, p, Some(c))
-      case Array(a, p)    => MavenArtifactId(a, p, None)
-      case Array(a)       => MavenArtifactId(a, defaultPackaging, None)
+      case Array(a)       => Validated.valid(MavenArtifactId(a, defaultPackaging, None))
+      case Array(a, p)    => Validated.valid(MavenArtifactId(a, p, None))
+      case Array(a, p, c) => Validated.valid(MavenArtifactId(a, p, Some(c)))
       case _ =>
-        sys.error(
+        Validated.invalidNel(
           s"$str did not match expected format <artifactId>[:<packaging>[:<classifier>]]"
         )
+    }
+
+  def apply(str: String): MavenArtifactId =
+    parse(str) match {
+      case Validated.Valid(maid) => maid
+      case Validated.Invalid(errs) =>
+        sys.error(errs.mkString_("\n"))
     }
 
   implicit val orderingMavenArtifactId: Ordering[MavenArtifactId] =
@@ -768,6 +775,16 @@ case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
 object UnversionedCoordinate {
   implicit val orderingUnversionedCoordinate: Ordering[UnversionedCoordinate] =
     Ordering.by { (uvc: UnversionedCoordinate) => (uvc.group.asString, uvc.artifact) }
+
+  def parse(s: String): ValidatedNel[String, UnversionedCoordinate] = {
+    val colon = s.indexOf(':')
+    if (colon <= 0) Validated.invalidNel(s"invalid MavenGroup in $s")
+    else {
+      val group = s.take(colon)
+      val rest = s.drop(colon + 1)
+      MavenArtifactId.parse(rest).map(UnversionedCoordinate(MavenGroup(group), _))
+    }
+  }
 }
 
 case class ProjectRecord(

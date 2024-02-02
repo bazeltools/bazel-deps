@@ -47,6 +47,12 @@ case class Graph[N, E](nodes: Set[N], edges: Map[N, Set[Edge[N, E]]]) {
   def hasDestination(n: N): Set[Edge[N, E]] =
     edges.getOrElse(n, Set.empty).filter(_.destination == n)
 
+  def hasEdge(e: Edge[N, E]): Boolean =
+    edges.get(e.source) match {
+      case Some(es) => es(e)
+      case None => false
+    }
+
   // These have no parents
   lazy val roots: Set[N] = nodes.filter(hasDestination(_).isEmpty)
 
