@@ -509,6 +509,11 @@ object MavenArtifactId {
           s"$str did not match expected format <artifactId>[:<packaging>[:<classifier>]]"
         )
     }
+
+  implicit val orderingMavenArtifactId: Ordering[MavenArtifactId] =
+    Ordering.by { (aid: MavenArtifactId) =>
+      (aid.artifactId, aid.packaging, aid.classifier)
+    }
 }
 
 case class MavenCoordinate(
@@ -551,7 +556,7 @@ object MavenCoordinate {
     }
 
   def parse(s: String): ValidatedNel[String, MavenCoordinate] =
-    s.split(":") match {
+    s.split(":", -1) match {
       case Array(g, a, v) =>
         Validated.valid(
           MavenCoordinate(MavenGroup(g), MavenArtifactId(a), Version(v))
@@ -755,6 +760,11 @@ case class UnversionedCoordinate(group: MavenGroup, artifact: MavenArtifactId) {
   }
   def bindTarget(namePrefix: NamePrefix): String =
     s"//external:${toBindingName(namePrefix)}"
+}
+
+object UnversionedCoordinate {
+  implicit val orderingUnversionedCoordinate: Ordering[UnversionedCoordinate] =
+    Ordering.by { (uvc: UnversionedCoordinate) => (uvc.group.asString, uvc.artifact) }
 }
 
 case class ProjectRecord(

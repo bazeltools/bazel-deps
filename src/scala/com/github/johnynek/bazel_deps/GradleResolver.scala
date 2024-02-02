@@ -17,6 +17,8 @@ class GradleResolver(
     getShasFn: List[MavenCoordinate] => Try[SortedMap[MavenCoordinate, ResolvedShasValue]]
 ) extends CustomResolver {
 
+  def resolverType: ResolverType.Gradle = gradleTpe
+
   implicit val tryMergeGradleLock = GradleLockDependency.mergeGradleLockDeps(versionConflictPolicy)
 
   private def loadLockFile(
@@ -50,8 +52,8 @@ class GradleResolver(
         lockFile.testCompileClasspath,
         lockFile.testRuntimeClasspath
       )
-      .map(_.getOrElse(Map.empty))
     )
+    .map(_.getOrElse(Map.empty))
 
   private def assertConnectedDependencyMap(
       depMap: Map[String, GradleLockDependency]
@@ -154,7 +156,7 @@ private def cleanUpMap(
       }
   }
 
-  private def ignoreEdge(src: MavenCoordinate, dst: MavenCoordinate): Boolean =
+  def ignoreEdge(src: MavenCoordinate, dst: MavenCoordinate): Boolean =
     gradleTpe.ignoreDependencyEdge match {
       case Some(missing) =>
         val curEdge: (String, String) = (
@@ -172,19 +174,19 @@ private def cleanUpMap(
     assertConnectedDependencyMap(depMap)
       .map(_ => cleanUpMap(depMap))
       .flatMap { depMap =>
-        val cache = MMap[String, Try[MavenCoordinate]]()
+        type V[+A] = ValidatedNec[(String, String), A]
+        val cache = MMap[String, V[MavenCoordinate]]()
 
-        def toCoord(k: String): Try[MavenCoordinate] =
+        def toCoord(k: String): V[MavenCoordinate] =
           cache.getOrElseUpdate(k,
             depMap.get(k) match {
               case Some(resolvedInfo) =>
-                Try {
-                  // this parsing could fail, so we do inside a try
-                  val e = k.split(':')
+                val e = k.split(':')
+                if (e.length >= 2) {
                   val org = e(0)
                   val nme = e(1)
 
-                  MavenCoordinate(
+                  Validated.valid(MavenCoordinate(
                     MavenGroup(org),
                     MavenArtifactId(
                       nme,
@@ -192,25 +194,39 @@ private def cleanUpMap(
                       ""
                     ),
                     Version(resolvedInfo.locked.getOrElse(""))
-                  )
+                  ))
+                }
+                else {
+                  Validated.invalidNec((k, s"could not parse key $k into maven artifact"))
                 }
               case None =>
-                Failure(new Exception(s"Unable to lookup info about $k in dep map"))
+                Validated.invalidNec((k, s"Unable to lookup info about $k in dep map"))
             })
 
-        depMap.toList.sortBy(_._1)
-        .foldM(Graph.empty[MavenCoordinate, Unit]) { case (g, (n, deps)) =>
-          for {
-            cnode <- toCoord(n)
-            transitive <- deps.transitive.getOrElse(Nil).traverse(toCoord(_))
-          } yield {
-            val g1 = g.addAllNodes(cnode :: transitive)
-
-            transitive.foldLeft(g1) { case (g, revDep) =>
-              if (ignoreEdge(revDep, cnode)) g
-              else g.addEdge(Edge(revDep, cnode, ()))
-            }
-          }
+        depMap
+          .toList
+          .sortBy(_._1)
+          .traverse[V, (MavenCoordinate, List[MavenCoordinate])] { case (n, deps) =>
+            toCoord(n)
+              .product(
+                deps.transitive.getOrElse(Nil)
+                  .traverse[V, MavenCoordinate](toCoord(_))
+              )
+          } match {
+          case Validated.Valid(edgeList) =>
+            Success(edgeList.foldLeft(Graph.empty[MavenCoordinate, Unit]) { case (g, (cnode, transitive)) =>
+              transitive.foldLeft(g.addNode(cnode)) { case (g, revDep) =>
+                // addEdge adds both nodes in the edge
+                // but if we ignore the edge, we defensively make sure we add revDep
+                // since this graph is validated, it should be added when it appears
+                // as a key however
+                if (ignoreEdge(revDep, cnode)) g.addNode(revDep)
+                else g.addEdge(Edge(revDep, cnode, ()))
+              }
+            })
+          case Validated.Invalid(errs) =>
+            Failure(new Exception(errs.map(_._2)
+              .mkString_("failed to find ${errs.length} nodes:\n\t", "\n\t", "")))
         }
       }
 

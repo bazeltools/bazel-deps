@@ -33,9 +33,9 @@ class GradleResolverTest extends AnyFunSuite {
     )
 
   def assertMatch(gradleOpts: String, gradleDeps: String, graph: Graph[MavenCoordinate, Unit]) = {
-    val graph = resolver(gradleOpts).buildGraphFromDepMap(deps(gradleDeps))
-    val maybeShow = graph.fold(e => e.toString, _.show(_.asString))
-    assert(graph == Success(Graph.empty), s"rendered:\n\n$maybeShow")
+    val rgraph = resolver(gradleOpts).buildGraphFromDepMap(deps(gradleDeps))
+    val maybeShow = rgraph.fold(e => e.toString, _.show(_.asString))
+    assert(rgraph == Success(graph), s"rendered:\n\n$maybeShow")
   } 
 
   def mvn(str: String): MavenCoordinate =
@@ -50,10 +50,56 @@ class GradleResolverTest extends AnyFunSuite {
     Graph.empty)
   }
 
+  test("resolver parses the ignores") {
+    val tpe = resolverType("""{
+      "resolverType": "gradle",
+      "resolverOptions": {
+        "ignoreDependencyEdge": [["foo:f", "bar:b"]]
+      }
+    }""")
+
+    assert(tpe.ignoreDependencyEdge == Some(Set(("foo:f", "bar:b"))))
+  }
+
+  test("resolver parses the ignores solr") {
+    val res = resolver("""{
+      "resolverType": "gradle",
+      "resolverOptions": {
+        "ignoreDependencyEdge": [
+          [ "netflix:account-metadata", "netflix:custeng-subscriber-model" ],
+          [ "org.apache.solr:solr-solrj", "org.apache.solr:solr-solrj-streaming" ],
+          [ "org.apache.solr:solr-solrj-streaming", "org.apache.solr:solr-solrj" ],
+          [ "org.apache.solr:solr-solrj", "org.apache.solr:solr-solrj-zookeeper" ],
+          [ "org.apache.solr:solr-solrj-zookeeper", "org.apache.solr:solr-solrj" ]
+        ]
+      }
+    }""")
+    val tpe = res.resolverType
+
+    assert(tpe.ignoreDependencyEdge == Some(Set(
+      ( "netflix:account-metadata", "netflix:custeng-subscriber-model" ),
+      ( "org.apache.solr:solr-solrj", "org.apache.solr:solr-solrj-streaming" ),
+      ( "org.apache.solr:solr-solrj-streaming", "org.apache.solr:solr-solrj" ),
+      ( "org.apache.solr:solr-solrj", "org.apache.solr:solr-solrj-zookeeper" ),
+      ( "org.apache.solr:solr-solrj-zookeeper", "org.apache.solr:solr-solrj" )
+    )))
+
+    // example we found in maven
+    val solr = "org.apache.solr:solr-solrj:9.4.1"
+    val streaming = "org.apache.solr:solr-solrj-streaming:9.4.1"
+    val zk = "org.apache.solr:solr-solrj-zookeeper:9.4.1"
+    assert(res.ignoreEdge(mvn(solr), mvn(streaming)))
+    assert(res.ignoreEdge(mvn(streaming), mvn(solr)))
+    assert(res.ignoreEdge(mvn(solr), mvn(zk)))
+    assert(res.ignoreEdge(mvn(zk), mvn(solr)))
+  }
+
   test("basic 1") {
     assertMatch("""{
       "resolverType": "gradle",
-      "ignoreDependencyEdge": ["foo:f", "bar:b"]
+      "resolverOptions": {
+        "ignoreDependencyEdge": [["foo:f", "bar:b"]]
+      }
     }""",
     """{
     "foo:f": {
@@ -64,5 +110,25 @@ class GradleResolverTest extends AnyFunSuite {
     }
     }""",
     Graph.empty.addEdge(Edge(mvn("bar:b:"), mvn("foo:f:"), ())))
+  }
+
+  test("basic 1: versioned") {
+    assertMatch("""{
+      "resolverType": "gradle",
+      "resolverOptions": {
+        "ignoreDependencyEdge": [["foo:f", "bar:b"]]
+      }
+    }""",
+    """{
+    "foo:f": {
+      "locked": "1.0",
+      "transitive": ["bar:b"]
+    },
+    "bar:b": {
+      "locked": "2.0",
+      "transitive": ["foo:f"]
+    }
+    }""",
+    Graph.empty.addEdge(Edge(mvn("bar:b:2.0"), mvn("foo:f:1.0"), ())))
   }
 }

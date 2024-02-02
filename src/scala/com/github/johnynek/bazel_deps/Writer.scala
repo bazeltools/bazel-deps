@@ -1,7 +1,7 @@
 package com.github.johnynek.bazel_deps
 
 import cats.Traverse
-import cats.data.NonEmptyList
+import cats.data.{NonEmptyList, NonEmptyChain, Validated, ValidatedNec}
 import cats.implicits._
 import com.github.johnynek.bazel_deps.FS.{Path, Result}
 import org.slf4j.LoggerFactory
@@ -63,36 +63,37 @@ object Writer {
   )
 
   sealed abstract class TargetsError {
+    def coord: UnversionedCoordinate
     def message: String
   }
   object TargetsError {
     case class BadExport(
-        uv: UnversionedCoordinate,
+        coord: UnversionedCoordinate,
         unknownExports: List[(MavenGroup, ArtifactOrProject)]
     ) extends TargetsError {
       private def unknowns = unknownExports
         .map { case (g, a) => g.asString + ":" + a.asString }
         .mkString(", ")
       def message =
-        s"Could not find explicit exports named by: ${uv.asString}: $unknowns"
+        s"Could not find explicit exports named by: ${coord.asString}: $unknowns"
     }
 
     case class CircularExports(
-        duplicate: UnversionedCoordinate,
+        coord: UnversionedCoordinate,
         path: List[UnversionedCoordinate],
-        transitiveSet: List[MavenCoordinate],
+        transitiveSet: Set[MavenCoordinate],
         // these nodes depend on duplicate, but are also reachable
-        loopNodes: List[MavenCoordinate]
+        loopNodes: Set[MavenCoordinate]
     ) extends TargetsError {
       def message = {
         def list[A](i: List[A])(fn: A => String): String =
           i.iterator.map(fn).mkString("[", ", ", "]")
 
         val pathStr = list(path)(_.asString)
-        val set = list(transitiveSet)(_.asString)
-        val loops = list(loopNodes)(_.asString)
+        val set = list(transitiveSet.toList.sorted)(_.asString)
+        val loops = list(loopNodes.toList.sorted)(_.asString)
 
-        s"circular exports graph. Node: ${duplicate.asString} -- Path: $pathStr -- DependsOnNode: $loops -- ReachableSet: $set"
+        s"circular exports graph. Node: ${coord.asString} -- Path: $pathStr -- ReachableAndDependsOnNode: $loops -- ReachableSet: $set"
       }
     }
   }
@@ -531,7 +532,7 @@ object Writer {
       case Nil => Right(())
     }
 
-    type E[A] = Either[NonEmptyList[TargetsError], A]
+    type E[A] = ValidatedNec[TargetsError, A]
     check.right.flatMap { _ =>
 
       /**
@@ -602,17 +603,19 @@ object Writer {
        * We make 1 label for each target, the path
        * and name are derived from the MavenCoordinate
        */
-      val cache = scala.collection.mutable.Map[UnversionedCoordinate, Either[List[UnversionedCoordinate], Either[NonEmptyList[TargetsError], Target]]]()
+      val cache = scala.collection.mutable.Map[UnversionedCoordinate, Either[List[UnversionedCoordinate], E[Target]]]()
 
-      def coordToTarget(u: UnversionedCoordinate): Either[NonEmptyList[TargetsError], Target] = {
+      def coordToTarget(u: UnversionedCoordinate): ValidatedNec[TargetsError, Target] = {
 
-        def compute: Either[NonEmptyList[TargetsError], Target] = {
+        def compute: ValidatedNec[TargetsError, Target] = {
           val deps = g.hasSource(uvToVerExplicit(u)).toList
 
-          def labelFor(u: UnversionedCoordinate): Either[NonEmptyList[TargetsError], Label] =
+          def labelFor(u: UnversionedCoordinate): ValidatedNec[TargetsError, Label] =
             targetFor(u).map(_.name)
 
-          Traverse[List].traverse[E, Edge[MavenCoordinate, Unit], Label](deps) { e => labelFor(e.destination.unversioned) }.right.flatMap { depLabelList =>
+          Traverse[List].traverse[E, Edge[MavenCoordinate, Unit], Label](deps) { e =>
+            labelFor(e.destination.unversioned)
+          }.andThen { depLabelList =>
             val depLabels = depLabelList.toSet
             val (lab, lang) =
               Label.replaced(u, model.getReplacements)
@@ -625,7 +628,6 @@ object Writer {
                 .dependencies
                 .exportedUnversioned(u, model.getReplacements).right.get
             )(labelFor(_))
-              .right
               .map { uvexports =>
 
                 val (exports, runtime_deps) = model.getOptions.getTransitivity match {
@@ -681,16 +683,16 @@ object Writer {
         cache.getOrElseUpdate(u, Left(Nil)) match {
           case Left(existing) if existing.contains(u) =>
             val explicitLoopNodes = existing.flatMap(uvToVerExplicit.get(_))
-            val reachable = g.reflexiveTransitiveClosure(explicitLoopNodes).toList.sorted
+            val reachable = g.reflexiveTransitiveClosure(explicitLoopNodes)
             // which of the reachable items point to the existing
             val loops = uvToVerExplicit.get(u) match {
-              case Some(vu) =>
-                g.hasDestination(vu).map(_.source).toList.sorted
-              case None => Nil
+              case Some(vu) if reachable(vu) =>
+                g.hasDestination(vu).map(_.source)
+              case _ => Set.empty[MavenCoordinate]
             }
-            Left(NonEmptyList.one(
+            Validated.invalidNec(
               TargetsError.CircularExports(u, existing, reachable, loopNodes = loops)
-            ))
+            )
           case Left(existing) =>
             cache.update(u, Left(u :: existing))
             val res = compute
@@ -700,9 +702,9 @@ object Writer {
         }
       }
 
-      def targetFor(u: UnversionedCoordinate): Either[NonEmptyList[TargetsError], Target] =
+      def targetFor(u: UnversionedCoordinate): ValidatedNec[TargetsError, Target] =
         replacedTarget(u) match {
-          case Some(t) => Right(t)
+          case Some(t) => Validated.valid(t)
           case None => coordToTarget(u)
         }
 
@@ -725,6 +727,12 @@ object Writer {
         } yield projectRecord.generateNeverlink.getOrElse(false)).getOrElse(false)
 
       Traverse[List].traverse[E, UnversionedCoordinate, Target](allUnversioned.toList)(targetFor(_))
+        .toEither
+        .leftMap { nec =>
+          NonEmptyList.fromListUnsafe(
+            nec.toList.distinct.sortBy(_.coord)
+          )
+        }
     }
   }
 }

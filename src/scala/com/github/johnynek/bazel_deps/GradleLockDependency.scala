@@ -19,7 +19,7 @@ object GradleLockDependency {
   case object LeftVersion extends VersionState
   case object RightVersion extends VersionState
 
-  def resolveVersions(versionConflictPolicy: VersionConflictPolicy, dependencyName: String)(
+  private def resolveVersions(versionConflictPolicy: VersionConflictPolicy, dependencyName: String)(
       left: Option[String],
       right: Option[String]
   ): Try[VersionState] = {
@@ -51,47 +51,41 @@ object GradleLockDependency {
 
   def mergeGradleLockDeps(versionConflictPolicy: VersionConflictPolicy): TryMerge[GradleLockDependency] =
     new TryMerge[GradleLockDependency] {
+      private val unit = Success(())
+
       def tryMerge(
         debugName: Option[String],
-            left: GradleLockDependency,
-            right: GradleLockDependency
-        ): Try[GradleLockDependency] = {
+        left: GradleLockDependency,
+        right: GradleLockDependency
+      ): Try[GradleLockDependency] = {
         lazy val mergedDependencies = Some(
-                (left.transitive.getOrElse(Nil) ++ right.transitive.getOrElse(
-                    Nil
-                )).sorted.distinct
-                ).filter(_.nonEmpty)
+          (left.transitive.getOrElse(Nil) ::: right.transitive.getOrElse(Nil))
+            .distinct
+            .sorted
+        ).filter(_.nonEmpty)
 
         for {
-            v <- resolveVersions(versionConflictPolicy, debugName.getOrElse("Unknown"))(left.locked, right.locked)
-            _ <-
-            if (left.project == right.project) Success(())
-            else
-                Failure(
-                new Exception(
-                    s"Unable to merge due to incompatible project setting, had $left, $right"
-                )
-                )
-        } yield {
-            v match {
-            case EqualVersionSpecified =>
-            GradleLockDependency(
+          _ <- if (left.project == right.project) unit
+            else Failure(
+              new Exception(
+                s"Unable to merge due to incompatible project setting, had $left, $right"
+              )
+            )
+          v <- resolveVersions(versionConflictPolicy, debugName.getOrElse("Unknown"))(left.locked, right.locked)
+        } yield (v match {
+            case EqualVersionSpecified | LeftVersion =>
+              GradleLockDependency(
                 locked = left.locked,
                 project = left.project,
                 transitive = mergedDependencies
-            )
-            case LeftVersion => GradleLockDependency(
-                locked = left.locked,
-                project = left.project,
-                transitive = mergedDependencies
-            )
-            case RightVersion => GradleLockDependency(
+              )
+            case RightVersion =>
+              GradleLockDependency(
                 locked = right.locked,
-                project = right.project,
+                project = right.project, // note right.project == left.project or we don't reach here
                 transitive = mergedDependencies
-            )
-            }
-        }
+              )
+          })
     }
   }
 
