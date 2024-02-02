@@ -192,4 +192,15 @@ scala_test(
   ]
 )
 
+scala_test(
+  name = "writertest",
+  srcs = ["WriterTest.scala"],
+  deps = [
+    "//3rdparty/jvm/org/typelevel:cats_core",
+    "//src/scala/com/github/johnynek/bazel_deps:depsmodel",
+    "//src/scala/com/github/johnynek/bazel_deps:graph",
+    "//src/scala/com/github/johnynek/bazel_deps:writer",
+  ]
+)
+
 test_suite(name = "all_tests")

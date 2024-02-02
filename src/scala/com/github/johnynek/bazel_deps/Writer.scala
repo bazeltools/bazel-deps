@@ -81,6 +81,7 @@ object Writer {
 
     case class CircularExports(
         coord: UnversionedCoordinate,
+        versioned: Option[MavenCoordinate],
         path: List[UnversionedCoordinate],
         transitiveSet: Set[MavenCoordinate],
         // these nodes depend on duplicate, but are also reachable
@@ -96,6 +97,12 @@ object Writer {
 
         s"circular exports graph. Node: ${coord.asString} -- Path: $pathStr -- ReachableAndDependsOnNode: $loops -- ReachableSet: $set"
       }
+
+      def loopEdges: List[Edge[MavenCoordinate, Unit]] =
+        (for {
+          dest <- versioned.toList
+          src <- loopNodes.toList
+        } yield Edge(src, dest, ())).sortBy { e => (e.source, e.destination) }
     }
   }
 
@@ -594,12 +601,14 @@ object Writer {
       def coordToTarget(u: UnversionedCoordinate): ValidatedNec[TargetsError, Target] = {
 
         def compute: ValidatedNec[TargetsError, Target] = {
-          val deps = g.hasSource(uvToVerExplicit(u)).toList
 
           def labelFor(u: UnversionedCoordinate): ValidatedNec[TargetsError, Label] =
             targetFor(u).map(_.name)
 
-          val depsV = deps.traverse { e => labelFor(e.destination.unversioned) }
+          val depsV =
+            g.hasSource(uvToVerExplicit(u))
+              .toList
+              .traverse { e => labelFor(e.destination.unversioned) }
 
           val exports = 
             model.dependencies.exportedUnversioned(u, model.getReplacements) match {
@@ -670,13 +679,15 @@ object Writer {
             val explicitLoopNodes = existing.flatMap(uvToVerExplicit.get(_))
             val reachable = g.reflexiveTransitiveClosure(explicitLoopNodes)
             // which of the reachable items point to the existing
-            val loops = uvToVerExplicit.get(u) match {
-              case Some(vu) if reachable(vu) =>
-                g.hasDestination(vu).map(_.source)
+            val vuOpt = uvToVerExplicit.get(u)
+            val loops = vuOpt match {
+              case Some(vu) =>
+                val depOnU = g.hasDestination(vu).map(_.source)
+                reachable.intersect(depOnU)
               case _ => Set.empty[MavenCoordinate]
             }
             Validated.invalidNec(
-              TargetsError.CircularExports(u, existing, reachable, loopNodes = loops)
+              TargetsError.CircularExports(u, vuOpt, existing, reachable, loopNodes = loops)
             )
           case Left(existing) =>
             cache.update(u, Left(u :: existing))

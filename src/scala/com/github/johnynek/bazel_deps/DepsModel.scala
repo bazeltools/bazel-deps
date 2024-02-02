@@ -136,6 +136,9 @@ object Model {
       combine(_, _).toEither
     )
   }
+
+  val empty: Model =
+    Model(Dependencies.empty, None, None)
 }
 
 case class MavenGroup(asString: String)
