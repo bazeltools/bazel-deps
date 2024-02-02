@@ -1,10 +1,10 @@
 package com.github.johnynek.bazel_deps
 
 import org.scalatest.propspec.AnyPropSpec
-import org.scalacheck.Prop.forAll
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalacheck.{Gen, Arbitrary}
 
-class GraphPropTest extends AnyPropSpec {
+class GraphPropTest extends AnyPropSpec with ScalaCheckPropertyChecks {
 
   def graphGen[N, E](g: Gen[(N, Option[(N, E)])]): Gen[Graph[N, E]] =
     Gen.sized { s =>
@@ -89,9 +89,9 @@ class GraphPropTest extends AnyPropSpec {
   property("Sanity checks on generated graphs (non-dag) 4") {
     forAll(graphGen(genIntNode), nodeGen) { (g, n) =>
       val newG = g.removeNode(n)
-      (!newG.nodes(n)) && (!newG.edgeIterator.exists { case Edge(s, d, _) =>
+      assert((!newG.nodes(n)) && (!newG.edgeIterator.exists { case Edge(s, d, _) =>
         (s == n) || (d == n)
-      })
+      }))
     }
   }
 
@@ -99,11 +99,12 @@ class GraphPropTest extends AnyPropSpec {
     forAll(graphGen(genIntNode), nodeGen, nodeGen) { (g, s, d) =>
       val newEdge = Edge(s, d, ())
       val newG = g.addEdge(newEdge)
-      newG.nodes(s) &&
-      newG.nodes(d) &&
-      newG.hasSource(s)(newEdge) &&
-      newG.hasDestination(d)(newEdge) &&
-      newG.edgeIterator.toSet(newEdge)
+
+      assert(newG.nodes(s) &&
+        newG.nodes(d) &&
+        newG.hasSource(s)(newEdge) &&
+        newG.hasDestination(d)(newEdge) &&
+        newG.edgeIterator.toSet(newEdge))
     }
   }
 
@@ -114,8 +115,8 @@ class GraphPropTest extends AnyPropSpec {
     }) {
       case (g, Some(e)) =>
         val newG = g.removeEdge(e)
-        !(newG.edgeIterator.exists(_ == e))
-      case (g, None) => true
+        assert(!(newG.edgeIterator.exists(_ == e)))
+      case (g, None) => ()
     }
   }
 
@@ -126,9 +127,12 @@ class GraphPropTest extends AnyPropSpec {
     }) {
       case (g, Some(n)) =>
         val newG = g.removeNode(n)
-        newG.hasDestination(n).isEmpty &&
-        newG.hasSource(n).isEmpty &&
-        (!newG.nodes(n))
+
+        assert(
+          newG.hasDestination(n).isEmpty &&
+          newG.hasSource(n).isEmpty &&
+          (!newG.nodes(n))
+        )
       case (g, None) => true
     }
   }
@@ -142,7 +146,7 @@ class GraphPropTest extends AnyPropSpec {
     } yield (g, optPair)
 
     forAll(genEnds) {
-      case (g, Some((s, e))) => g.reflexiveTransitiveClosure(List(s))(e)
+      case (g, Some((s, e))) => assert(g.reflexiveTransitiveClosure(List(s))(e))
       case (g, None)         => true
     }
   }
@@ -152,6 +156,7 @@ class GraphPropTest extends AnyPropSpec {
       g <- graphGen(genIntNode)
       e <- edgeFrom(g)
     } yield (g, e)
+
     forAll(gen, nodeGen, nodeGen) { case ((g, e), n1, n2) =>
       val maybePresent = Edge(n1, n2, ())
       val maybeCheck =
@@ -164,9 +169,9 @@ class GraphPropTest extends AnyPropSpec {
             g.hasDestination(n2).contains(maybePresent))
         }
 
-      g.edgeIterator.forall(g.hasEdge) &&   
+      assert(g.edgeIterator.forall(g.hasEdge) &&   
         e.forall(g.hasEdge(_)) &&
-        maybeCheck
+        maybeCheck)
     }
   }
 }

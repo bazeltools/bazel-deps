@@ -4,6 +4,7 @@ import io.circe.jawn.JawnParser
 import java.nio.file.Paths
 import org.scalatest.funsuite.AnyFunSuite
 import scala.util.{Success, Failure}
+import scala.collection.immutable.SortedMap
 
 import Decoders._
 
@@ -18,8 +19,8 @@ class GradleResolverTest extends AnyFunSuite {
       case Left(error) => sys.error(s"Failed to decode $str: ${error}")
     }
 
-  def deps(str: String): Map[String, GradleLockDependency] =
-    (new JawnParser).decode[Map[String, GradleLockDependency]](str) match {
+  def deps(str: String): SortedMap[String, GradleLockDependency] =
+    (new JawnParser).decode[SortedMap[String, GradleLockDependency]](str) match {
       case Right(t) => t
       case Left(error) => sys.error(s"Failed to decode $str: ${error}")
     }

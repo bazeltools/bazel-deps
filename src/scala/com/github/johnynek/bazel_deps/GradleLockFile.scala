@@ -3,6 +3,7 @@ package com.github.johnynek.bazel_deps
 import io.circe.Decoder.Result
 import io.circe.{Decoder, Error, HCursor, Json, KeyDecoder, Parser}
 import io.circe.generic.auto
+import scala.collection.immutable.SortedMap
 
 import scala.util.{Failure, Success, Try}
 
@@ -69,10 +70,10 @@ object GradleLockFile {
 }
 
 case class GradleLockFile(
-    annotationProcessor: Option[Map[String, GradleLockDependency]],
-    compileClasspath: Option[Map[String, GradleLockDependency]],
-    resolutionRules: Option[Map[String, GradleLockDependency]],
-    runtimeClasspath: Option[Map[String, GradleLockDependency]],
-    testCompileClasspath: Option[Map[String, GradleLockDependency]],
-    testRuntimeClasspath: Option[Map[String, GradleLockDependency]]
+    annotationProcessor: Option[SortedMap[String, GradleLockDependency]],
+    compileClasspath: Option[SortedMap[String, GradleLockDependency]],
+    resolutionRules: Option[SortedMap[String, GradleLockDependency]],
+    runtimeClasspath: Option[SortedMap[String, GradleLockDependency]],
+    testCompileClasspath: Option[SortedMap[String, GradleLockDependency]],
+    testRuntimeClasspath: Option[SortedMap[String, GradleLockDependency]]
 )
