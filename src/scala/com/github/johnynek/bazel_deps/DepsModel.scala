@@ -969,7 +969,7 @@ case class Dependencies(
   def exportedUnversioned(
       u: UnversionedCoordinate,
       r: Replacements
-  ): Either[List[(MavenGroup, ArtifactOrProject)], List[
+  ): Either[NonEmptyList[(MavenGroup, ArtifactOrProject)], List[
     UnversionedCoordinate
   ]] =
     recordOf(u).flatMap(_.exports) match {
@@ -979,13 +979,19 @@ case class Dependencies(
             g: MavenGroup,
             a: ArtifactOrProject
         ): Option[UnversionedCoordinate] =
-          unversionedCoordinatesOf(g, a).orElse(
-            r.unversionedCoordinatesOf(g, a)
-          )
+          unversionedCoordinatesOf(g, a)
+            .orElse(r.unversionedCoordinatesOf(g, a))
 
-        val errs = l.filter { case (g, a) => uv(g, a).isEmpty }
-        if (errs.nonEmpty) Left(l.toList)
-        else Right(l.toList.flatMap { case (g, a) => uv(g, a) })
+        val errs = l
+          .filter { case (g, a) => uv(g, a).isEmpty }
+          .toList
+          // make deterministic
+          .sortBy { case (g, a) => (g.asString, a.asString) }
+
+        NonEmptyList.fromList(errs) match {
+          case None => Right(l.toList.flatMap { case (g, a) => uv(g, a) })
+          case Some(errNel) => Left(errNel)
+        }
     }
 
   private val coordToProj: Map[MavenCoordinate, ProjectRecord] =

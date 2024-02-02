@@ -1,7 +1,7 @@
 package com.github.johnynek.bazel_deps
 
 import cats.Traverse
-import cats.data.{NonEmptyList, NonEmptyChain, Validated, ValidatedNec}
+import cats.data.{Chain, NonEmptyList, NonEmptyChain, Validated, ValidatedNec}
 import cats.implicits._
 import com.github.johnynek.bazel_deps.FS.{Path, Result}
 import org.slf4j.LoggerFactory
@@ -69,9 +69,10 @@ object Writer {
   object TargetsError {
     case class BadExport(
         coord: UnversionedCoordinate,
-        unknownExports: List[(MavenGroup, ArtifactOrProject)]
+        unknownExports: NonEmptyList[(MavenGroup, ArtifactOrProject)]
     ) extends TargetsError {
       private def unknowns = unknownExports
+        .iterator
         .map { case (g, a) => g.asString + ":" + a.asString }
         .mkString(", ")
       def message =
@@ -418,10 +419,11 @@ object Writer {
         }
       }
 
-    val check = badExports match {
-      case h :: tail => Left(NonEmptyList(h, tail))
-      case Nil       => Right(())
+    val check = NonEmptyList.fromList(badExports) match {
+      case None       => Right(())
+      case Some(nel) => Left(nel)
     }
+
     check.map { _ =>
       def replaced(m: MavenCoordinate): Boolean =
         model.getReplacements.get(m.unversioned).isDefined
@@ -515,25 +517,8 @@ object Writer {
   def targets(g: Graph[MavenCoordinate, Unit],
               model: Model): Either[NonEmptyList[TargetsError], List[Target]] = {
     /**
-     * Check that all the exports are well-defined
      * TODO make sure to write targets for replaced nodes
      */
-    val badExports =
-      g.nodes.toList.flatMap { c =>
-        val uv = c.unversioned
-        model.dependencies.exportedUnversioned(uv, model.getReplacements) match {
-          case Left(baddies) => List(TargetsError.BadExport(c.unversioned, baddies))
-          case Right(_) => Nil
-        }
-      }
-
-    val check = badExports match {
-      case h :: tail => Left(NonEmptyList(h, tail))
-      case Nil => Right(())
-    }
-
-    type E[A] = ValidatedNec[TargetsError, A]
-    check.right.flatMap { _ =>
 
       /**
        * Here are all the explicit artifacts
@@ -603,6 +588,7 @@ object Writer {
        * We make 1 label for each target, the path
        * and name are derived from the MavenCoordinate
        */
+      type E[A] = ValidatedNec[TargetsError, A]
       val cache = scala.collection.mutable.Map[UnversionedCoordinate, Either[List[UnversionedCoordinate], E[Target]]]()
 
       def coordToTarget(u: UnversionedCoordinate): ValidatedNec[TargetsError, Target] = {
@@ -613,69 +599,68 @@ object Writer {
           def labelFor(u: UnversionedCoordinate): ValidatedNec[TargetsError, Label] =
             targetFor(u).map(_.name)
 
-          Traverse[List].traverse[E, Edge[MavenCoordinate, Unit], Label](deps) { e =>
-            labelFor(e.destination.unversioned)
-          }.andThen { depLabelList =>
+          val depsV = deps.traverse { e => labelFor(e.destination.unversioned) }
+
+          val exports = 
+            model.dependencies.exportedUnversioned(u, model.getReplacements) match {
+              case Right(uex) => uex.traverse(labelFor(_))
+              case Left(baddies) =>
+                Validated.invalidNec(TargetsError.BadExport(u, baddies))
+            }
+
+          (depsV, exports).mapN { (depLabelList, uvexports) =>
             val depLabels = depLabelList.toSet
             val (lab, lang) =
               Label.replaced(u, model.getReplacements)
                 .getOrElse {
                   (Label.parse(u.bindTarget(model.getOptions.getNamePrefix)), langFn(u))
                 }
-            // Build explicit exports, no need to add these to runtime deps
-            Traverse[List].traverse[E, UnversionedCoordinate, Label](
-              model
-                .dependencies
-                .exportedUnversioned(u, model.getReplacements).right.get
-            )(labelFor(_))
-              .map { uvexports =>
 
-                val (exports, runtime_deps) = model.getOptions.getTransitivity match {
-                  case Transitivity.Exports => (depLabels, Set.empty[Label])
-                  case Transitivity.RuntimeDeps => (Set.empty[Label], depLabels)
-                }
+            val (exports, runtime_deps) = model.getOptions.getTransitivity match {
+              case Transitivity.Exports => (depLabels, Set.empty[Label])
+              case Transitivity.RuntimeDeps => (Set.empty[Label], depLabels)
+            }
 
-                // TODO: converge on using java_import instead of java_library:
-                // https://github.com/johnynek/bazel-deps/issues/102
-                lang match {
-                  case Language.Java =>
-                    Target(lang,
-                      kind = Target.Library,
-                      name = Label.localTarget(pathInRoot, u, lang),
-                      visibility = visibility(u),
-                      exports = if (u.artifact.packaging == "pom") {
-                        exports
-                      } else {
-                        (exports + lab)
-                      } ++ uvexports,
-                      jars = Set.empty,
-                      runtimeDeps = runtime_deps -- uvexports,
-                      processorClasses = getProcessorClasses(u),
-                      generatesApi = getGeneratesApi(u),
-                      licenses = licenses,
-                      generateNeverlink = getGenerateNeverlink(u))
-                  case Language.Kotlin =>
-                    Target(lang,
-                      kind = Target.Import,
-                      name = Label.localTarget(pathInRoot, u, lang),
-                      visibility = visibility(u),
-                      exports = exports ++ uvexports,
-                      jars = Set(lab),
-                      runtimeDeps = runtime_deps -- uvexports,
-                      processorClasses = getProcessorClasses(u),
-                      generatesApi = getGeneratesApi(u))
-                  case _: Language.Scala =>
-                    Target(lang,
-                      kind = Target.Import,
-                      name = Label.localTarget(pathInRoot, u, lang),
-                      visibility = visibility(u),
-                      exports = exports ++ uvexports,
-                      jars = Set(lab),
-                      runtimeDeps = runtime_deps -- uvexports,
-                      processorClasses = getProcessorClasses(u),
-                      generatesApi = getGeneratesApi(u),
-                      licenses = licenses)
-                }
+            // TODO: converge on using java_import instead of java_library:
+            // https://github.com/johnynek/bazel-deps/issues/102
+            lang match {
+              case Language.Java =>
+                Target(lang,
+                  kind = Target.Library,
+                  name = Label.localTarget(pathInRoot, u, lang),
+                  visibility = visibility(u),
+                  exports = if (u.artifact.packaging == "pom") {
+                    exports
+                  } else {
+                    (exports + lab)
+                  } ++ uvexports,
+                  jars = Set.empty,
+                  runtimeDeps = runtime_deps -- uvexports,
+                  processorClasses = getProcessorClasses(u),
+                  generatesApi = getGeneratesApi(u),
+                  licenses = licenses,
+                  generateNeverlink = getGenerateNeverlink(u))
+              case Language.Kotlin =>
+                Target(lang,
+                  kind = Target.Import,
+                  name = Label.localTarget(pathInRoot, u, lang),
+                  visibility = visibility(u),
+                  exports = exports ++ uvexports,
+                  jars = Set(lab),
+                  runtimeDeps = runtime_deps -- uvexports,
+                  processorClasses = getProcessorClasses(u),
+                  generatesApi = getGeneratesApi(u))
+              case _: Language.Scala =>
+                Target(lang,
+                  kind = Target.Import,
+                  name = Label.localTarget(pathInRoot, u, lang),
+                  visibility = visibility(u),
+                  exports = exports ++ uvexports,
+                  jars = Set(lab),
+                  runtimeDeps = runtime_deps -- uvexports,
+                  processorClasses = getProcessorClasses(u),
+                  generatesApi = getGeneratesApi(u),
+                  licenses = licenses)
               }
           }
         }
@@ -726,13 +711,12 @@ object Writer {
           projectRecord <- m.get(ArtifactOrProject(u.artifact.asString))
         } yield projectRecord.generateNeverlink.getOrElse(false)).getOrElse(false)
 
-      Traverse[List].traverse[E, UnversionedCoordinate, Target](allUnversioned.toList)(targetFor(_))
-        .toEither
-        .leftMap { nec =>
-          NonEmptyList.fromListUnsafe(
-            nec.toList.distinct.sortBy(_.coord)
-          )
-        }
+      allUnversioned.toList.traverse(targetFor(_))
     }
-  }
+    .toEither
+    .leftMap { nec =>
+      NonEmptyList.fromListUnsafe(
+        nec.toList.distinct.sortBy(_.coord)
+      )
+    }
 }
