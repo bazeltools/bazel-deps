@@ -61,9 +61,9 @@ class GradleResolver(
    /*
     * This depMap represents a graph. The keys are UnversionedCoordinates (and should
     * probably be changed to be those). Inside the GradleLockDependency is a list
-    * of nodes that depend on the key (in the field called transient).
+    * of nodes that depend on the key (in the field called transitive).
     * 
-    * So, this method is making sure that all the values in the union of the transient
+    * So, this method is making sure that all the values in the union of the transitive
     * lists are also keys of this Map.
     */
   private def assertConnectedDependencyMap(
