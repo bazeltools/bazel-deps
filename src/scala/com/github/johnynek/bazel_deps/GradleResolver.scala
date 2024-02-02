@@ -42,7 +42,7 @@ class GradleResolver(
   // we just want one, so we merge them all
   private def collapseDepTypes(
       lockFile: GradleLockFile
-  ): Try[Map[String, GradleLockDependency]] =
+  ): Try[SortedMap[String, GradleLockDependency]] =
     TryMerge.tryMergeAll(
       None,
       NonEmptyList.of(
@@ -54,7 +54,7 @@ class GradleResolver(
         lockFile.testRuntimeClasspath
       )
     )
-    .map(_.getOrElse(Map.empty))
+    .map(_.getOrElse(SortedMap.empty[String, GradleLockDependency]))
 
   private val unit = Validated.valid(())
 
@@ -238,7 +238,7 @@ private def cleanUpMap(
     }
 
   def buildGraphFromDepMap(
-    depMap: Map[String, GradleLockDependency]
+    depMap: SortedMap[String, GradleLockDependency]
   ): Try[Graph[MavenCoordinate, Unit]] =
     assertConnectedDependencyMap(depMap)
       .map(_ => cleanUpMap(depMap))
@@ -274,7 +274,6 @@ private def cleanUpMap(
 
         depMap
           .toList
-          .sortBy(_._1)
           .traverse[V, (MavenCoordinate, List[MavenCoordinate])] { case (n, deps) =>
             toCoord(n)
               .product(

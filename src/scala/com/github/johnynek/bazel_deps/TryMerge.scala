@@ -3,6 +3,7 @@ package com.github.johnynek.bazel_deps
 import cats.{Foldable, Reducible}
 import cats.data.NonEmptyList
 import scala.util.{Failure, Success, Try}
+import scala.collection.immutable.SortedMap
 
 import cats.syntax.all._
 
@@ -40,33 +41,29 @@ object TryMerge {
       }
     }
 
-  implicit def tryStringMapMerge[T: TryMerge]: TryMerge[Map[String, T]] =
-    new TryMerge[Map[String, T]] {
-      private val rev = reverse
+  implicit def tryStringMapMerge[T: TryMerge]: TryMerge[SortedMap[String, T]] =
+    new TryMerge[SortedMap[String, T]] {
       def tryMerge(
         debugName: Option[String],
-          left: Map[String, T],
-          right: Map[String, T]
-      ): Try[Map[String, T]] = {
-        if (right.size > left.size) rev.tryMerge(debugName, right, left)
-        else {
-          // right <= left in size
-          val overlaps = right.exists { case (k, _) => left.contains(k) }
-          if (!overlaps) Success(left ++ right)
-          else {
-            right.toList.sortBy(_._1)
-              .foldM(left) { case (acc, (k, rv)) =>
-                acc.get(k) match {
-                  case Some(lv) =>
-                    TryMerge.tryMerge(Some(debugName.fold(k) {p => s"$p:$k"}), lv, rv)
-                      .map(acc.updated(k, _))
-                  case None =>
-                    Success(acc.updated(k, rv))
-                }  
-              }
+          left: SortedMap[String, T],
+          right: SortedMap[String, T]
+      ): Try[SortedMap[String, T]] = {
+        val tmt = implicitly[TryMerge[T]]
+        val (big, small, tm) =
+          if (right.size > left.size) (right, left, tmt.reverse)
+          else (left, right, tmt)
+
+        small.toStream
+          .foldM(big) { case (acc, (k, rv)) =>
+            acc.get(k) match {
+              case Some(lv) =>
+                val nextDebug = Some(debugName.fold(k) {p => s"$p:$k"})
+                tm.tryMerge(nextDebug, lv, rv).map(acc.updated(k, _))
+              case None =>
+                Success(acc.updated(k, rv))
+            }  
           }
       }
     }
-  }
 }
 

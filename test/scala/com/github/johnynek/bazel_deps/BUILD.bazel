@@ -203,4 +203,16 @@ scala_test(
   ]
 )
 
+scala_test(
+  name = "trymergetest",
+  srcs = ["TryMergeTest.scala"],
+  deps = [
+    "//src/scala/com/github/johnynek/bazel_deps:trymerge",
+    "//3rdparty/jvm/org/scalacheck",
+    "//3rdparty/jvm/org/scalatest:scalatest_propspec",
+    "//3rdparty/jvm/org/scalatestplus:scalacheck_1_17",
+    "//3rdparty/jvm/org/typelevel:cats_core",
+  ]
+)
+
 test_suite(name = "all_tests")
