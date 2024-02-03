@@ -48,7 +48,7 @@ object GradleLockFile {
           left.testRuntimeClasspath,
           right.testRuntimeClasspath
         )
-      } yield {
+      } yield
         GradleLockFile(
           annotationProcessor,
           compileClasspath,
@@ -57,9 +57,9 @@ object GradleLockFile {
           testCompileClasspath,
           testRuntimeClasspath
         )
-      }
     }
   }
+
   def empty = GradleLockFile(None, None, None, None, None, None)
 
   def decodeGradleLockFile(

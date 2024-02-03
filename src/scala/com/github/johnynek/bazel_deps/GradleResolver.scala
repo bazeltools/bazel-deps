@@ -7,6 +7,7 @@ import java.nio.file.{Path, Paths, Files}
 import scala.collection.immutable.SortedMap
 import scala.collection.mutable.{Map => MMap}
 import scala.util.{Failure, Success, Try}
+import org.slf4j.LoggerFactory
 
 import cats.implicits._
 
@@ -16,6 +17,8 @@ class GradleResolver(
     gradleTpe: ResolverType.Gradle,
     getShasFn: List[MavenCoordinate] => Try[SortedMap[MavenCoordinate, ResolvedShasValue]]
 ) extends CustomResolver {
+
+  private val logger = LoggerFactory.getLogger("GradleResolver")
 
   def resolverType: ResolverType.Gradle = gradleTpe
 
@@ -104,8 +107,8 @@ class GradleResolver(
 
 private def cleanUpMap(
   // invariant: depMap is fully connected, all nodes in transitive exist as a key
-  depMap: Map[String, GradleLockDependency]
-): Map[String, GradleLockDependency] = {
+  depMap: SortedMap[String, GradleLockDependency]
+): SortedMap[String, GradleLockDependency] = {
 
     // for no content deps there is nothing to fetch/no sha to operate on.
     def matchNoContentRes(unversioned: String, v: GradleLockDependency): Boolean =
@@ -116,10 +119,11 @@ private def cleanUpMap(
       }
 
     // Remove gradle projects, these are source dependencies
-    val depMapNonProj = depMap.filter(_._2.project != Some(true))
+    val depMapNonProj: SortedMap[String, GradleLockDependency] =
+      depMap.filter(_._2.project != Some(true))
 
     depMapNonProj
-      .foldLeft(Map.empty[String, GradleLockDependency]) { case (accGraph, (unversioned, thisGLD)) =>
+      .foldLeft(SortedMap.empty[String, GradleLockDependency]) { case (accGraph, (unversioned, thisGLD)) =>
 
         /*
          * this method expands a list of transitive deps removing
@@ -217,13 +221,22 @@ private def cleanUpMap(
     val g = Graph.empty[UnversionedCoordinate, Unit]
     gradleTpe.ignoreDependencyEdge match {
       case Some(missing) =>
+        logger.info(s"ignoreDependencyEdge has ${missing.size} items")
         missing.iterator.flatMap { case (s, d) =>
           UnversionedCoordinate.parse(s)
-            .product(UnversionedCoordinate.parse(d))  
-            .toOption
+            .product(UnversionedCoordinate.parse(d)) match {
+              case Validated.Valid((suv, duv)) =>
+                logger.info(s"ignoring $s -> $d")
+                Edge(suv, duv, ()) :: Nil
+              case Validated.Invalid(errs) =>
+                logger.warn(s"could not parse ignoreDependencyEdge: $s -> $d: $errs")
+                Nil
+            }
         }
-        .foldLeft(g) { case (g, (s, d)) => g.addEdge(Edge(s, d, ()))}
-      case None => g
+        .foldLeft(g) { (g, e) => g.addEdge(e) }
+      case None =>
+        logger.info(s"ignoreDependencyEdge is empty.")
+        g
     }
   }
 
@@ -242,7 +255,7 @@ private def cleanUpMap(
   ): Try[Graph[MavenCoordinate, Unit]] =
     assertConnectedDependencyMap(depMap)
       .map(_ => cleanUpMap(depMap))
-      .flatMap { depMap =>
+      .flatMap { (depMap: SortedMap[String, GradleLockDependency]) =>
         type V[+A] = ValidatedNec[(String, String), A]
         val cache = MMap[String, V[MavenCoordinate]]()
 
@@ -289,7 +302,10 @@ private def cleanUpMap(
                 // but if we ignore the edge, we defensively make sure we add revDep
                 // since this graph is validated, it should be added when it appears
                 // as a key however
-                if (ignoreEdge(revDep, cnode)) g.addNode(revDep)
+                if (ignoreEdge(revDep, cnode)) {
+                  logger.debug(s"ignored: $revDep -> $cnode")
+                  g.addNode(revDep)
+                }
                 else g.addEdge(Edge(revDep, cnode, ()))
               }
             }
