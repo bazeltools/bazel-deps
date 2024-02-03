@@ -4,6 +4,7 @@ import cats.data.Validated
 import io.circe.Decoder.Result
 import io.circe.{Decoder, Error, HCursor, Json, KeyDecoder, Parser}
 import io.circe.generic.auto
+import org.slf4j.LoggerFactory
 
 import scala.util.{Failure, Success, Try}
 
@@ -14,6 +15,8 @@ case class GradleLockDependency(
 )
 
 object GradleLockDependency {
+  private val logger = LoggerFactory.getLogger("GradleLockDependency")
+
   sealed trait VersionState
   case object EqualVersionSpecified extends VersionState
   case object LeftVersion extends VersionState
@@ -24,28 +27,26 @@ object GradleLockDependency {
       right: Option[String]
   ): Try[VersionState] = {
     (left, right) match {
-      case (None, None)                   => Success(EqualVersionSpecified)
-      case (Some(l), None)                => Success(LeftVersion)
-      case (None, Some(r))                => Success(RightVersion)
-      case (Some(l), Some(r)) if (l == r) => Success(EqualVersionSpecified)
-      case (Some(l), Some(r)) => {
-        println(
-          s"This should probably not be allowed... but we are going to pick a version conflict ${versionConflictPolicy} if we can for $dependencyName between $l, $r"
-        )
-        versionConflictPolicy.resolve(
-          None,
-          Set(Version(l), Version(r))
-        ) match {
-          case Validated.Valid(v) =>
-            if (v.asString == l) {
-              Success(LeftVersion)
-            } else {
-              Success(RightVersion)
-            }
-          case Validated.Invalid(iv) =>
-            Failure(new Exception(s"Unable ot combine versions, $iv"))
-        }
-      }
+      case (_, _) if (left == right) => Success(EqualVersionSpecified)
+      case (Some(_), None)                => Success(LeftVersion)
+      case (None, Some(_))                => Success(RightVersion)
+      case (Some(l), Some(r)) =>
+        versionConflictPolicy
+          .resolve(None, Set(Version(l), Version(r))) match {
+            case Validated.Valid(v) =>
+              val vstr = v.asString
+              logger.debug(
+                s"Using ${versionConflictPolicy} for $dependencyName with versions $l and $r picking $vstr"
+              )
+
+              val ver =
+                if (vstr == l) LeftVersion
+                else RightVersion
+
+              Success(ver)
+            case Validated.Invalid(iv) =>
+              Failure(new Exception(s"For $dependencyName unable to combine versions $l and $r. Error: $iv"))
+          }
     }
   }
 
@@ -68,7 +69,7 @@ object GradleLockDependency {
           _ <- if (left.project == right.project) unit
             else Failure(
               new Exception(
-                s"Unable to merge due to incompatible project setting, had $left, $right"
+                s"Unable to merge due to incompatible project setting in $debugName, had $left, $right"
               )
             )
           v <- resolveVersions(versionConflictPolicy, debugName.getOrElse("Unknown"))(left.locked, right.locked)
