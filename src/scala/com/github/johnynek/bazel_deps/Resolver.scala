@@ -17,7 +17,7 @@ object Resolver {
   type Result = (
       Graph[MavenCoordinate, Unit],
       SortedMap[MavenCoordinate, ResolvedShasValue],
-      Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]]
+      Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Boolean]]]
   )
 }
 

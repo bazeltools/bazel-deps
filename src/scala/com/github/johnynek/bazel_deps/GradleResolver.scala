@@ -336,7 +336,7 @@ private def cleanUpMap(
     (
         Graph[MavenCoordinate, Unit],
         SortedMap[MavenCoordinate, ResolvedShasValue],
-        Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]]
+        Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Boolean]]]
     )
   ] = {
     def replaced(m: MavenCoordinate): Boolean =
