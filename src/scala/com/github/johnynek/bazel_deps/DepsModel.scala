@@ -1550,7 +1550,7 @@ object ResolverType {
 
       override def combine(a: Coursier, b: Coursier): Coursier = {
         Coursier(
-          hashInHttpHeaders = a.hashInHttpHeaders.orElse(b.hashInHttpHeaders)
+          hashInHttpHeaders = b.hashInHttpHeaders.orElse(a.hashInHttpHeaders)
         )
       }
     }
