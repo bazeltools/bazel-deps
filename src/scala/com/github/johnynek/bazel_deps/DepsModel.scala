@@ -1523,8 +1523,37 @@ object ResolverType {
   case object Aether extends ResolverType("aether") {
     override def optionsDoc: Option[Doc] = None
   }
-  case object Coursier extends ResolverType("coursier") {
-    override def optionsDoc: Option[Doc] = None
+  case class Coursier(
+    hashInHttpHeaders: Option[Boolean]
+  ) extends ResolverType("coursier") {
+    def getHashInHttpHeaders: Boolean = hashInHttpHeaders.getOrElse(false)
+
+    override def optionsDoc: Option[Doc] = {
+
+      val items = List(
+        (
+          "hashInHttpHeaders",
+          hashInHttpHeaders.map(b => Doc.text(s"$b"))
+        ),
+      ).sortBy(_._1)
+        .collect { case (k, Some(v)) => (k, v) }
+
+      // we can't pack resolvers (yet)
+      Some(packedYamlMap(items))
+    }
+  }
+
+  object Coursier {
+    def empty = Coursier(None)
+    implicit val coursierMonoid: Monoid[Coursier] = new Monoid[Coursier] {
+      override val empty = Coursier.empty
+
+      override def combine(a: Coursier, b: Coursier): Coursier = {
+        Coursier(
+          hashInHttpHeaders = a.hashInHttpHeaders.orElse(b.hashInHttpHeaders)
+        )
+      }
+    }
   }
 
   case class Gradle(
@@ -1634,14 +1663,15 @@ object ResolverType {
     }
   }
 
-  val default = Coursier
+  val default = Coursier.empty
 
   implicit val resolverSemigroup: Semigroup[ResolverType] =
     new Semigroup[ResolverType] {
       override def combine(x: ResolverType, y: ResolverType): ResolverType = {
         (x, y) match {
-          case (l: Gradle, r: Gradle) => Monoid.combine(l, r)
-          case (_, r)                 => r
+          case (l: Gradle, r: Gradle)     => Monoid.combine(l, r)
+          case (l: Coursier, r: Coursier) => Monoid.combine(l, r)
+          case (_, r)                     => r
         }
       }
     }

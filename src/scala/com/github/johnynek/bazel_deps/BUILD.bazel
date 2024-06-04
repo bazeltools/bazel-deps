@@ -85,6 +85,8 @@ scala_library(
         ":graph",
         ":resolver",
         ":settings_loader",
+        "//3rdparty/jvm/io/circe:circe_core",
+        "//3rdparty/jvm/io/circe:circe_jawn",
         "//3rdparty/jvm/io/get_coursier:coursier",
         "//3rdparty/jvm/io/get_coursier:coursier_cache",
         "//3rdparty/jvm/io/get_coursier:coursier_core",

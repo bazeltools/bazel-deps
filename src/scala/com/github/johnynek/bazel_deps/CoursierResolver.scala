@@ -1,18 +1,26 @@
 package com.github.johnynek.bazel_deps
 
 import coursier.{Dependency, ResolutionProcess, Project, Resolution}
-import coursier.cache.{FileCache, CachePolicy}
+import coursier.cache.{ArtifactError, CacheLocks, FileCache, CachePolicy}
+import coursier.paths.{CachePath, Util => PathUtil}
 import coursier.util.{Artifact, Task}
 import cats.MonadError
 import cats.data.{Nested, NonEmptyList, Validated, ValidatedNel}
 import cats.implicits._
 import coursier.LocalRepositories
 import coursier.core._
-import java.nio.file.Path
+import java.io.File
+import java.net.http.{HttpClient, HttpHeaders, HttpRequest, HttpResponse}
+import java.net.{HttpURLConnection, URI, URL}
+import java.nio.file.{Files, Path, StandardCopyOption}
+import java.util.Locale
 import org.slf4j.LoggerFactory
+import io.circe.jawn.JawnParser
+import io.circe.syntax._
 import coursier.ivy._
+import scala.collection.JavaConverters._
 import scala.collection.immutable.SortedMap
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 
@@ -20,7 +28,7 @@ object CoursierResolver {
   // 12 concurrent downloads
   // most downloads are tiny sha downloads so try keep things alive
   lazy val downloadPool = {
-    import java.util.concurrent.{ExecutorService, Executors, ThreadFactory}
+    import java.util.concurrent.{Executors, ThreadFactory}
     Executors.newFixedThreadPool(
       12,
       // from scalaz.concurrent.Strategy.DefaultDaemonThreadFactory
@@ -37,7 +45,7 @@ object CoursierResolver {
   }
 }
 
-class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, runTimeout: Duration, resolverCachePath: Path) extends NormalizingResolver[Task] {
+class CoursierResolver(servers: List[DependencyServer], hashInHttpHeaders: Boolean, ec: ExecutionContext, runTimeout: Duration, resolverCachePath: Path) extends NormalizingResolver[Task] {
   // TODO: add support for a local file cache other than ivy
   private[this] val repos = LocalRepositories.ivy2Local :: {
     val settings = SettingsLoader.settings
@@ -66,6 +74,18 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
     }
   }
 
+  // Copied from coursier.cache.FileCache
+  private def auxiliaryFilePrefix(file: File): String =
+    s".${file.getName}__"
+
+  private def auxiliaryFile(file: File, key: String): File = {
+    val key0 = key.toLowerCase(Locale.ROOT).filter(_ != '-')
+    new File(file.getParentFile, s"${auxiliaryFilePrefix(file)}$key0")
+  }
+
+  // Copied from coursier.cache.internal.Downloader
+  private def errFile(file: File) = new File(file.getParentFile, "." + file.getName + ".error")
+
   private[this] def makeCache() = 
     Option(resolverCachePath) match {
       case None => FileCache()
@@ -76,6 +96,8 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
       .withCachePolicies(Seq(CachePolicy.FetchMissing))
       .withPool(CoursierResolver.downloadPool)
       .fetch)
+
+  private[this] val httpClient = HttpClient.newHttpClient()
 
   private[this] val logger =
     LoggerFactory.getLogger("bazel_deps.CoursierResolver")
@@ -131,12 +153,125 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
           digestType: DigestType,
           artifact: Artifact
       ): Task[(Artifact, ShaValue, Long)] = {
-        makeCache()
+
+        val cache = makeCache()
           .withCachePolicies(Seq(CachePolicy.FetchMissing))
           .withPool(CoursierResolver.downloadPool)
-          .file(artifact)
-          .run
-          .flatMap { e =>
+        val artifactFile = cache.localFile(artifact.url, artifact.authentication.map(_.user))
+
+        // Error caching logic copied from coursier.cache.internal.Downloader.
+        // If the .pom file exists for an artifact but the artifact itself doesn't,
+        // assume that the artifact will always remain missing.
+
+        lazy val referenceFileOpt: Option[File] = artifact.extra.get("metadata").map { a =>
+          cache.localFile(a.url, a.authentication.map(_.user))
+        }
+        lazy val cacheErrors: Boolean =
+          (artifact.changing && artifact.extra.contains("cache-errors")) ||
+            referenceFileOpt.exists(_.exists())
+
+        val checkErrFile: Task[Unit] = Task { _ =>
+          if (errFile(artifactFile).exists()) {
+            Future.failed(new ArtifactError.NotFound(artifact.url, permanent = Some(true)))
+          } else {
+            Future.unit
+          }
+        }
+
+        // Some Maven repositories (like Artifactory) returns hash digests as HTTP headers in GET/HEAD requests.
+        // If the user opts into doing so via hashInHttpHeaders, we use a HEAD request to get the checksums and the
+        // file size rather than by downloading the file itself.
+        //
+        // If the HEAD request fails in a Recoverable way, we fall back to downloading the file.
+        case class Recoverable(e: Throwable) extends Throwable(e)
+
+        val headRequest: Task[(Artifact, ShaValue, Long)] =
+          if (hashInHttpHeaders) {
+            // Cache all HTTP headers in a JSON file named .<artifact-filename>__headers in the Coursier cache directory
+            // in a way similar to Coursier's FileCache.
+            val headersPath: Path = auxiliaryFile(artifactFile, "headers").toPath
+
+            Task.schedule(CoursierResolver.downloadPool) {
+              // Since we use atomic moves, we can guarantee that if the header file exists, it is complete.
+              if (!Files.exists(headersPath)) {
+                val tmp = CachePath.temporaryFile(headersPath.toFile).toPath
+                // When creating directories in the cache directory, we need to take a "structure lock".
+                CacheLocks.withStructureLock(cache.location) {
+                  PathUtil.createDirectories(tmp.getParent)
+                  PathUtil.createDirectories(headersPath.getParent)
+                }
+                // Use JVM and file system locks to ensure that only one thread downloads the headers.
+                CacheLocks.withLockOr(cache.location, headersPath.toFile)(
+                  if (!Files.exists(headersPath)) { // double-checked locking
+                    // Download the headers.
+                    val req = HttpRequest.newBuilder(new URI(artifact.url))
+                      .method("HEAD", HttpRequest.BodyPublishers.noBody)
+                      .build
+                    val resp = httpClient.send(req, HttpResponse.BodyHandlers.discarding)
+                    resp.statusCode() match {
+                      case 404 =>
+                        if (cacheErrors) {
+                          try Files.createFile(errFile(artifactFile).toPath)
+                          catch {
+                            case e: java.nio.file.FileAlreadyExistsException => ()
+                          }
+                        } else {
+                          // println(s"not caching error for $artifact")
+                        }
+                        throw new ArtifactError.NotFound(artifact.url, permanent = Some(true))
+                      case 401 =>
+                        throw new ArtifactError.Unauthorized(artifact.url, realm = None)
+                      case sc if sc >= 400 =>
+                        throw new ArtifactError.DownloadError(s"failed to download: $sc", None)
+                      case _ =>
+                    }
+
+                    val headers = resp.headers
+                    val headersMap = headers.map.asScala.map({ case (k, vs) => (k, vs.asScala) })
+                    val headersJson = headersMap.asJson.noSpaces
+
+                    // Write to a temporary file first.
+                    val writer = Files.newBufferedWriter(tmp)
+                    try writer.write(headersJson)
+                    finally writer.close()
+
+                    // Atomic move to the final location.
+                    Files.move(tmp, headersPath, StandardCopyOption.ATOMIC_MOVE)
+                    ()
+                  } else (),
+                  // If we couldn't get the lock, try again unless the file has been created.
+                  if (Files.exists(headersPath)) Some(())
+                  else None
+                )
+              }
+            }
+              .flatMap(_ => resolverMonad.fromTry(
+                Try(Files.readString(headersPath))
+                  .flatMap((new JawnParser).decode[Map[String, List[String]]](_) match {
+                    case Left(error) =>
+                      Failure(Recoverable(new RuntimeException(s"failed to parse headers file $headersPath", error)))
+                    case Right(obj) => Success(obj)
+                  })
+                  .map((headerMap) => HttpHeaders.of(headerMap.map { case (k, v) => (k, v.asJava) }.asJava, { (_, _) => true }))
+                  .flatMap { headers =>
+                    Try((
+                      headers
+                        .firstValue(digestType match {
+                          // See also https://maven.apache.org/resolver/expected-checksums.html#non-standard-x-headers
+                          case DigestType.Sha1 => "x-checksum-sha1"
+                          case DigestType.Sha256 => "x-checksum-sha256"
+                        })
+                        .orElseThrow(() => Recoverable(new RuntimeException(s"no ${digestType} found in headers in $headersPath"))),
+                      headers.firstValueAsLong("Content-Length")
+                        .orElseThrow(() => Recoverable(new RuntimeException(s"no Content-Length found in headers $headersPath")))
+                    ))
+                  }
+                  .map { case (sha, length) => (artifact, ShaValue(sha, digestType), length) }
+              ))
+          } else Task.fail(Recoverable(new RuntimeException("skipped HEAD request")))
+
+        val downloadFile: Task[(Artifact, ShaValue, Long)] =
+          cache.file(artifact).run.flatMap { e =>
             resolverMonad.fromTry(e match {
               case Left(error) =>
                 // println(s"Tried to download $artifact but failed.")
@@ -146,6 +281,16 @@ class CoursierResolver(servers: List[DependencyServer], ec: ExecutionContext, ru
                   (artifact, sha, file.length())
                 }
             })
+          }
+
+        checkErrFile
+          .flatMap(_ => headRequest.attempt)
+          .flatMap {
+            case Right(r) => Task.point(r)
+            case Left(e: Recoverable) =>
+              // println(s"falling back to downloading the whole file: $e")
+              downloadFile
+            case Left(e) => Task.fail(e)
           }
       }
 
