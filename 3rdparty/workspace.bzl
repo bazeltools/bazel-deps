@@ -1,11 +1,22 @@
 # Do not edit. bazel-deps autogenerates this file from dependencies.yaml.
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_netrc", "read_user_netrc", "use_netrc")
+
+def _get_auth(ctx, urls):
+    netrc = {}
+    if 'netrc' in dir(ctx.attr):
+        netrc = read_netrc(ctx, ctx.attr.netrc)
+    else:
+        netrc = read_user_netrc(ctx)
+    return use_netrc(netrc, urls, {})
+
 def _jar_artifact_impl(ctx):
     jar_name = "%s.jar" % ctx.name
     ctx.download(
         output = ctx.path("jar/%s" % jar_name),
         url = ctx.attr.urls,
         sha256 = ctx.attr.sha256,
-        executable = False
+        executable = False,
+        auth = _get_auth(ctx, ctx.attr.urls)
     )
     src_name = "%s-sources.jar" % ctx.name
     srcjar_attr = ""
@@ -15,7 +26,8 @@ def _jar_artifact_impl(ctx):
             output = ctx.path("jar/%s" % src_name),
             url = ctx.attr.src_urls,
             sha256 = ctx.attr.src_sha256,
-            executable = False
+            executable = False,
+            auth = _get_auth(ctx, ctx.attr.src_urls)
         )
         srcjar_attr = '\n    srcjar = ":%s",' % src_name
 
