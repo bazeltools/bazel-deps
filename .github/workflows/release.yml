@@ -23,7 +23,7 @@ jobs:
             bazel_installer_sha: 35f398ad93af2b5eadd4b6b4fd4d4803b726029e572f40c4e1fe736db3de944b
             bazel_version: 6.3.2
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Bazel output cache
         id: cache-bazel
         uses: actions/cache@v4
@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-20.04
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Download linux bazel-deps
         uses: actions/download-artifact@v5
         with:
