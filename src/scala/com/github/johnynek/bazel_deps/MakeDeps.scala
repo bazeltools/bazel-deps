@@ -182,7 +182,7 @@ object MakeDeps {
     (
         Graph[MavenCoordinate, Unit],
         SortedMap[MavenCoordinate, ResolvedShasValue],
-        Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]]
+        Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Boolean]]]
     )
   ] =
     model.getOptions.getResolverType match {
@@ -259,7 +259,8 @@ object MakeDeps {
                 ns.flatMap { n =>
                   graph
                     .hasDestination(n)
-                    .filter(e => normalized.nodes(e.source))
+                    // label means whether it is evicted or not
+                    .map(e => e.copy(label = !normalized.nodes(e.source)))
                 }
               }
               .filter { case (_, set) =>

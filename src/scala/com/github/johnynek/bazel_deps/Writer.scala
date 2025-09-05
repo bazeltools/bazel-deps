@@ -210,7 +210,7 @@ object Writer {
   }
 
   def workspace(depsFile: String, g: Graph[MavenCoordinate, Unit],
-                duplicates: Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]],
+                duplicates: Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Boolean]]],
                 shas: Map[MavenCoordinate, ResolvedShasValue],
                 model: Model): String = {
     val nodes = g.nodes
@@ -334,7 +334,7 @@ object Writer {
   private def concreteToArtifactEntry(
       coord: MavenCoordinate,
       g: Graph[MavenCoordinate, Unit],
-      duplicates: Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]],
+      duplicates: Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Boolean]]],
       shas: Map[MavenCoordinate, ResolvedShasValue],
       model: Model
   ): ArtifactEntry = {
@@ -376,7 +376,8 @@ object Writer {
       s"""# duplicates in ${coord.unversioned.asString} $status\n""" +
         vs.filterNot(e => replaced(e.source))
           .map { e =>
-            s"""# - ${e.source.asString} wanted version ${e.destination.version.asString}\n"""
+            val evicted = if (e.label) " (evicted)" else ""
+            s"""# - ${e.source.asString}${evicted} wanted version ${e.destination.version.asString}\n"""
           }
           .toSeq
           .sorted
@@ -405,7 +406,7 @@ object Writer {
 
   def artifactEntries(
       g: Graph[MavenCoordinate, Unit],
-      duplicates: Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Unit]]],
+      duplicates: Map[UnversionedCoordinate, Set[Edge[MavenCoordinate, Boolean]]],
       shas: Map[MavenCoordinate, ResolvedShasValue],
       model: Model
   ): Either[NonEmptyList[TargetsError], List[ArtifactEntry]] = {
