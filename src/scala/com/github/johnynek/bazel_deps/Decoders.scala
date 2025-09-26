@@ -136,7 +136,7 @@ object Decoders {
     implicit val resolverTypeDecoder: Decoder[ResolverType] = {
       Decoder.decodeString.emap {
         case "aether"   => Right(ResolverType.Aether)
-        case "coursier" => Right(ResolverType.Coursier)
+        case "coursier" => Right(ResolverType.Coursier.empty)
         case "gradle"   => Right(ResolverType.Gradle.empty)
         case other      => Left(s"unrecogized resolverType: $other")
       }
@@ -157,6 +157,8 @@ object Decoders {
       Decoder.decodeBoolean.map(bool => StrictVisibility(bool))
     }
 
+    implicit val coursierDecoder =
+      auto.exportDecoder[ResolverType.Coursier].instance
     implicit val gradleDecoder =
       auto.exportDecoder[ResolverType.Gradle].instance
 
@@ -166,6 +168,14 @@ object Decoders {
       override def apply(c: HCursor): Result[Options] =
         baseOptions(c).flatMap { b =>
           b.resolverType match {
+            case Some(cr: ResolverType.Coursier) =>
+              // in the baseOptions the resolver type is empty
+              // here we parse resolverOptions as if it is the default
+              // decoder (using coursierDecoder) to get the Coursier options
+              c.get[Option[ResolverType.Coursier]]("resolverOptions").map {
+                case nonEmpty @ Some(_) => b.copy(resolverType = nonEmpty)
+                case None => b
+              }
             case Some(g: ResolverType.Gradle) =>
               // in the baseOptions the resolver type is empty
               // here we parse resolverOptions as if it is the default

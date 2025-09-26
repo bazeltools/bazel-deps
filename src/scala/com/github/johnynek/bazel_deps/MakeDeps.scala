@@ -193,19 +193,19 @@ object MakeDeps {
             model.getOptions.getResolvers.collect { case e: MavenServer => e },
             resolverCachePath)
         )
-      case ResolverType.Coursier =>
+      case c: ResolverType.Coursier =>
         val ec = scala.concurrent.ExecutionContext.Implicits.global
         import scala.concurrent.duration._
         resolve(
           model,
-          new CoursierResolver(model.getOptions.getResolvers, ec, 3600.seconds, resolverCachePath)
+          new CoursierResolver(model.getOptions.getResolvers, c.getHashInHttpHeaders, ec, 3600.seconds, resolverCachePath)
         )
       case g: ResolverType.Gradle =>
         val ec = scala.concurrent.ExecutionContext.Implicits.global
         import scala.concurrent.duration._
 
         lazy val coursierResolver =
-          new CoursierResolver(model.getOptions.getResolvers, ec, 3600.seconds, resolverCachePath)
+          new CoursierResolver(model.getOptions.getResolvers, false, ec, 3600.seconds, resolverCachePath)
 
         val resolver = new GradleResolver(
             rootPath,
