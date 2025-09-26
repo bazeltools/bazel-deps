@@ -86,9 +86,23 @@ object Normalizer {
           roots.contains(MavenCoordinate(node, v))
         }
         pickCanonical(node, rootVersion, dups, vcf) match {
-          case Validated.Valid(m) =>
-            val newItems = items.map { case (p, _) => (p, Right(m.version)) }
-            table.updated(node, newItems)
+          case Validated.Valid(canonical) =>
+            val newItems = items.map { case (p, _) => (p, Right(canonical.version)) }
+            table
+              // fix version of current entry
+              .updated(node, newItems)
+              // update all children
+              .mapValues(_.filter { case (parent, _) =>
+                // keeps fixed roots
+                parent.isEmpty ||
+                // keeps the same version
+                  parent.contains(canonical) ||
+                // keeps other artifacts
+                  parent.exists(_.unversioned != canonical.unversioned)
+                // so the same parents with the evicted versions are filtered out
+              })
+              // eliminate dependencies we don't need anymore (where the above filter removed everything)
+              .filter(_._2.nonEmpty)
           // requirement is that isAmbiguous(node) is now false
           case Validated.Invalid(errorMessages) =>
             errorize(node)
